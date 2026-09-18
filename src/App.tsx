@@ -9,6 +9,7 @@ import InvoiceDetail from './pages/InvoiceDetail';
 import Invoices from './pages/Invoices';
 import NewCustomer from './pages/NewCustomer';
 import NewWorkOrder from './pages/NewWorkOrder';
+import Settings from './pages/Settings';
 import SetupGuide from './pages/SetupGuide';
 import WorkOrderDetail from './pages/WorkOrderDetail';
 import WorkOrders from './pages/WorkOrders';
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="customers/:id" element={<CustomerDetail />} />
             <Route path="invoices" element={<Invoices />} />
             <Route path="invoices/:id" element={<InvoiceDetail />} />
+            <Route path="settings" element={<Settings />} />
             <Route path="*" element={<Dashboard />} />
           </Route>
         </Routes>

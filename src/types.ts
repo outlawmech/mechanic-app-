@@ -88,3 +88,17 @@ export type Invoice = {
 export type InvoiceFull = Invoice & { customer: Customer };
 
 export type InvoiceSummary = Pick<Invoice, 'id' | 'number' | 'total' | 'status'>;
+
+export type ShopSettings = {
+  id: string;
+  shop_name: string;
+  tagline: string;
+  phone: string;
+  email: string;
+  address: string;
+  default_labor_rate: number | string;
+  default_tax_rate: number | string;
+  invoice_notes: string;
+  logo_url?: string;
+  updated_at?: string;
+};

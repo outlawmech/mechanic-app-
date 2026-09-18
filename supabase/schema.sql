@@ -87,6 +87,26 @@ create table if not exists public.invoices (
   notes         text not null default ''
 );
 
+-- ---------------- Shop settings & Branding ----------------
+create table if not exists public.shop_settings (
+  id                 text primary key default 'default',
+  shop_name          text not null default 'Outlaw Mech',
+  tagline            text not null default 'Mobile Mechanic & Field Service',
+  phone              text not null default '406-555-0100',
+  email              text not null default 'service@outlawmech.com',
+  address            text not null default 'Helena, MT',
+  default_labor_rate numeric(10,2) not null default 95.00,
+  default_tax_rate   numeric(5,4) not null default 0.04,
+  invoice_notes      text not null default 'Thank you for your business! Payments due on or before the due date.',
+  logo_url           text not null default '',
+  updated_at         timestamptz not null default now()
+);
+
+-- Default initial row
+insert into public.shop_settings (id, shop_name, tagline, phone, email, address, default_labor_rate, default_tax_rate, invoice_notes)
+values ('default', 'Outlaw Mech', 'Mobile Mechanic & Field Service', '406-555-0100', 'service@outlawmech.com', 'Helena, MT', 95.00, 0.04, 'Thank you for your business! Payments due on or before the due date.')
+on conflict (id) do nothing;
+
 -- ---------------- Indexes ----------------
 create index if not exists vehicles_customer_id_idx    on public.vehicles (customer_id);
 create index if not exists work_orders_customer_id_idx on public.work_orders (customer_id);
@@ -144,11 +164,12 @@ create trigger trg_invoice_number
   for each row execute function public.tg_invoice_number();
 
 -- ---------------- Row level security ----------------
-alter table public.customers  enable row level security;
-alter table public.vehicles   enable row level security;
-alter table public.work_orders enable row level security;
-alter table public.work_items enable row level security;
-alter table public.invoices   enable row level security;
+alter table public.customers     enable row level security;
+alter table public.vehicles      enable row level security;
+alter table public.work_orders    enable row level security;
+alter table public.work_items    enable row level security;
+alter table public.invoices      enable row level security;
+alter table public.shop_settings enable row level security;
 
 -- Single-user access for the anon key (see security note at top).
 drop policy if exists "anon_all_customers" on public.customers;
@@ -169,4 +190,8 @@ create policy "anon_all_work_items" on public.work_items
 
 drop policy if exists "anon_all_invoices" on public.invoices;
 create policy "anon_all_invoices" on public.invoices
+  for all to anon using (true) with check (true);
+
+drop policy if exists "anon_all_shop_settings" on public.shop_settings;
+create policy "anon_all_shop_settings" on public.shop_settings
   for all to anon using (true) with check (true);

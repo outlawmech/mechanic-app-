@@ -1,11 +1,10 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 import {
   ArrowLeftIcon,
   ChevronRightIcon,
   ClockIcon,
-  CopyIcon,
   MailIcon,
   SendIcon,
   ShareIcon,
@@ -25,6 +24,7 @@ import {
   Textarea,
 } from '../components/ui';
 import { useAsync } from '../lib/hooks';
+import { useShopSettings } from '../lib/settings';
 import {
   formatEstimateText,
   fullName,
@@ -49,6 +49,7 @@ const KIND_CLS: Record<WorkItem['kind'], string> = {
 export default function WorkOrderDetail() {
   const { id } = useParams();
   const toast = useToast();
+  const { settings } = useShopSettings();
 
   const { data, error, loading, reload } = useAsync(async () => {
     const sb = requireSupabase();
@@ -82,8 +83,15 @@ export default function WorkOrderDetail() {
   const [kind, setKind] = useState<WorkItem['kind']>('labor');
   const [desc, setDesc] = useState('');
   const [qty, setQty] = useState('1');
-  const [price, setPrice] = useState('');
+  const [price, setPrice] = useState(String(settings.default_labor_rate || '95'));
   const [adding, setAdding] = useState(false);
+
+  // Sync default tax % from shop settings
+  useEffect(() => {
+    if (settings.default_tax_rate !== undefined) {
+      setTaxPct((Number(settings.default_tax_rate) * 100).toFixed(2).replace(/\.?0+$/, ''));
+    }
+  }, [settings.default_tax_rate]);
 
   const wo = data?.wo;
   const invoice = data?.invoice;
@@ -124,6 +132,15 @@ export default function WorkOrderDetail() {
     }
   }
 
+  function handleKindChange(newKind: WorkItem['kind']) {
+    setKind(newKind);
+    if (newKind === 'labor' && (!price || price === '0')) {
+      setPrice(String(settings.default_labor_rate || '95'));
+    } else if (newKind !== 'labor' && price === String(settings.default_labor_rate)) {
+      setPrice('');
+    }
+  }
+
   async function addItem(e: FormEvent) {
     e.preventDefault();
     if (!desc.trim()) return;
@@ -142,7 +159,7 @@ export default function WorkOrderDetail() {
           })
       );
       setDesc('');
-      setPrice('');
+      setPrice(kind === 'labor' ? String(settings.default_labor_rate || '95') : '');
       setQty('1');
       await reload();
     } catch (e) {
@@ -181,6 +198,7 @@ export default function WorkOrderDetail() {
             tax,
             total: round2(sub + tax),
             due_date: due.toISOString().slice(0, 10),
+            notes: settings.invoice_notes || '',
           })
       );
       check(
@@ -216,7 +234,7 @@ export default function WorkOrderDetail() {
   }
 
   function handleEmailEstimate() {
-    const { subject, body } = formatEstimateText(wo!);
+    const { subject, body } = formatEstimateText(wo!, settings);
     const mailto = `mailto:${encodeURIComponent(wo!.customer.email || '')}?subject=${encodeURIComponent(
       subject
     )}&body=${encodeURIComponent(body)}`;
@@ -224,7 +242,7 @@ export default function WorkOrderDetail() {
   }
 
   async function handleShareEstimate() {
-    const { subject, body } = formatEstimateText(wo!);
+    const { subject, body } = formatEstimateText(wo!, settings);
     if (navigator.share) {
       try {
         await navigator.share({
@@ -232,8 +250,8 @@ export default function WorkOrderDetail() {
           text: body,
         });
         return;
-      } catch (err) {
-        // User cancelled or share failed, fallback to copy
+      } catch {
+        // Fallback to clipboard
       }
     }
 
@@ -433,7 +451,7 @@ export default function WorkOrderDetail() {
 
         <form onSubmit={addItem} className="mt-3 grid grid-cols-2 gap-3 rounded-2xl bg-white p-3 ring-1 ring-slate-900/5">
           <Field label="Type">
-            <Select value={kind} onChange={(e) => setKind(e.target.value as WorkItem['kind'])}>
+            <Select value={kind} onChange={(e) => handleKindChange(e.target.value as WorkItem['kind'])}>
               <option value="labor">Labor</option>
               <option value="part">Part</option>
               <option value="fee">Fee</option>

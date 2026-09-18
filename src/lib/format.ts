@@ -1,4 +1,4 @@
-import type { Customer, InvoiceFull, Vehicle, VehicleType, WorkItem, WorkOrderFull } from '../types';
+import type { Customer, InvoiceFull, ShopSettings, Vehicle, VehicleType, WorkItem, WorkOrderFull } from '../types';
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
@@ -145,7 +145,15 @@ export function workOrderEstimate(items: { quantity: number | string; unit_price
 
 // ---------------- Email & Share Formatters ----------------
 
-export function formatEstimateText(wo: WorkOrderFull, shopName = 'Outlaw Mech'): { subject: string; body: string } {
+export function formatEstimateText(
+  wo: WorkOrderFull,
+  shop?: Partial<ShopSettings> | null
+): { subject: string; body: string } {
+  const shopName = shop?.shop_name || 'Outlaw Mech';
+  const tagline = shop?.tagline || 'Mobile Mechanic & Field Service';
+  const phone = shop?.phone || '';
+  const email = shop?.email || '';
+
   const cName = fullName(wo.customer);
   const vLabel = wo.vehicle ? vehicleLabel(wo.vehicle) : 'Equipment/Vehicle';
   const total = workOrderEstimate(wo.items ?? []);
@@ -178,7 +186,7 @@ export function formatEstimateText(wo: WorkOrderFull, shopName = 'Outlaw Mech'):
     wo.notes ? `Job Notes:\n${wo.notes}\n` : null,
     'Please let us know if you approve this estimate or have any questions.',
     '',
-    `Thank you,\n${shopName}\nMobile Mechanic Service`,
+    `Thank you,\n${shopName}\n${tagline}${phone ? `\nPhone: ${phone}` : ''}${email ? `\nEmail: ${email}` : ''}`,
   ].filter((l): l is string => l !== null);
 
   return { subject, body: lines.join('\n') };
@@ -188,8 +196,14 @@ export function formatInvoiceText(
   invoice: InvoiceFull,
   items: WorkItem[],
   vehicle: Vehicle | null,
-  shopName = 'Outlaw Mech'
+  shop?: Partial<ShopSettings> | null
 ): { subject: string; body: string } {
+  const shopName = shop?.shop_name || 'Outlaw Mech';
+  const tagline = shop?.tagline || 'Mobile Mechanic & Field Service';
+  const phone = shop?.phone || '';
+  const email = shop?.email || '';
+  const terms = shop?.invoice_notes || 'Thank you for your business!';
+
   const cName = fullName(invoice.customer);
   const vLabel = vehicle ? vehicleLabel(vehicle) : 'Equipment/Vehicle';
   const total = money(invoice.total);
@@ -226,7 +240,9 @@ export function formatInvoiceText(
     invoice.paid_at ? `Paid on ${longDate(invoice.paid_at)} - Thank you!` : 'Payment is due on or before the due date.',
     '',
     invoice.notes ? `Notes:\n${invoice.notes}\n` : null,
-    `Thank you for your business!\n${shopName}\nMobile Mechanic Service`,
+    terms,
+    '',
+    `${shopName}\n${tagline}${phone ? `\nPhone: ${phone}` : ''}${email ? `\nEmail: ${email}` : ''}`,
   ].filter((l): l is string => l !== null);
 
   return { subject, body: lines.join('\n') };

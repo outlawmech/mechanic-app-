@@ -4,6 +4,7 @@ import { useToast } from '../components/Toast';
 import { ArrowLeftIcon, ClockIcon, MailIcon, PrinterIcon, ShareIcon } from '../components/icons';
 import { Button, Card, EmptyState, ErrorState, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
+import { useShopSettings } from '../lib/settings';
 import {
   formatInvoiceText,
   fullName,
@@ -21,6 +22,7 @@ const KIND_LABEL: Record<string, string> = { labor: 'Labor', part: 'Part', fee: 
 export default function InvoiceDetail() {
   const { id } = useParams();
   const toast = useToast();
+  const { settings } = useShopSettings();
   const [acting, setActing] = useState(false);
 
   const { data, error, loading, reload } = useAsync(async () => {
@@ -89,7 +91,7 @@ export default function InvoiceDetail() {
   }
 
   function handleEmailInvoice() {
-    const { subject, body } = formatInvoiceText(invoice!, items, vehicle);
+    const { subject, body } = formatInvoiceText(invoice!, items, vehicle, settings);
     const mailto = `mailto:${encodeURIComponent(invoice!.customer.email || '')}?subject=${encodeURIComponent(
       subject
     )}&body=${encodeURIComponent(body)}`;
@@ -97,7 +99,7 @@ export default function InvoiceDetail() {
   }
 
   async function handleShareInvoice() {
-    const { subject, body } = formatInvoiceText(invoice!, items, vehicle);
+    const { subject, body } = formatInvoiceText(invoice!, items, vehicle, settings);
     if (navigator.share) {
       try {
         await navigator.share({
@@ -173,8 +175,9 @@ export default function InvoiceDetail() {
             <p className="mt-1 font-mono text-xs font-semibold text-slate-500">{invoice.number}</p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-bold text-slate-900">Outlaw Mech</p>
-            <p className="text-xs text-slate-500">Mobile Mechanic & Field Service</p>
+            <p className="text-sm font-bold text-slate-900">{settings.shop_name}</p>
+            <p className="text-xs text-slate-500">{settings.tagline}</p>
+            {settings.phone && <p className="text-[11px] text-slate-400">{settings.phone}</p>}
           </div>
         </div>
 
@@ -295,7 +298,8 @@ export default function InvoiceDetail() {
         {invoice.notes && <p className="mt-4 text-xs text-slate-500">{invoice.notes}</p>}
 
         <p className="mt-6 border-t border-slate-100 pt-4 text-center text-[11px] text-slate-400">
-          Thank you for your business — Outlaw Mech · Payments due on or before the due date.
+          {settings.invoice_notes ||
+            `${settings.shop_name} · Payments due on or before the due date.`}
         </p>
       </div>
 
