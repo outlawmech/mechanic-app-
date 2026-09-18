@@ -67,3 +67,31 @@ src/
   with policies scoped to authenticated users.
 - Invoices are generated from work orders; the invoice stores its own line-item
   snapshot of totals so history stays stable.
+
+## Roadmap (ideas — not built yet)
+
+### Parts counter module (brick & mortar)
+Full parts counter for a physical store:
+- **Inventory** — parts catalog: SKU, name, make/model fit, on-hand qty,
+  reorder point, cost, sell price, margin
+- **Ordering** — supplier purchase orders: create, send, track open POs
+- **Receiving** — receive a PO against inventory, lot/serial tracking
+- **Parts counter invoices** — customer pickup / phone-in sales: parts +
+  optional labor, customer or job linkage, payment at counter
+- **Stock levels** — low-stock alerts, best-sellers report, stocktakes
+- Likely new tables: `parts`, `suppliers`, `purchase_orders`,
+  `purchase_order_lines`, `receipts`, `parts_invoices` + reuse `customers`
+
+### Vehicle types: marine / ATV / snowmobile
+- `vehicle_type` (auto / marine / atv / snowmobile / other) with type badge in UI
+- `engine_make`, `engine_model`, `engine_hours` fields
+- VIN field doubles as HIN / serial number; plate as hull name / decal / car number
+- Hour-based "due for service" nudges (marine & off-road)
+- Seasonal service view (snowmobile fall/spring, ATV spring/fall)
+
+### Other
+- **Offline mode** (PWA service worker + queue) — docks, barns, and tracks are signal deserts
+- Customer payment links / deposits
+- Recurring service reminders
+- Low-stock and "job parts pending" dashboards
+
