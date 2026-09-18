@@ -9,15 +9,27 @@ export type Customer = {
   created_at: string;
 };
 
+export type VehicleType =
+  | 'auto'
+  | 'marine'
+  | 'atv'
+  | 'snowmobile'
+  | 'motorcycle'
+  | 'equipment'
+  | 'other';
+
 export type Vehicle = {
   id: string;
   customer_id: string;
+  type?: VehicleType;
   year: number | string | null;
   make: string;
   model: string;
   trim: string;
   vin: string;
   plate: string;
+  engine_hours?: number | string | null;
+  engine_info?: string;
   created_at: string;
 };
 
@@ -32,6 +44,7 @@ export type WorkOrder = {
   vehicle_id: string | null;
   status: WorkOrderStatus;
   scheduled_at: string | null;
+  mileage_or_hours?: string;
   notes: string;
   created_at: string;
   completed_at: string | null;

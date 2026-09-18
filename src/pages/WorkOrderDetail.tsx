@@ -1,7 +1,16 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon, ChevronRightIcon, TrashIcon } from '../components/icons';
+import {
+  ArrowLeftIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  CopyIcon,
+  MailIcon,
+  SendIcon,
+  ShareIcon,
+  TrashIcon,
+} from '../components/icons';
 import {
   Badge,
   Button,
@@ -16,7 +25,17 @@ import {
   Textarea,
 } from '../components/ui';
 import { useAsync } from '../lib/hooks';
-import { fullName, longDate, money, num, round2, vehicleLabel, workOrderEstimate } from '../lib/format';
+import {
+  formatEstimateText,
+  fullName,
+  getVehicleTypeInfo,
+  longDate,
+  money,
+  num,
+  round2,
+  vehicleLabel,
+  workOrderEstimate,
+} from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import type { InvoiceSummary, WorkItem, WorkOrderFull, WorkOrderStatus } from '../types';
 
@@ -59,6 +78,7 @@ export default function WorkOrderDetail() {
   const [showInvoicePanel, setShowInvoicePanel] = useState(false);
   const [taxPct, setTaxPct] = useState('0');
   const [notesDraft, setNotesDraft] = useState<string | null>(null);
+  const [hoursDraft, setHoursDraft] = useState<string | null>(null);
   const [kind, setKind] = useState<WorkItem['kind']>('labor');
   const [desc, setDesc] = useState('');
   const [qty, setQty] = useState('1');
@@ -86,6 +106,8 @@ export default function WorkOrderDetail() {
   const items = [...(wo.items ?? [])].sort((a, b) => a.sort_order - b.sort_order);
   const subtotal = workOrderEstimate(items);
   const notesValue = notesDraft ?? wo.notes;
+  const hoursValue = hoursDraft ?? (wo.mileage_or_hours || '');
+  const vehicleTypeInfo = wo.vehicle ? getVehicleTypeInfo(wo.vehicle.type) : null;
 
   async function updateStatus(status: WorkOrderStatus) {
     setActing(true);
@@ -175,20 +197,51 @@ export default function WorkOrderDetail() {
     }
   }
 
-  async function saveNotes() {
-    if (notesDraft === null) return;
+  async function saveDetails() {
     try {
-      check(
-        await requireSupabase()
-          .from('work_orders')
-          .update({ notes: notesDraft })
-          .eq('id', wo!.id)
-      );
-      toast('Notes saved');
-      setNotesDraft(null);
-      await reload();
+      const updates: Record<string, unknown> = {};
+      if (notesDraft !== null) updates.notes = notesDraft;
+      if (hoursDraft !== null) updates.mileage_or_hours = hoursDraft;
+
+      if (Object.keys(updates).length > 0) {
+        check(await requireSupabase().from('work_orders').update(updates).eq('id', wo!.id));
+        toast('Saved');
+        setNotesDraft(null);
+        setHoursDraft(null);
+        await reload();
+      }
     } catch (e) {
       toast(errMsg(e), 'error');
+    }
+  }
+
+  function handleEmailEstimate() {
+    const { subject, body } = formatEstimateText(wo!);
+    const mailto = `mailto:${encodeURIComponent(wo!.customer.email || '')}?subject=${encodeURIComponent(
+      subject
+    )}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailto;
+  }
+
+  async function handleShareEstimate() {
+    const { subject, body } = formatEstimateText(wo!);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: subject,
+          text: body,
+        });
+        return;
+      } catch (err) {
+        // User cancelled or share failed, fallback to copy
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(body);
+      toast('Estimate text copied to clipboard! Ready to text or paste.');
+    } catch {
+      toast('Could not copy to clipboard', 'error');
     }
   }
 
@@ -211,14 +264,58 @@ export default function WorkOrderDetail() {
 
       <Card className="p-4">
         <Link to={`/customers/${wo.customer_id}`} className="block">
-          <p className="text-sm font-semibold text-slate-900">{fullName(wo.customer)}</p>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{fullName(wo.customer)}</p>
+              {wo.customer.phone && <p className="text-xs text-slate-500">{wo.customer.phone}</p>}
+            </div>
+            <ChevronRightIcon className="h-4 w-4 text-slate-400" />
+          </div>
+
           {wo.vehicle ? (
-            <p className="mt-0.5 text-xs text-slate-500">{vehicleLabel(wo.vehicle)}</p>
+            <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-slate-50 p-2.5">
+              <span className="text-lg leading-none" role="img" aria-label="Vehicle type">
+                {vehicleTypeInfo?.emoji || '🚙'}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-slate-800">
+                  {vehicleLabel(wo.vehicle)}
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  {[
+                    wo.vehicle.plate ? `${vehicleTypeInfo?.regLabel}: ${wo.vehicle.plate}` : null,
+                    wo.vehicle.vin ? `${vehicleTypeInfo?.idLabel}: ${wo.vehicle.vin}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              </div>
+            </div>
           ) : (
-            <p className="mt-0.5 text-xs text-slate-400">No vehicle on file</p>
+            <p className="mt-2 text-xs text-slate-400">No vehicle on file</p>
           )}
         </Link>
       </Card>
+
+      {/* Action bar for Emailing & Sharing Estimate */}
+      <div className="mt-3 flex gap-2">
+        <Button
+          variant="ghost"
+          className="flex-1 text-xs"
+          onClick={handleEmailEstimate}
+          title="Open email draft with formatted estimate"
+        >
+          <MailIcon className="h-4 w-4 text-slate-600" /> Email Estimate
+        </Button>
+        <Button
+          variant="ghost"
+          className="flex-1 text-xs"
+          onClick={handleShareEstimate}
+          title="Share via text/SMS or copy text"
+        >
+          <ShareIcon className="h-4 w-4 text-slate-600" /> Share / Text
+        </Button>
+      </div>
 
       <div className="mt-3 space-y-3">
         {wo.status === 'open' && (
@@ -346,7 +443,7 @@ export default function WorkOrderDetail() {
             <Input
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
-              placeholder="e.g. Front brake pads"
+              placeholder="e.g. 50-hr Service / Impeller / Brake Pads"
             />
           </Field>
           <Field label="Qty">
@@ -370,14 +467,30 @@ export default function WorkOrderDetail() {
         </form>
       </section>
 
-      <section className="mt-5">
-        <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Notes</h3>
-        <Textarea value={notesValue} onChange={(e) => setNotesDraft(e.target.value)} />
-        {notesDraft !== null && notesDraft !== wo.notes && (
-          <Button variant="ghost" className="mt-2 w-full" onClick={saveNotes}>
-            Save notes
-          </Button>
-        )}
+      <section className="mt-5 space-y-4">
+        <Card className="space-y-3 p-4">
+          <Field label={vehicleTypeInfo ? `${vehicleTypeInfo.hoursLabel} at service` : 'Service Hours / Miles'}>
+            <Input
+              value={hoursValue}
+              onChange={(e) => setHoursDraft(e.target.value)}
+              placeholder="e.g. 145.2 hrs / 102,400 mi"
+            />
+          </Field>
+
+          <Field label="Job Notes">
+            <Textarea
+              value={notesValue}
+              onChange={(e) => setNotesDraft(e.target.value)}
+              placeholder="Customer requests, diagnoses, gate codes, etc."
+            />
+          </Field>
+
+          {(notesDraft !== null || hoursDraft !== null) && (
+            <Button variant="ghost" className="w-full" onClick={saveDetails}>
+              Save updates
+            </Button>
+          )}
+        </Card>
       </section>
     </div>
   );

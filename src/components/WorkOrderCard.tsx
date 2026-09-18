@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
-import { fullName, isToday, money, shortDate, vehicleLabel, workOrderEstimate } from '../lib/format';
+import { fullName, getVehicleTypeInfo, isToday, money, shortDate, vehicleLabel, workOrderEstimate } from '../lib/format';
 import type { WorkOrderFull } from '../types';
 import { Badge, Card } from './ui';
 
 export default function WorkOrderCard({ wo }: { wo: WorkOrderFull }) {
   const est = workOrderEstimate(wo.items ?? []);
+  const vInfo = wo.vehicle ? getVehicleTypeInfo(wo.vehicle.type) : null;
+
   return (
     <Link to={`/work/${wo.id}`}>
       <Card className="p-4">
@@ -14,7 +16,15 @@ export default function WorkOrderCard({ wo }: { wo: WorkOrderFull }) {
             <p className="mt-0.5 truncate text-sm font-semibold text-slate-900">
               {fullName(wo.customer)}
             </p>
-            {wo.vehicle && <p className="truncate text-xs text-slate-500">{vehicleLabel(wo.vehicle)}</p>}
+            {wo.vehicle ? (
+              <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-slate-500">
+                <span>{vInfo?.emoji}</span>
+                <span>{vehicleLabel(wo.vehicle)}</span>
+                {wo.mileage_or_hours ? <span className="text-slate-400">· {wo.mileage_or_hours}</span> : null}
+              </p>
+            ) : (
+              <p className="text-xs text-slate-400">No vehicle specified</p>
+            )}
           </div>
           <Badge status={wo.status} />
         </div>

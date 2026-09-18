@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon, CarIcon, MailIcon, MapPinIcon, PhoneIcon } from '../components/icons';
+import { ArrowLeftIcon, MailIcon, MapPinIcon, PhoneIcon, ClockIcon } from '../components/icons';
 import {
   Badge,
   Button,
@@ -11,12 +11,13 @@ import {
   Field,
   Input,
   PageTitle,
+  Select,
   Spinner,
 } from '../components/ui';
 import { useAsync } from '../lib/hooks';
-import { fullName, longDate, money, num, vehicleLabel } from '../lib/format';
+import { fullName, getVehicleTypeInfo, longDate, money, num, VEHICLE_TYPES, vehicleLabel } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
-import type { Customer, Invoice, Vehicle, WorkOrder } from '../types';
+import type { Customer, Invoice, Vehicle, VehicleType, WorkOrder } from '../types';
 
 type CustomerFull = Customer & {
   vehicles: Vehicle[];
@@ -24,7 +25,17 @@ type CustomerFull = Customer & {
   invoices: Invoice[];
 };
 
-const emptyVehicle = { year: '', make: '', model: '', trim: '', vin: '', plate: '' };
+const emptyVehicle = {
+  type: 'auto' as VehicleType,
+  year: '',
+  make: '',
+  model: '',
+  trim: '',
+  vin: '',
+  plate: '',
+  engine_hours: '',
+  engine_info: '',
+};
 
 export default function CustomerDetail() {
   const { id } = useParams();
@@ -62,8 +73,14 @@ export default function CustomerDetail() {
   }
   const c = data;
 
+  const currentTypeInfo = getVehicleTypeInfo(v.type);
+
   async function addVehicle(e: FormEvent) {
     e.preventDefault();
+    if (!v.make.trim() && !v.model.trim()) {
+      toast('Please enter a make or model', 'error');
+      return;
+    }
     setSaving(true);
     try {
       check(
@@ -71,17 +88,20 @@ export default function CustomerDetail() {
           .from('vehicles')
           .insert({
             customer_id: c!.id,
+            type: v.type,
             year: v.year ? Number(v.year) : null,
-            make: v.make,
-            model: v.model,
-            trim: v.trim,
-            vin: v.vin,
-            plate: v.plate,
+            make: v.make.trim(),
+            model: v.model.trim(),
+            trim: v.trim.trim(),
+            vin: v.vin.trim(),
+            plate: v.plate.trim(),
+            engine_hours: v.engine_hours ? Number(v.engine_hours) : null,
+            engine_info: v.engine_info.trim(),
           })
       );
       setV(emptyVehicle);
       setAddingVehicle(false);
-      toast('Vehicle added');
+      toast('Vehicle / equipment added');
       await reload();
     } catch (e2) {
       toast(errMsg(e2), 'error');
@@ -132,52 +152,178 @@ export default function CustomerDetail() {
 
       <section className="mt-5">
         <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Vehicles</h3>
+          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+            Vehicles & Equipment ({c.vehicles?.length ?? 0})
+          </h3>
           <button
             onClick={() => setAddingVehicle((s) => !s)}
-            className="text-xs font-semibold text-slate-500 underline"
+            className="text-xs font-semibold text-amber-600 underline"
           >
             {addingVehicle ? 'Cancel' : '+ Add'}
           </button>
         </div>
 
         {(c.vehicles ?? []).length === 0 && !addingVehicle && (
-          <p className="text-xs text-slate-400">No vehicles on file.</p>
+          <p className="text-xs text-slate-400">No vehicles or equipment on file.</p>
         )}
         <div className="space-y-2">
-          {(c.vehicles ?? []).map((veh) => (
-            <Card key={veh.id} className="flex items-start gap-3 p-3.5">
-              <CarIcon className="mt-0.5 h-5 w-5 shrink-0 text-slate-400" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-slate-900">
-                  {vehicleLabel(veh) || 'Vehicle'}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {[veh.plate, veh.vin].filter(Boolean).join(' · ') || 'No plate / VIN on file'}
-                </p>
-              </div>
-            </Card>
-          ))}
+          {(c.vehicles ?? []).map((veh) => {
+            const tInfo = getVehicleTypeInfo(veh.type);
+            return (
+              <Card key={veh.id} className="flex items-start gap-3 p-3.5">
+                <span className="text-xl leading-none" role="img" aria-label={tInfo.label}>
+                  {tInfo.emoji}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {vehicleLabel(veh) || 'Vehicle'}
+                    </p>
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+                      {tInfo.shortLabel}
+                    </span>
+                  </div>
+
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {[
+                      veh.plate ? `${tInfo.regLabel}: ${veh.plate}` : null,
+                      veh.vin ? `${tInfo.idLabel}: ${veh.vin}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || 'No ID on file'}
+                  </p>
+
+                  {(veh.engine_hours || veh.engine_info) && (
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+                      {veh.engine_hours && (
+                        <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-800">
+                          <ClockIcon className="h-3 w-3" />
+                          {veh.engine_hours} hrs
+                        </span>
+                      )}
+                      {veh.engine_info && (
+                        <span className="text-slate-500 italic">{veh.engine_info}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
         </div>
 
         {addingVehicle && (
-          <form onSubmit={addVehicle} className="mt-3 grid grid-cols-3 gap-3 rounded-2xl bg-white p-3 ring-1 ring-slate-900/5">
-            <Field label="Year">
-              <Input value={v.year} onChange={(e) => setV({ ...v, year: e.target.value })} type="number" min="1900" max="2035" />
+          <form onSubmit={addVehicle} className="mt-3 space-y-3 rounded-2xl bg-white p-4 ring-1 ring-slate-900/5">
+            <p className="text-xs font-bold uppercase tracking-wide text-slate-600">
+              Add Vehicle or Equipment
+            </p>
+
+            <Field label="Category">
+              <Select
+                value={v.type}
+                onChange={(e) => setV({ ...v, type: e.target.value as VehicleType })}
+              >
+                {Object.values(VEHICLE_TYPES).map((opt) => (
+                  <option key={opt.type} value={opt.type}>
+                    {opt.emoji} {opt.label}
+                  </option>
+                ))}
+              </Select>
             </Field>
-            <div className="col-span-2">
-              <Field label="Make / model">
-                <Input value={v.make} onChange={(e) => setV({ ...v, make: e.target.value })} placeholder="Ford F-150" />
+
+            <div className="grid grid-cols-3 gap-3">
+              <Field label="Year">
+                <Input
+                  value={v.year}
+                  onChange={(e) => setV({ ...v, year: e.target.value })}
+                  type="number"
+                  min="1900"
+                  max="2035"
+                  placeholder="2021"
+                />
+              </Field>
+              <div className="col-span-2">
+                <Field label="Make / Brand *">
+                  <Input
+                    value={v.make}
+                    onChange={(e) => setV({ ...v, make: e.target.value })}
+                    placeholder={
+                      v.type === 'marine'
+                        ? 'e.g. Sea-Doo / Boston Whaler'
+                        : v.type === 'atv'
+                          ? 'e.g. Polaris / Can-Am'
+                          : v.type === 'snowmobile'
+                            ? 'e.g. Ski-Doo / Polaris'
+                            : v.type === 'equipment'
+                              ? 'e.g. Kubota / John Deere'
+                              : 'e.g. Ford / Chevy'
+                    }
+                  />
+                </Field>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <Field label="Model">
+                  <Input
+                    value={v.model}
+                    onChange={(e) => setV({ ...v, model: e.target.value })}
+                    placeholder="e.g. Spark / F-150 / Ranger"
+                  />
+                </Field>
+              </div>
+              <Field label="Trim / Submodel">
+                <Input
+                  value={v.trim}
+                  onChange={(e) => setV({ ...v, trim: e.target.value })}
+                  placeholder="e.g. 2UP / XLT"
+                />
               </Field>
             </div>
-            <div className="col-span-3">
-              <Field label="Plate / VIN">
-                <Input value={v.plate} onChange={(e) => setV({ ...v, plate: e.target.value })} placeholder="MT-12345" />
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label={currentTypeInfo.idLabel}>
+                <Input
+                  value={v.vin}
+                  onChange={(e) => setV({ ...v, vin: e.target.value })}
+                  placeholder={currentTypeInfo.idLabel}
+                />
+              </Field>
+              <Field label={currentTypeInfo.regLabel}>
+                <Input
+                  value={v.plate}
+                  onChange={(e) => setV({ ...v, plate: e.target.value })}
+                  placeholder={currentTypeInfo.regLabel}
+                />
               </Field>
             </div>
-            <div className="col-span-3">
-              <Button type="submit" variant="ghost" disabled={saving} className="w-full">
-                Save vehicle
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label={`${currentTypeInfo.hoursLabel} (optional)`}>
+                <Input
+                  value={v.engine_hours}
+                  onChange={(e) => setV({ ...v, engine_hours: e.target.value })}
+                  type="number"
+                  step="0.1"
+                  placeholder="e.g. 125.5"
+                />
+              </Field>
+              <Field label="Engine / Motor details">
+                <Input
+                  value={v.engine_info}
+                  onChange={(e) => setV({ ...v, engine_info: e.target.value })}
+                  placeholder="e.g. 900cc ACE / 5.0L V8"
+                />
+              </Field>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <Button type="submit" variant="accent" disabled={saving} className="flex-1">
+                {saving ? 'Saving…' : 'Save Vehicle / Equipment'}
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setAddingVehicle(false)}>
+                Cancel
               </Button>
             </div>
           </form>

@@ -128,6 +128,55 @@ export const CarIcon = (p: P) => (
   </Svg>
 );
 
+export const BoatIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M2 19c2 1 4 1 6 0 2-1 4-1 6 0 2 1 4 1 6 0" />
+    <path d="M3 15l2-6h14l2 6" />
+    <path d="M12 3v6" />
+    <path d="M12 5l5 4" />
+  </Svg>
+);
+
+export const AtvIcon = (p: P) => (
+  <Svg {...p}>
+    <circle cx="5.5" cy="17.5" r="2.5" />
+    <circle cx="18.5" cy="17.5" r="2.5" />
+    <path d="M5.5 15h3l3-6h4l2 6h1" />
+    <path d="M11 9l-2-4h5" />
+    <path d="M8.5 15h7" />
+  </Svg>
+);
+
+export const SnowmobileIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M3 18h18" />
+    <path d="M4 14l4-5h7l4 5" />
+    <path d="M11 9l-1-4h4" />
+    <path d="M5 18l3-4" />
+    <path d="M19 18l-3-4" />
+  </Svg>
+);
+
+export const MotorcycleIcon = (p: P) => (
+  <Svg {...p}>
+    <circle cx="5" cy="16" r="3" />
+    <circle cx="19" cy="16" r="3" />
+    <path d="M12 16h3l3-7h-4l-3 4H8l-3 3" />
+    <path d="M13 6l2-2h3" />
+  </Svg>
+);
+
+export const TractorIcon = (p: P) => (
+  <Svg {...p}>
+    <circle cx="6" cy="17" r="2" />
+    <circle cx="17" cy="15" r="4" />
+    <path d="M6 15h4v-7h4v7" />
+    <path d="M10 8l4-3v3" />
+    <path d="M2 17h2" />
+    <path d="M21 15h1" />
+  </Svg>
+);
+
 export const CalendarIcon = (p: P) => (
   <Svg {...p}>
     <rect x="3" y="5" width="18" height="16" rx="2" />
@@ -141,5 +190,36 @@ export const ArrowLeftIcon = (p: P) => (
   <Svg {...p}>
     <path d="M19 12H5" />
     <path d="m12 19-7-7 7-7" />
+  </Svg>
+);
+
+export const ClockIcon = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <polyline points="12 6 12 12 16 14" />
+  </Svg>
+);
+
+export const ShareIcon = (p: P) => (
+  <Svg {...p}>
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </Svg>
+);
+
+export const CopyIcon = (p: P) => (
+  <Svg {...p}>
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </Svg>
+);
+
+export const SendIcon = (p: P) => (
+  <Svg {...p}>
+    <line x1="22" y1="2" x2="11" y2="13" />
+    <polygon points="22 2 15 22 11 13 2 9 22 2" />
   </Svg>
 );

@@ -4,7 +4,7 @@ import { useToast } from '../components/Toast';
 import { ArrowLeftIcon, UsersIcon } from '../components/icons';
 import { Button, Card, EmptyState, ErrorState, Field, Input, PageTitle, Select, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
-import { fullName, todayISO, vehicleLabel } from '../lib/format';
+import { fullName, getVehicleTypeInfo, todayISO, vehicleLabel } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import type { CustomerWithVehicles } from '../types';
 
@@ -26,10 +26,13 @@ export default function NewWorkOrder() {
   const [customerId, setCustomerId] = useState(search.get('customer') ?? '');
   const [vehicleId, setVehicleId] = useState('');
   const [scheduled, setScheduled] = useState(todayISO());
+  const [mileageOrHours, setMileageOrHours] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
   const customer = customers?.find((c) => c.id === customerId);
+  const selectedVehicle = customer?.vehicles?.find((v) => v.id === vehicleId);
+  const vehicleTypeInfo = selectedVehicle ? getVehicleTypeInfo(selectedVehicle.type) : null;
 
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
@@ -67,7 +70,8 @@ export default function NewWorkOrder() {
             customer_id: customerId,
             vehicle_id: vehicleId || null,
             scheduled_at: scheduled ? `${scheduled}T12:00:00` : null,
-            notes,
+            mileage_or_hours: mileageOrHours.trim(),
+            notes: notes.trim(),
           })
           .select('id')
           .single()
@@ -110,31 +114,48 @@ export default function NewWorkOrder() {
             </Select>
           </Field>
 
-          <Field label="Vehicle">
+          <Field label="Vehicle / Equipment">
             <Select
               value={vehicleId}
               onChange={(e) => setVehicleId(e.target.value)}
               disabled={!customer}
             >
               <option value="">{customer ? 'No vehicle / TBA' : 'Pick a customer first'}</option>
-              {(customer?.vehicles ?? []).map((v) => (
-                <option key={v.id} value={v.id}>
-                  {vehicleLabel(v) || 'Vehicle'}
-                  {v.plate ? ` · ${v.plate}` : ''}
-                </option>
-              ))}
+              {(customer?.vehicles ?? []).map((v) => {
+                const info = getVehicleTypeInfo(v.type);
+                return (
+                  <option key={v.id} value={v.id}>
+                    {info.emoji} {vehicleLabel(v) || 'Vehicle'}
+                    {v.plate ? ` (${v.plate})` : ''}
+                  </option>
+                );
+              })}
             </Select>
           </Field>
 
-          <Field label="Scheduled date">
-            <Input type="date" value={scheduled} onChange={(e) => setScheduled(e.target.value)} />
-          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Scheduled date">
+              <Input type="date" value={scheduled} onChange={(e) => setScheduled(e.target.value)} />
+            </Field>
 
-          <Field label="Notes">
+            <Field label={vehicleTypeInfo ? vehicleTypeInfo.hoursLabel : 'Hours / Miles'}>
+              <Input
+                value={mileageOrHours}
+                onChange={(e) => setMileageOrHours(e.target.value)}
+                placeholder={
+                  selectedVehicle?.engine_hours
+                    ? `Current: ${selectedVehicle.engine_hours} hrs`
+                    : 'e.g. 145 hrs / 82,000 mi'
+                }
+              />
+            </Field>
+          </div>
+
+          <Field label="Issue / Job Notes">
             <Input
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Brakes squealing on hard stops"
+              placeholder="e.g. Annual service, won't start, clunking over bumps"
             />
           </Field>
         </Card>

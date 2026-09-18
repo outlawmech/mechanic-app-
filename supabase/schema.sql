@@ -30,29 +30,33 @@ create table if not exists public.customers (
 );
 
 create table if not exists public.vehicles (
-  id          uuid primary key default gen_random_uuid(),
-  customer_id uuid not null references public.customers (id) on delete cascade,
-  year        int,
-  make        text not null default '',
-  model       text not null default '',
-  trim        text not null default '',
-  vin         text not null default '',
-  plate       text not null default '',
-  created_at  timestamptz not null default now()
+  id           uuid primary key default gen_random_uuid(),
+  customer_id  uuid not null references public.customers (id) on delete cascade,
+  type         text not null default 'auto',
+  year         int,
+  make         text not null default '',
+  model        text not null default '',
+  trim         text not null default '',
+  vin          text not null default '',
+  plate        text not null default '',
+  engine_hours numeric(10,1),
+  engine_info  text not null default '',
+  created_at   timestamptz not null default now()
 );
 
 -- ---------------- Work orders ----------------
 create table if not exists public.work_orders (
-  id           uuid primary key default gen_random_uuid(),
-  number       text not null unique,
-  customer_id  uuid not null references public.customers (id) on delete cascade,
-  vehicle_id   uuid references public.vehicles (id) on delete set null,
-  status       text not null default 'open'
-               check (status in ('open','in_progress','completed','invoiced')),
-  scheduled_at timestamptz,
-  notes        text not null default '',
-  created_at   timestamptz not null default now(),
-  completed_at timestamptz
+  id               uuid primary key default gen_random_uuid(),
+  number           text not null unique,
+  customer_id      uuid not null references public.customers (id) on delete cascade,
+  vehicle_id       uuid references public.vehicles (id) on delete set null,
+  status           text not null default 'open'
+                   check (status in ('open','in_progress','completed','invoiced')),
+  scheduled_at     timestamptz,
+  mileage_or_hours text not null default '',
+  notes            text not null default '',
+  created_at       timestamptz not null default now(),
+  completed_at     timestamptz
 );
 
 create table if not exists public.work_items (
