@@ -92,11 +92,15 @@ create index if not exists invoices_customer_id_idx    on public.invoices (custo
 create index if not exists invoices_status_idx         on public.invoices (status);
 
 -- ---------------- Auto document numbers ----------------
+-- Dedicated sequences for document numbering
+create sequence if not exists public.work_orders_seq;
+create sequence if not exists public.invoices_seq;
+
 -- WO-2026-0001, INV-2026-0001, etc. (set when number is left empty)
 create or replace function public.next_doc_number(seq regclass, prefix text)
 returns text
 language sql
-stable
+volatile
 as $$
   select format('%s-%s-%s', prefix, extract(year from current_date), lpad(nextval(seq)::text, 4, '0'));
 $$;
@@ -107,7 +111,7 @@ language plpgsql
 as $$
 begin
   if new.number is null or btrim(new.number) = '' then
-    new.number := public.next_doc_number('public.work_orders_id_seq'::regclass, 'WO');
+    new.number := public.next_doc_number('public.work_orders_seq'::regclass, 'WO');
   end if;
   return new;
 end;
@@ -119,7 +123,7 @@ language plpgsql
 as $$
 begin
   if new.number is null or btrim(new.number) = '' then
-    new.number := public.next_doc_number('public.invoices_id_seq'::regclass, 'INV');
+    new.number := public.next_doc_number('public.invoices_seq'::regclass, 'INV');
   end if;
   return new;
 end;
