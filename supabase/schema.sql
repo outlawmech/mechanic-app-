@@ -125,13 +125,13 @@ begin
 end;
 $$;
 
-drop trigger if exists public.trg_work_order_number on public.work_orders;
-create trigger public.trg_work_order_number
+drop trigger if exists trg_work_order_number on public.work_orders;
+create trigger trg_work_order_number
   before insert on public.work_orders
   for each row execute function public.tg_work_order_number();
 
-drop trigger if exists public.trg_invoice_number on public.invoices;
-create trigger public.trg_invoice_number
+drop trigger if exists trg_invoice_number on public.invoices;
+create trigger trg_invoice_number
   before insert on public.invoices
   for each row execute function public.tg_invoice_number();
 
