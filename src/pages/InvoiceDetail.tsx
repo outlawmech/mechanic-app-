@@ -169,15 +169,23 @@ export default function InvoiceDetail() {
 
       {/* Printable Invoice Area */}
       <div id="print-area" className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-900/5">
-        <div className="flex items-start justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-xl font-black tracking-tight text-slate-900">INVOICE</p>
             <p className="mt-1 font-mono text-xs font-semibold text-slate-500">{invoice.number}</p>
           </div>
-          <div className="text-right">
+          <div className="flex flex-col items-end text-right">
+            {settings.logo_url && (
+              <img
+                src={settings.logo_url}
+                alt={settings.shop_name}
+                className="mb-1.5 max-h-14 max-w-[160px] object-contain"
+              />
+            )}
             <p className="text-sm font-bold text-slate-900">{settings.shop_name}</p>
-            <p className="text-xs text-slate-500">{settings.tagline}</p>
+            {settings.tagline && <p className="text-xs text-slate-500">{settings.tagline}</p>}
             {settings.phone && <p className="text-[11px] text-slate-400">{settings.phone}</p>}
+            {settings.email && <p className="text-[11px] text-slate-400">{settings.email}</p>}
           </div>
         </div>
 

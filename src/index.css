@@ -17,24 +17,63 @@ input[type="date"] {
   min-height: 2.75rem;
 }
 
+/* =========================================================
+   Print & PDF Styling
+   Clean, full-width printout on iOS Safari, Chrome & Desktop
+   ========================================================= */
 @media print {
-  .no-print {
+  /* Hide non-printable app chrome */
+  .no-print,
+  header,
+  nav,
+  aside,
+  button,
+  .toast-container {
     display: none !important;
   }
+
+  html,
   body {
-    background: white;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    font-size: 11pt !important;
   }
-  body *:not(#print-area):not(#print-area *) {
-    visibility: hidden;
+
+  #root,
+  .mx-auto,
+  main {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: auto !important;
+    background: transparent !important;
+    display: block !important;
   }
+
   #print-area {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    margin: 0;
-    box-shadow: none;
-    border: none;
-    ring: none;
+    display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    padding: 16px !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+    page-break-inside: avoid;
+  }
+
+  #print-area * {
+    visibility: visible !important;
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

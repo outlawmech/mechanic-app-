@@ -1,16 +1,19 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useToast } from '../components/Toast';
-import { WrenchIcon, TrashIcon, CheckIcon } from '../components/icons';
+import { WrenchIcon, TrashIcon, CheckIcon, PlusIcon } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Spinner, Textarea } from '../components/ui';
 import { useShopSettings } from '../lib/settings';
+import { processLogoImage } from '../lib/image';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 
 export default function Settings() {
   const toast = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { settings, loading, updateSettings } = useShopSettings();
 
   const [form, setForm] = useState(settings);
   const [saving, setSaving] = useState(false);
+  const [processingImage, setProcessingImage] = useState(false);
   const [wiping, setWiping] = useState(false);
 
   // Sync state if initial fetch completes
@@ -21,6 +24,28 @@ export default function Settings() {
   }
 
   if (loading) return <Spinner />;
+
+  async function handleLogoUpload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setProcessingImage(true);
+    try {
+      const dataUrl = await processLogoImage(file);
+      setForm((prev) => ({ ...prev, logo_url: dataUrl }));
+      toast('Logo uploaded! Click "Save Shop Profile" to keep changes.');
+    } catch (err) {
+      toast(errMsg(err), 'error');
+    } finally {
+      setProcessingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }
+
+  function handleRemoveLogo() {
+    setForm((prev) => ({ ...prev, logo_url: '' }));
+    toast('Logo removed');
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -77,6 +102,72 @@ export default function Settings() {
       />
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Shop Logo Section */}
+        <Card className="space-y-3 p-4">
+          <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">
+              Shop Logo
+            </h3>
+          </div>
+
+          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-4">
+            {form.logo_url ? (
+              <div className="flex flex-col items-center gap-3">
+                <div className="max-h-24 max-w-full rounded-lg bg-white p-2 shadow-sm ring-1 ring-slate-900/5">
+                  <img
+                    src={form.logo_url}
+                    alt="Shop logo preview"
+                    className="max-h-20 max-w-full object-contain"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-xs"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Replace Image
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-xs text-red-600 hover:text-red-700"
+                    onClick={handleRemoveLogo}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center">
+                <p className="text-xs font-medium text-slate-700">No logo uploaded yet</p>
+                <p className="mt-0.5 text-[11px] text-slate-400">
+                  PNG, JPG, or WEBP. Prints at the top of every invoice.
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="mt-3 text-xs"
+                  disabled={processingImage}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <PlusIcon className="h-4 w-4" />
+                  {processingImage ? 'Processing image…' : 'Choose Logo Image'}
+                </Button>
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleLogoUpload}
+            />
+          </div>
+        </Card>
+
+        {/* Business Profile */}
         <Card className="space-y-3 p-4">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
             <WrenchIcon className="h-4 w-4 text-amber-500" />
@@ -129,6 +220,7 @@ export default function Settings() {
           </Field>
         </Card>
 
+        {/* Rates & Invoicing Defaults */}
         <Card className="space-y-3 p-4">
           <h3 className="border-b border-slate-100 pb-2 text-xs font-bold uppercase tracking-wide text-slate-700">
             Rates &amp; Invoicing Defaults
