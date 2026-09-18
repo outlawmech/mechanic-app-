@@ -5,15 +5,12 @@
 --  Safe to re-run: it first removes any partial demo data.
 -- =============================================================
 
--- Remove any partial demo rows from a previous (failed) run.
--- These UUID prefixes (a000…/b000…/c000…) are demo-only.
-delete from public.invoices
-  where work_order_id in (select id from public.work_orders where id like 'c0000000-0000-4000-8000-0000%');
-delete from public.work_items
-  where work_order_id in (select id from public.work_orders where id like 'c0000000-0000-4000-8000-0000%');
-delete from public.work_orders where id like 'c0000000-0000-4000-8000-0000%';
-delete from public.vehicles where id like 'b0000000-0000-4000-8000-0000%';
-delete from public.customers where id like 'a0000000-0000-4000-8000-0000%';
+-- Clean up any existing demo rows first (cascades to vehicles, WOs, items, invoices)
+delete from public.customers where id in (
+  'a0000000-0000-4000-8000-000000000001',
+  'a0000000-0000-4000-8000-000000000002',
+  'a0000000-0000-4000-8000-000000000003'
+);
 
 insert into public.customers (id, first_name, last_name, email, phone, address, notes) values
   ('a0000000-0000-4000-8000-000000000001', 'Dale', 'Reyes', 'dale.reyes@example.com', '406-555-0134', '412 Ridge Rd, Bozeman, MT', 'Fleet of two trucks. Prefers morning service.'),
