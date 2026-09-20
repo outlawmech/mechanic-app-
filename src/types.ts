@@ -57,6 +57,7 @@ export type WorkOrder = {
 export type WorkItem = {
   id: string;
   work_order_id: string;
+  part_id?: string | null;
   kind: 'labor' | 'part' | 'fee';
   description: string;
   quantity: number | string;
@@ -105,4 +106,21 @@ export type ShopSettings = {
   invoice_notes: string;
   logo_url?: string;
   updated_at?: string;
+};
+
+export type Part = {
+  id: string;
+  user_id?: string;
+  sku: string;
+  name: string;
+  category: string;
+  cost_price: number | string;
+  sell_price: number | string;
+  qty_on_hand: number | string;
+  reorder_point: number | string;
+  location: string;
+  supplier: string;
+  notes: string;
+  created_at: string;
+  updated_at: string;
 };

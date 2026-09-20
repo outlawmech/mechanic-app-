@@ -1,6 +1,6 @@
 -- =============================================================
 --  Outlaw Shop Systems (OSS) — Supabase schema
---  Multi-tenant work orders, invoicing & shop management
+--  Multi-tenant work orders, invoicing, parts & shop management
 --
 --  HOW TO RUN
 --  1. Supabase dashboard → SQL Editor
@@ -44,6 +44,24 @@ create table if not exists public.vehicles (
   created_at     timestamptz not null default now()
 );
 
+-- ---------------- Parts & Inventory ----------------
+create table if not exists public.parts (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid references auth.users (id) default auth.uid(),
+  sku           text not null default '',
+  name          text not null,
+  category      text not null default 'General',
+  cost_price    numeric(12,2) not null default 0.00,
+  sell_price    numeric(12,2) not null default 0.00,
+  qty_on_hand   numeric(10,2) not null default 0,
+  reorder_point numeric(10,2) not null default 0,
+  location      text not null default '',
+  supplier      text not null default '',
+  notes         text not null default '',
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+
 -- ---------------- Work orders ----------------
 create table if not exists public.work_orders (
   id               uuid primary key default gen_random_uuid(),
@@ -65,6 +83,7 @@ create table if not exists public.work_items (
   id            uuid primary key default gen_random_uuid(),
   user_id       uuid references auth.users (id) default auth.uid(),
   work_order_id uuid not null references public.work_orders (id) on delete cascade,
+  part_id       uuid references public.parts (id) on delete set null,
   kind          text not null default 'labor' check (kind in ('labor','part','fee')),
   description   text not null,
   quantity      numeric(10,2) not null default 1,
@@ -111,6 +130,9 @@ create table if not exists public.shop_settings (
 create index if not exists customers_user_id_idx       on public.customers (user_id);
 create index if not exists vehicles_customer_id_idx    on public.vehicles (customer_id);
 create index if not exists vehicles_user_id_idx        on public.vehicles (user_id);
+create index if not exists parts_user_id_idx           on public.parts (user_id);
+create index if not exists parts_sku_idx               on public.parts (sku);
+create index if not exists parts_category_idx          on public.parts (category);
 create index if not exists work_orders_customer_id_idx on public.work_orders (customer_id);
 create index if not exists work_orders_user_id_idx     on public.work_orders (user_id);
 create index if not exists work_orders_status_idx      on public.work_orders (status);
@@ -168,6 +190,7 @@ create trigger trg_invoice_number
 -- ---------------- Multi-Tenant Row Level Security ----------------
 alter table public.customers     enable row level security;
 alter table public.vehicles      enable row level security;
+alter table public.parts         enable row level security;
 alter table public.work_orders    enable row level security;
 alter table public.work_items    enable row level security;
 alter table public.invoices      enable row level security;
@@ -175,37 +198,36 @@ alter table public.shop_settings enable row level security;
 
 -- Policies: Authenticated users only see and edit their own data
 drop policy if exists "users_own_customers" on public.customers;
-drop policy if exists "anon_all_customers" on public.customers;
 create policy "users_own_customers" on public.customers
   for all using (auth.uid() = user_id or user_id is null)
   with check (auth.uid() = user_id or user_id is null);
 
 drop policy if exists "users_own_vehicles" on public.vehicles;
-drop policy if exists "anon_all_vehicles" on public.vehicles;
 create policy "users_own_vehicles" on public.vehicles
   for all using (auth.uid() = user_id or user_id is null)
   with check (auth.uid() = user_id or user_id is null);
 
+drop policy if exists "users_own_parts" on public.parts;
+create policy "users_own_parts" on public.parts
+  for all using (auth.uid() = user_id or user_id is null)
+  with check (auth.uid() = user_id or user_id is null);
+
 drop policy if exists "users_own_work_orders" on public.work_orders;
-drop policy if exists "anon_all_work_orders" on public.work_orders;
 create policy "users_own_work_orders" on public.work_orders
   for all using (auth.uid() = user_id or user_id is null)
   with check (auth.uid() = user_id or user_id is null);
 
 drop policy if exists "users_own_work_items" on public.work_items;
-drop policy if exists "anon_all_work_items" on public.work_items;
 create policy "users_own_work_items" on public.work_items
   for all using (auth.uid() = user_id or user_id is null)
   with check (auth.uid() = user_id or user_id is null);
 
 drop policy if exists "users_own_invoices" on public.invoices;
-drop policy if exists "anon_all_invoices" on public.invoices;
 create policy "users_own_invoices" on public.invoices
   for all using (auth.uid() = user_id or user_id is null)
   with check (auth.uid() = user_id or user_id is null);
 
 drop policy if exists "users_own_shop_settings" on public.shop_settings;
-drop policy if exists "anon_all_shop_settings" on public.shop_settings;
 create policy "users_own_shop_settings" on public.shop_settings
   for all using (auth.uid() = user_id or id = 'default' or user_id is null)
   with check (auth.uid() = user_id or id = 'default' or user_id is null);

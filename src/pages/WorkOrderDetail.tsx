@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 import {
   ArrowLeftIcon,
+  BoxIcon,
   ChevronRightIcon,
   ClockIcon,
   MailIcon,
@@ -37,7 +38,7 @@ import {
   workOrderEstimate,
 } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
-import type { InvoiceSummary, WorkItem, WorkOrderFull, WorkOrderStatus } from '../types';
+import type { InvoiceSummary, Part, WorkItem, WorkOrderFull, WorkOrderStatus } from '../types';
 
 const KIND_LABEL: Record<WorkItem['kind'], string> = { labor: 'Labor', part: 'Part', fee: 'Fee' };
 const KIND_CLS: Record<WorkItem['kind'], string> = {
@@ -53,14 +54,22 @@ export default function WorkOrderDetail() {
 
   const { data, error, loading, reload } = useAsync(async () => {
     const sb = requireSupabase();
-    const res = check(
-      await sb
+    const [woRes, partsRes] = await Promise.all([
+      sb
         .from('work_orders')
         .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
         .eq('id', id!)
-        .maybeSingle()
-    );
-    const wo = (res.data ?? null) as WorkOrderFull | null;
+        .maybeSingle(),
+      sb.from('parts').select('id, sku, name, sell_price, qty_on_hand').order('name'),
+    ]);
+
+    check(woRes);
+    const wo = (woRes.data ?? null) as WorkOrderFull | null;
+    const inventoryParts = (partsRes.data ?? []) as Pick<
+      Part,
+      'id' | 'sku' | 'name' | 'sell_price' | 'qty_on_hand'
+    >[];
+
     let invoice: InvoiceSummary | null = null;
     if (wo) {
       const invRes = check(
@@ -72,7 +81,7 @@ export default function WorkOrderDetail() {
       );
       invoice = (invRes.data ?? null) as InvoiceSummary | null;
     }
-    return { wo, invoice };
+    return { wo, invoice, inventoryParts };
   }, [id]);
 
   const [acting, setActing] = useState(false);
@@ -80,10 +89,14 @@ export default function WorkOrderDetail() {
   const [taxPct, setTaxPct] = useState('0');
   const [notesDraft, setNotesDraft] = useState<string | null>(null);
   const [hoursDraft, setHoursDraft] = useState<string | null>(null);
+
+  // Line item form state
   const [kind, setKind] = useState<WorkItem['kind']>('labor');
   const [desc, setDesc] = useState('');
   const [qty, setQty] = useState('1');
   const [price, setPrice] = useState(String(settings.default_labor_rate || '95'));
+  const [selectedPartId, setSelectedPartId] = useState('');
+  const [partEntryMode, setPartEntryMode] = useState<'inventory' | 'manual'>('manual');
   const [adding, setAdding] = useState(false);
 
   // Sync default tax % from shop settings
@@ -95,6 +108,7 @@ export default function WorkOrderDetail() {
 
   const wo = data?.wo;
   const invoice = data?.invoice;
+  const inventoryParts = data?.inventoryParts ?? [];
 
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
@@ -134,10 +148,29 @@ export default function WorkOrderDetail() {
 
   function handleKindChange(newKind: WorkItem['kind']) {
     setKind(newKind);
-    if (newKind === 'labor' && (!price || price === '0')) {
+    if (newKind === 'labor') {
       setPrice(String(settings.default_labor_rate || '95'));
-    } else if (newKind !== 'labor' && price === String(settings.default_labor_rate)) {
+      setSelectedPartId('');
+    } else if (newKind === 'part') {
+      if (inventoryParts.length > 0) {
+        setPartEntryMode('inventory');
+      } else {
+        setPartEntryMode('manual');
+      }
       setPrice('');
+    } else {
+      setPrice('');
+      setSelectedPartId('');
+    }
+  }
+
+  function handleSelectInventoryPart(partId: string) {
+    setSelectedPartId(partId);
+    const p = inventoryParts.find((item) => item.id === partId);
+    if (p) {
+      const label = p.sku ? `${p.sku} - ${p.name}` : p.name;
+      setDesc(label);
+      setPrice(String(p.sell_price || '0'));
     }
   }
 
@@ -146,21 +179,32 @@ export default function WorkOrderDetail() {
     if (!desc.trim()) return;
     setAdding(true);
     try {
+      const sb = requireSupabase();
       check(
-        await requireSupabase()
-          .from('work_items')
-          .insert({
-            work_order_id: wo!.id,
-            kind,
-            description: desc.trim(),
-            quantity: Number(qty) || 1,
-            unit_price: Number(price) || 0,
-            sort_order: items.length,
-          })
+        await sb.from('work_items').insert({
+          work_order_id: wo!.id,
+          part_id: selectedPartId || null,
+          kind,
+          description: desc.trim(),
+          quantity: Number(qty) || 1,
+          unit_price: Number(price) || 0,
+          sort_order: items.length,
+        })
       );
+
+      // If item was picked from inventory, deduct quantity
+      if (selectedPartId) {
+        const p = inventoryParts.find((item) => item.id === selectedPartId);
+        if (p) {
+          const newQty = Math.max(0, num(p.qty_on_hand) - (Number(qty) || 1));
+          await sb.from('parts').update({ qty_on_hand: newQty }).eq('id', selectedPartId);
+        }
+      }
+
       setDesc('');
       setPrice(kind === 'labor' ? String(settings.default_labor_rate || '95') : '');
       setQty('1');
+      setSelectedPartId('');
       await reload();
     } catch (e) {
       toast(errMsg(e), 'error');
@@ -475,39 +519,89 @@ export default function WorkOrderDetail() {
           </Card>
         )}
 
-        <form onSubmit={addItem} className="mt-3 grid grid-cols-2 gap-3 rounded-2xl bg-white p-3 ring-1 ring-slate-900/5">
-          <Field label="Type">
-            <Select value={kind} onChange={(e) => handleKindChange(e.target.value as WorkItem['kind'])}>
-              <option value="labor">Labor</option>
-              <option value="part">Part</option>
-              <option value="fee">Fee</option>
-            </Select>
-          </Field>
-          <Field label="Description">
+        {/* Add Line Item Form with Smart Parts Selection */}
+        <form onSubmit={addItem} className="mt-3 space-y-3 rounded-2xl bg-white p-3 ring-1 ring-slate-900/5">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Type">
+              <Select value={kind} onChange={(e) => handleKindChange(e.target.value as WorkItem['kind'])}>
+                <option value="labor">Labor</option>
+                <option value="part">Part</option>
+                <option value="fee">Fee</option>
+              </Select>
+            </Field>
+
+            {kind === 'part' && (
+              <Field label="Source">
+                <Select
+                  value={partEntryMode}
+                  onChange={(e) => {
+                    const mode = e.target.value as 'inventory' | 'manual';
+                    setPartEntryMode(mode);
+                    if (mode === 'manual') {
+                      setSelectedPartId('');
+                    }
+                  }}
+                >
+                  <option value="inventory">📦 From Inventory ({inventoryParts.length})</option>
+                  <option value="manual">✏️ Custom / Misc Part</option>
+                </Select>
+              </Field>
+            )}
+          </div>
+
+          {/* If Part from Inventory */}
+          {kind === 'part' && partEntryMode === 'inventory' && inventoryParts.length > 0 && (
+            <Field label="Choose Inventory Part">
+              <Select
+                value={selectedPartId}
+                onChange={(e) => handleSelectInventoryPart(e.target.value)}
+              >
+                <option value="">Select a part from inventory…</option>
+                {inventoryParts.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.sku ? `[${p.sku}] ` : ''}
+                    {p.name} · {money(p.sell_price)} ({p.qty_on_hand} in stock)
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+
+          {/* Description field (auto-filled from inventory or manual) */}
+          <Field label={kind === 'labor' ? 'Labor Description' : kind === 'part' ? 'Part Description' : 'Fee Description'}>
             <Input
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
-              placeholder="e.g. 50-hr Service / Impeller / Brake Pads"
+              placeholder={
+                kind === 'labor'
+                  ? 'e.g. Brake service / Diagnostic'
+                  : kind === 'part'
+                    ? 'e.g. NGK Spark Plugs / 10W-40 Oil'
+                    : 'e.g. Shop supplies / Environmental fee'
+              }
+              required
             />
           </Field>
-          <Field label="Qty">
-            <Input type="number" min="0" step="0.5" value={qty} onChange={(e) => setQty(e.target.value)} />
-          </Field>
-          <Field label="Unit price ($)">
-            <Input
-              type="number"
-              min="0"
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              placeholder="0.00"
-            />
-          </Field>
-          <div className="col-span-2">
-            <Button type="submit" variant="ghost" disabled={adding || !desc.trim()} className="w-full">
-              + Add line item
-            </Button>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Quantity">
+              <Input type="number" min="0" step="0.5" value={qty} onChange={(e) => setQty(e.target.value)} />
+            </Field>
+            <Field label="Unit Price ($)">
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                placeholder="0.00"
+              />
+            </Field>
           </div>
+
+          <Button type="submit" variant="ghost" disabled={adding || !desc.trim()} className="w-full">
+            + Add line item
+          </Button>
         </form>
       </section>
 

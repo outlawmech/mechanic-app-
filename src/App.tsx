@@ -11,6 +11,7 @@ import InvoiceDetail from './pages/InvoiceDetail';
 import Invoices from './pages/Invoices';
 import NewCustomer from './pages/NewCustomer';
 import NewWorkOrder from './pages/NewWorkOrder';
+import Parts from './pages/Parts';
 import Settings from './pages/Settings';
 import WorkOrderDetail from './pages/WorkOrderDetail';
 import WorkOrders from './pages/WorkOrders';
@@ -43,6 +44,7 @@ function AppRoutes() {
           <Route path="customers/:id" element={<CustomerDetail />} />
           <Route path="invoices" element={<Invoices />} />
           <Route path="invoices/:id" element={<InvoiceDetail />} />
+          <Route path="parts" element={<Parts />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Dashboard />} />
         </Route>
