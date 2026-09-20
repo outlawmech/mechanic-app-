@@ -129,7 +129,7 @@ export default function SubscriptionLockout({ onUnlocked }: SubscriptionLockoutP
                   type="text"
                   value={licenseCode}
                   onChange={(e) => setLicenseCode(e.target.value)}
-                  placeholder="e.g. VIP-RIG"
+                  placeholder="e.g. CODE-XXXX"
                   className="bg-slate-800 text-white border-slate-700 text-xs uppercase"
                 />
                 <Button

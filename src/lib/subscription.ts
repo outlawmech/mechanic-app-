@@ -4,7 +4,7 @@ import { requireSupabase } from './supabase';
 
 export const STRIPE_PAYMENT_URL = 'https://buy.stripe.com/5kQ6oHgEX8G781ceZ62go00';
 export const TRIAL_DAYS = 14;
-export const MASTER_UNLOCK_KEYS = ['OUTLAW-PRO-2026', 'OUTLAW29', 'OUTLAW-MASTER'];
+export const MASTER_UNLOCK_KEYS = ['OUTLAW-OWNER-KEY', 'OUTLAW-BOSS-77', 'OUTLAW-ADMIN-99'];
 
 const LOCAL_LICENSE_KEY = 'outlaw_pro_unlocked';
 

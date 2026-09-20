@@ -406,7 +406,7 @@ export default function Settings() {
                   type="text"
                   value={licenseCode}
                   onChange={(e) => setLicenseCode(e.target.value)}
-                  placeholder="e.g. OUTLAW-PRO-2026"
+                  placeholder="e.g. CODE-XXXX"
                   className="bg-slate-800 text-white border-slate-700 text-xs uppercase"
                 />
                 <Button
