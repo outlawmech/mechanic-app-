@@ -6,7 +6,7 @@ import { useAuth } from '../lib/auth';
 import { useShopSettings } from '../lib/settings';
 import { processLogoImage } from '../lib/image';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
-import { getSubscriptionInfo, STRIPE_PAYMENT_URL, unlockWithCode } from '../lib/subscription';
+import { getSubscriptionInfo, STRIPE_PAYMENT_URL, redeemActivationCode } from '../lib/subscription';
 
 export default function Settings() {
   const toast = useToast();
@@ -20,6 +20,7 @@ export default function Settings() {
   const [wiping, setWiping] = useState(false);
   const [licenseCode, setLicenseCode] = useState('');
   const [showCodeBox, setShowCodeBox] = useState(false);
+  const [validatingKey, setValidatingKey] = useState(false);
 
   // Sync state if initial fetch completes
   const [synced, setSynced] = useState(false);
@@ -32,16 +33,24 @@ export default function Settings() {
 
   const sub = getSubscriptionInfo(user, settings);
 
-  function handleUnlockKey() {
+  async function handleUnlockKey() {
     if (!licenseCode.trim()) {
-      toast('Please enter a license key', 'error');
+      toast('Please enter an activation code', 'error');
       return;
     }
-    if (unlockWithCode(licenseCode)) {
-      toast('Pro Plan unlocked permanently!');
-      window.location.reload();
-    } else {
-      toast('Invalid license key. Check spelling or subscribe below.', 'error');
+    setValidatingKey(true);
+    try {
+      const res = await redeemActivationCode(licenseCode, user);
+      if (res.success) {
+        toast(res.message || 'Pro Plan unlocked successfully!');
+        window.location.reload();
+      } else {
+        toast(res.error || 'Invalid or expired code.', 'error');
+      }
+    } catch (err: any) {
+      toast(err.message || 'Error validating activation code', 'error');
+    } finally {
+      setValidatingKey(false);
     }
   }
 
@@ -404,9 +413,10 @@ export default function Settings() {
                   type="button"
                   variant="accent"
                   onClick={handleUnlockKey}
+                  disabled={validatingKey}
                   className="shrink-0 text-xs px-3 font-bold"
                 >
-                  Activate
+                  {validatingKey ? 'Checking…' : 'Activate'}
                 </Button>
               </div>
             </div>

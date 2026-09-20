@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button, Card, Input } from './ui';
 import { WrenchIcon, CheckIcon, LockClosedIcon } from './icons';
 import { useAuth } from '../lib/auth';
-import { STRIPE_PAYMENT_URL, unlockWithCode } from '../lib/subscription';
+import { STRIPE_PAYMENT_URL, redeemActivationCode } from '../lib/subscription';
 import { useToast } from './Toast';
 
 interface SubscriptionLockoutProps {
@@ -15,20 +15,29 @@ export default function SubscriptionLockout({ onUnlocked }: SubscriptionLockoutP
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [licenseCode, setLicenseCode] = useState('');
   const [unlockError, setUnlockError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  function handleUnlock() {
+  async function handleUnlock() {
     setUnlockError('');
     if (!licenseCode.trim()) {
-      setUnlockError('Please enter a license key.');
+      setUnlockError('Please enter an activation code.');
       return;
     }
 
-    if (unlockWithCode(licenseCode)) {
-      toast('Pro plan unlocked successfully!');
-      if (onUnlocked) onUnlocked();
-      window.location.reload();
-    } else {
-      setUnlockError('Invalid license key. Please check your spelling or subscribe below.');
+    setLoading(true);
+    try {
+      const res = await redeemActivationCode(licenseCode, user);
+      if (res.success) {
+        toast(res.message || 'Pro plan unlocked successfully!');
+        if (onUnlocked) onUnlocked();
+        window.location.reload();
+      } else {
+        setUnlockError(res.error || 'Invalid or expired activation code.');
+      }
+    } catch (err: any) {
+      setUnlockError(err.message || 'Error validating activation code.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -108,28 +117,29 @@ export default function SubscriptionLockout({ onUnlocked }: SubscriptionLockoutP
               onClick={() => setShowCodeInput(true)}
               className="text-xs font-semibold text-slate-400 hover:text-slate-200 underline"
             >
-              Have a license key or activation code?
+              Have an activation code or beta pass?
             </button>
           ) : (
             <div className="space-y-2 text-left">
               <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                Enter Activation / Master Key
+                Enter Activation / Beta Key
               </label>
               <div className="flex gap-2">
                 <Input
                   type="text"
                   value={licenseCode}
                   onChange={(e) => setLicenseCode(e.target.value)}
-                  placeholder="e.g. OUTLAW-PRO-2026"
+                  placeholder="e.g. VIP-RIG"
                   className="bg-slate-800 text-white border-slate-700 text-xs uppercase"
                 />
                 <Button
                   type="button"
                   variant="accent"
                   onClick={handleUnlock}
+                  disabled={loading}
                   className="shrink-0 text-xs px-3 font-bold"
                 >
-                  Apply
+                  {loading ? 'Checking…' : 'Apply'}
                 </Button>
               </div>
               {unlockError && (

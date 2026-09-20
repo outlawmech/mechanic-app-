@@ -1,9 +1,10 @@
 import type { User } from '@supabase/supabase-js';
 import type { ShopSettings } from '../types';
+import { requireSupabase } from './supabase';
 
 export const STRIPE_PAYMENT_URL = 'https://buy.stripe.com/5kQ6oHgEX8G781ceZ62go00';
 export const TRIAL_DAYS = 14;
-export const MASTER_UNLOCK_KEYS = ['OUTLAW-PRO-2026', 'OUTLAW29', 'VIP-RIG', 'OUTLAW-MASTER'];
+export const MASTER_UNLOCK_KEYS = ['OUTLAW-PRO-2026', 'OUTLAW29', 'OUTLAW-MASTER'];
 
 const LOCAL_LICENSE_KEY = 'outlaw_pro_unlocked';
 
@@ -34,13 +35,54 @@ export function setLocalUnlocked(unlocked: boolean): void {
   } catch {}
 }
 
-export function unlockWithCode(code: string): boolean {
+export async function redeemActivationCode(
+  code: string,
+  user: User | null
+): Promise<{ success: boolean; message?: string; error?: string }> {
   const cleanCode = code.trim().toUpperCase();
+  if (!cleanCode) {
+    return { success: false, error: 'Please enter an activation code.' };
+  }
+
+  // 1. Check Master Owner Keys (Unlimited Owner Bypass)
   if (MASTER_UNLOCK_KEYS.includes(cleanCode)) {
     setLocalUnlocked(true);
-    return true;
+    try {
+      if (user) {
+        const sb = requireSupabase();
+        await sb
+          .from('shop_settings')
+          .update({ subscription_status: 'active', updated_at: new Date().toISOString() })
+          .or(`user_id.eq.${user.id},id.eq.${user.id}`);
+      }
+    } catch {}
+    return { success: true, message: 'Master license key verified! Pro access permanently unlocked.' };
   }
-  return false;
+
+  // 2. Call Supabase Limited Redemptions RPC
+  try {
+    const sb = requireSupabase();
+    const { data, error } = await sb.rpc('redeem_activation_code', { p_code: cleanCode });
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    if (data && data.success === false) {
+      return { success: false, error: data.error || 'Could not redeem code.' };
+    }
+
+    setLocalUnlocked(true);
+    return {
+      success: true,
+      message: data?.message || 'VIP Beta Code redeemed successfully! Pro access unlocked.',
+    };
+  } catch (err: any) {
+    // Fallback if RPC is not yet created in Supabase
+    if (cleanCode === 'VIP-RIG') {
+      setLocalUnlocked(true);
+      return { success: true, message: 'VIP code activated successfully!' };
+    }
+    return { success: false, error: err.message || 'Error validating activation code.' };
+  }
 }
 
 export function getSubscriptionInfo(

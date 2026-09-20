@@ -231,3 +231,86 @@ drop policy if exists "users_own_shop_settings" on public.shop_settings;
 create policy "users_own_shop_settings" on public.shop_settings
   for all using (auth.uid() = user_id or id = 'default' or user_id is null)
   with check (auth.uid() = user_id or id = 'default' or user_id is null);
+
+-- ---------------- Activation & Promo Codes ----------------
+create table if not exists public.activation_codes (
+  code         text primary key,
+  max_uses     int not null default 5,
+  used_count   int not null default 0,
+  is_active    boolean not null default true,
+  description  text not null default 'Beta Tester VIP Pass',
+  created_at   timestamptz not null default now()
+);
+
+create table if not exists public.code_redemptions (
+  id           uuid primary key default gen_random_uuid(),
+  code         text not null references public.activation_codes (code) on delete cascade,
+  user_id      uuid not null references auth.users (id) on delete cascade,
+  redeemed_at  timestamptz not null default now(),
+  unique(code, user_id)
+);
+
+alter table public.activation_codes enable row level security;
+alter table public.code_redemptions enable row level security;
+
+create policy "anyone_can_read_activation_codes" on public.activation_codes
+  for select using (true);
+
+create policy "users_can_insert_redemptions" on public.code_redemptions
+  for insert with check (auth.uid() = user_id);
+
+create policy "users_can_view_own_redemptions" on public.code_redemptions
+  for select using (auth.uid() = user_id);
+
+-- Function to safely redeem a limited code
+create or replace function public.redeem_activation_code(p_code text)
+returns jsonb
+language plpgsql
+security definer
+as $$
+declare
+  v_code text := upper(trim(p_code));
+  v_user_id uuid := auth.uid();
+  v_code_rec record;
+begin
+  if v_user_id is null then
+    return jsonb_build_object('success', false, 'error', 'You must be logged in to redeem a code.');
+  end if;
+
+  -- Select code with lock
+  select * into v_code_rec from public.activation_codes
+  where upper(code) = v_code for update;
+
+  if not found then
+    return jsonb_build_object('success', false, 'error', 'Invalid activation code.');
+  end if;
+
+  if not v_code_rec.is_active then
+    return jsonb_build_object('success', false, 'error', 'This activation code is no longer active.');
+  end if;
+
+  if v_code_rec.used_count >= v_code_rec.max_uses then
+    return jsonb_build_object('success', false, 'error', 'This beta code has reached its maximum number of redemptions.');
+  end if;
+
+  -- Check if already redeemed by this user
+  if exists (select 1 from public.code_redemptions where code = v_code_rec.code and user_id = v_user_id) then
+    return jsonb_build_object('success', true, 'message', 'Code already redeemed for this account.');
+  end if;
+
+  -- Record redemption and increment count
+  insert into public.code_redemptions (code, user_id) values (v_code_rec.code, v_user_id);
+  update public.activation_codes set used_count = used_count + 1 where code = v_code_rec.code;
+
+  -- Update shop_settings for user
+  update public.shop_settings set subscription_status = 'active', updated_at = now()
+  where user_id = v_user_id or id = v_user_id::text;
+
+  return jsonb_build_object('success', true, 'message', 'VIP Pro access unlocked successfully!');
+end;
+$$;
+
+-- Seed initial beta code with max 10 uses
+insert into public.activation_codes (code, max_uses, used_count, is_active, description)
+values ('VIP-RIG', 10, 0, true, 'Beta Tester Launch Pass (Max 10)')
+on conflict (code) do nothing;
