@@ -49,7 +49,7 @@ export default function SetupGuide() {
             <WrenchIcon className="h-5 w-5" />
           </span>
           <div>
-            <h1 className="text-lg font-bold text-slate-900">Outlaw Mech</h1>
+            <h1 className="text-lg font-bold text-slate-900">Outlaw Shop Systems</h1>
             <p className="text-xs text-slate-500">Almost there — connect your Supabase project</p>
           </div>
         </div>

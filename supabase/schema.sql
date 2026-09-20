@@ -1,6 +1,6 @@
 -- =============================================================
---  Outlaw Mech — Supabase schema
---  Work orders & invoicing for a mobile mechanic
+--  Outlaw Shop Systems — Supabase schema
+--  Work orders, invoicing & shop management
 --
 --  HOW TO RUN
 --  1. Supabase dashboard → SQL Editor

@@ -4,10 +4,10 @@ import type { ShopSettings } from '../types';
 
 export const DEFAULT_SETTINGS: ShopSettings = {
   id: 'default',
-  shop_name: 'Outlaw Mech',
-  tagline: 'Mobile Mechanic & Field Service',
+  shop_name: 'Outlaw Shop Systems',
+  tagline: 'Mobile & Shop Management',
   phone: '406-555-0100',
-  email: 'service@outlawmech.com',
+  email: 'service@outlawshopsystems.com',
   address: 'Helena, MT',
   default_labor_rate: 95,
   default_tax_rate: 0.04,

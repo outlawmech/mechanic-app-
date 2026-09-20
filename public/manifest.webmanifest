@@ -1,6 +1,6 @@
 {
-  "name": "Outlaw Mech",
-  "short_name": "Outlaw Mech",
+  "name": "Outlaw Shop Systems",
+  "short_name": "Outlaw Systems",
   "description": "Work orders & invoicing for mobile mechanics",
   "start_url": "/",
   "display": "standalone",

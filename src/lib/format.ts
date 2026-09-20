@@ -149,8 +149,8 @@ export function formatEstimateText(
   wo: WorkOrderFull,
   shop?: Partial<ShopSettings> | null
 ): { subject: string; body: string } {
-  const shopName = shop?.shop_name || 'Outlaw Mech';
-  const tagline = shop?.tagline || 'Mobile Mechanic & Field Service';
+  const shopName = shop?.shop_name || 'Outlaw Shop Systems';
+  const tagline = shop?.tagline || 'Mobile & Shop Management';
   const phone = shop?.phone || '';
   const email = shop?.email || '';
 
@@ -198,8 +198,8 @@ export function formatInvoiceText(
   vehicle: Vehicle | null,
   shop?: Partial<ShopSettings> | null
 ): { subject: string; body: string } {
-  const shopName = shop?.shop_name || 'Outlaw Mech';
-  const tagline = shop?.tagline || 'Mobile Mechanic & Field Service';
+  const shopName = shop?.shop_name || 'Outlaw Shop Systems';
+  const tagline = shop?.tagline || 'Mobile & Shop Management';
   const phone = shop?.phone || '';
   const email = shop?.email || '';
   const terms = shop?.invoice_notes || 'Thank you for your business!';

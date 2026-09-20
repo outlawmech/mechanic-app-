@@ -180,7 +180,7 @@ export default function Settings() {
             <Input
               value={form.shop_name}
               onChange={(e) => setForm({ ...form, shop_name: e.target.value })}
-              placeholder="e.g. Outlaw Mech"
+              placeholder="e.g. Outlaw Shop Systems"
             />
           </Field>
 
@@ -188,7 +188,7 @@ export default function Settings() {
             <Input
               value={form.tagline}
               onChange={(e) => setForm({ ...form, tagline: e.target.value })}
-              placeholder="e.g. Mobile Mechanic & Field Service"
+              placeholder="e.g. Mobile & Shop Management"
             />
           </Field>
 
