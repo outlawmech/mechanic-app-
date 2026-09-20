@@ -1,7 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import { ToastProvider } from './components/Toast';
-import { isSupabaseConfigured } from './lib/supabase';
 import CustomerDetail from './pages/CustomerDetail';
 import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
@@ -10,19 +9,10 @@ import Invoices from './pages/Invoices';
 import NewCustomer from './pages/NewCustomer';
 import NewWorkOrder from './pages/NewWorkOrder';
 import Settings from './pages/Settings';
-import SetupGuide from './pages/SetupGuide';
 import WorkOrderDetail from './pages/WorkOrderDetail';
 import WorkOrders from './pages/WorkOrders';
 
 export default function App() {
-  if (!isSupabaseConfigured) {
-    return (
-      <div className="min-h-dvh">
-        <SetupGuide />
-      </div>
-    );
-  }
-
   return (
     <ToastProvider>
       <BrowserRouter>

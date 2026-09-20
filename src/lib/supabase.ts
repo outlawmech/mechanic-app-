@@ -1,25 +1,19 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
+const SUPABASE_URL = 'https://wlacgguhevtygqvckoen.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_3Bh_pQwFwpSOvCbYyZjxyw_EstlwMfw';
+
 const url =
-  (import.meta.env.VITE_SUPABASE_URL as string | undefined) ||
-  'https://wlacgguhevtygqvckoen.supabase.co';
+  (import.meta.env.VITE_SUPABASE_URL as string | undefined) || SUPABASE_URL;
 
 const anonKey =
-  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ||
-  'sb_publishable_3Bh_pQwFwpSOvCbYyZjxyw_EstlwMfw';
+  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || SUPABASE_ANON_KEY;
 
-export const isSupabaseConfigured = Boolean(url && anonKey);
+export const isSupabaseConfigured = true;
 
-export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(url!, anonKey!)
-  : null;
+export const supabase: SupabaseClient = createClient(url, anonKey);
 
 export function requireSupabase(): SupabaseClient {
-  if (!supabase) {
-    throw new Error(
-      'Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env, then restart the dev server.'
-    );
-  }
   return supabase;
 }
 
