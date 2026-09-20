@@ -69,6 +69,27 @@ export default function Dashboard() {
     <div>
       <PageTitle title={greeting} sub={longDate(new Date().toISOString())} />
 
+      {/* Pro Trial / Subscription Banner */}
+      <div className="mb-4 flex items-center justify-between rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-3 text-white shadow-sm ring-1 ring-amber-500/20">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-400 text-slate-950 text-xs font-black">
+            PRO
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-slate-100 truncate">Solo Rig Subscription</p>
+            <p className="text-[11px] text-amber-300/90 truncate">$29/mo • 14-Day Free Trial</p>
+          </div>
+        </div>
+        <a
+          href="https://buy.stripe.com/5kQ6oHgEX8G781ceZ62go00"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 shadow transition hover:bg-amber-300 active:scale-95"
+        >
+          Upgrade
+        </a>
+      </div>
+
       <div className="grid grid-cols-3 gap-2">
         <Stat label="Active WOs" value={String(active.length)} />
         <Stat label="Outstanding" value={money(totalDue)} accent />
