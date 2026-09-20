@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { check, isSupabaseConfigured, requireSupabase } from './supabase';
+import { check, requireSupabase } from './supabase';
+import { useAuth } from './auth';
 import type { ShopSettings } from '../types';
 
 export const DEFAULT_SETTINGS: ShopSettings = {
@@ -15,7 +16,7 @@ export const DEFAULT_SETTINGS: ShopSettings = {
   logo_url: '',
 };
 
-const STORAGE_KEY = 'outlaw_mech_shop_settings';
+const STORAGE_KEY = 'outlaw_shop_settings';
 
 function getLocalSettings(): ShopSettings {
   try {
@@ -32,26 +33,40 @@ export function saveLocalSettings(s: ShopSettings): void {
 }
 
 export function useShopSettings() {
-  const [settings, setSettings] = useState<ShopSettings>(getLocalSettings);
+  const { user } = useAuth();
+  const [settings, setSettings] = useState<ShopSettings>(() => {
+    const local = getLocalSettings();
+    if (user?.user_metadata?.shop_name) {
+      return { ...local, shop_name: user.user_metadata.shop_name };
+    }
+    return local;
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      if (!isSupabaseConfigured) {
-        setLoading(false);
-        return;
-      }
       try {
         const sb = requireSupabase();
-        const res = await sb.from('shop_settings').select('*').eq('id', 'default').maybeSingle();
+        let query = sb.from('shop_settings').select('*');
+        if (user) {
+          query = query.or(`user_id.eq.${user.id},id.eq.${user.id}`);
+        } else {
+          query = query.eq('id', 'default');
+        }
+
+        const res = await query.maybeSingle();
         if (!cancelled && res.data) {
           const loaded = { ...DEFAULT_SETTINGS, ...res.data };
           setSettings(loaded);
           saveLocalSettings(loaded);
+        } else if (!cancelled && user) {
+          // If user has metadata shop_name
+          const defaultShopName = user.user_metadata?.shop_name || DEFAULT_SETTINGS.shop_name;
+          setSettings((prev) => ({ ...prev, shop_name: defaultShopName, email: user.email || prev.email }));
         }
-      } catch {
-        // Table might not exist yet before SQL migration, fallback to local
+      } catch (err) {
+        console.warn('Could not load remote shop settings:', err);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -60,34 +75,34 @@ export function useShopSettings() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [user]);
 
   async function updateSettings(newSettings: Partial<ShopSettings>) {
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
     saveLocalSettings(updated);
 
-    if (isSupabaseConfigured) {
-      try {
-        const sb = requireSupabase();
-        check(
-          await sb.from('shop_settings').upsert({
-            id: 'default',
-            shop_name: updated.shop_name,
-            tagline: updated.tagline,
-            phone: updated.phone,
-            email: updated.email,
-            address: updated.address,
-            default_labor_rate: Number(updated.default_labor_rate) || 0,
-            default_tax_rate: Number(updated.default_tax_rate) || 0,
-            invoice_notes: updated.invoice_notes,
-            logo_url: updated.logo_url || '',
-            updated_at: new Date().toISOString(),
-          })
-        );
-      } catch (err) {
-        console.warn('Could not sync settings to remote database, saved locally:', err);
-      }
+    try {
+      const sb = requireSupabase();
+      const targetId = user?.id || 'default';
+      check(
+        await sb.from('shop_settings').upsert({
+          id: targetId,
+          user_id: user?.id || null,
+          shop_name: updated.shop_name,
+          tagline: updated.tagline,
+          phone: updated.phone,
+          email: updated.email,
+          address: updated.address,
+          default_labor_rate: Number(updated.default_labor_rate) || 0,
+          default_tax_rate: Number(updated.default_tax_rate) || 0,
+          invoice_notes: updated.invoice_notes,
+          logo_url: updated.logo_url || '',
+          updated_at: new Date().toISOString(),
+        })
+      );
+    } catch (err) {
+      console.warn('Could not sync settings to remote database, saved locally:', err);
     }
     return updated;
   }

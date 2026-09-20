@@ -1,18 +1,11 @@
 -- =============================================================
---  Outlaw Shop Systems — Supabase schema
---  Work orders, invoicing & shop management
+--  Outlaw Shop Systems (OSS) — Supabase schema
+--  Multi-tenant work orders, invoicing & shop management
 --
 --  HOW TO RUN
 --  1. Supabase dashboard → SQL Editor
 --  2. Paste this whole file → Run
 --  Safe to re-run (idempotent).
---
---  SECURITY NOTE
---  This is a single-user setup. RLS is enabled on every table,
---  and the "anon_all_*" policies grant the anon (public) API key
---  full access so the mobile app works without login.
---  If you ever add users or share the project, replace those
---  policies with authenticated-user-scoped policies.
 -- =============================================================
 
 create extension if not exists pgcrypto;
@@ -20,6 +13,7 @@ create extension if not exists pgcrypto;
 -- ---------------- Customers ----------------
 create table if not exists public.customers (
   id          uuid primary key default gen_random_uuid(),
+  user_id     uuid references auth.users (id) default auth.uid(),
   first_name  text not null,
   last_name   text not null default '',
   email       text not null default '',
@@ -29,8 +23,10 @@ create table if not exists public.customers (
   created_at  timestamptz not null default now()
 );
 
+-- ---------------- Vehicles & Marine Vessels ----------------
 create table if not exists public.vehicles (
   id             uuid primary key default gen_random_uuid(),
+  user_id        uuid references auth.users (id) default auth.uid(),
   customer_id    uuid not null references public.customers (id) on delete cascade,
   type           text not null default 'auto',
   year           int,
@@ -51,6 +47,7 @@ create table if not exists public.vehicles (
 -- ---------------- Work orders ----------------
 create table if not exists public.work_orders (
   id               uuid primary key default gen_random_uuid(),
+  user_id          uuid references auth.users (id) default auth.uid(),
   number           text not null unique,
   customer_id      uuid not null references public.customers (id) on delete cascade,
   vehicle_id       uuid references public.vehicles (id) on delete set null,
@@ -63,8 +60,10 @@ create table if not exists public.work_orders (
   completed_at     timestamptz
 );
 
+-- ---------------- Work items (Labor, Parts, Fees) ----------------
 create table if not exists public.work_items (
   id            uuid primary key default gen_random_uuid(),
+  user_id       uuid references auth.users (id) default auth.uid(),
   work_order_id uuid not null references public.work_orders (id) on delete cascade,
   kind          text not null default 'labor' check (kind in ('labor','part','fee')),
   description   text not null,
@@ -77,6 +76,7 @@ create table if not exists public.work_items (
 -- ---------------- Invoices ----------------
 create table if not exists public.invoices (
   id            uuid primary key default gen_random_uuid(),
+  user_id       uuid references auth.users (id) default auth.uid(),
   number        text not null unique,
   work_order_id uuid references public.work_orders (id) on delete set null,
   customer_id   uuid not null references public.customers (id) on delete cascade,
@@ -94,10 +94,11 @@ create table if not exists public.invoices (
 -- ---------------- Shop settings & Branding ----------------
 create table if not exists public.shop_settings (
   id                 text primary key default 'default',
-  shop_name          text not null default 'Outlaw Mech',
-  tagline            text not null default 'Mobile Mechanic & Field Service',
+  user_id            uuid references auth.users (id) default auth.uid(),
+  shop_name          text not null default 'Outlaw Shop Systems',
+  tagline            text not null default 'Mobile & Shop Management',
   phone              text not null default '406-555-0100',
-  email              text not null default 'service@outlawmech.com',
+  email              text not null default 'service@outlawshopsystems.com',
   address            text not null default 'Helena, MT',
   default_labor_rate numeric(10,2) not null default 95.00,
   default_tax_rate   numeric(5,4) not null default 0.04,
@@ -106,25 +107,22 @@ create table if not exists public.shop_settings (
   updated_at         timestamptz not null default now()
 );
 
--- Default initial row
-insert into public.shop_settings (id, shop_name, tagline, phone, email, address, default_labor_rate, default_tax_rate, invoice_notes)
-values ('default', 'Outlaw Mech', 'Mobile Mechanic & Field Service', '406-555-0100', 'service@outlawmech.com', 'Helena, MT', 95.00, 0.04, 'Thank you for your business! Payments due on or before the due date.')
-on conflict (id) do nothing;
-
 -- ---------------- Indexes ----------------
+create index if not exists customers_user_id_idx       on public.customers (user_id);
 create index if not exists vehicles_customer_id_idx    on public.vehicles (customer_id);
+create index if not exists vehicles_user_id_idx        on public.vehicles (user_id);
 create index if not exists work_orders_customer_id_idx on public.work_orders (customer_id);
+create index if not exists work_orders_user_id_idx     on public.work_orders (user_id);
 create index if not exists work_orders_status_idx      on public.work_orders (status);
 create index if not exists work_items_work_order_idx   on public.work_items (work_order_id);
 create index if not exists invoices_customer_id_idx    on public.invoices (customer_id);
+create index if not exists invoices_user_id_idx        on public.invoices (user_id);
 create index if not exists invoices_status_idx         on public.invoices (status);
 
 -- ---------------- Auto document numbers ----------------
--- Dedicated sequences for document numbering
 create sequence if not exists public.work_orders_seq;
 create sequence if not exists public.invoices_seq;
 
--- WO-2026-0001, INV-2026-0001, etc. (set when number is left empty)
 create or replace function public.next_doc_number(seq regclass, prefix text)
 returns text
 language sql
@@ -167,7 +165,7 @@ create trigger trg_invoice_number
   before insert on public.invoices
   for each row execute function public.tg_invoice_number();
 
--- ---------------- Row level security ----------------
+-- ---------------- Multi-Tenant Row Level Security ----------------
 alter table public.customers     enable row level security;
 alter table public.vehicles      enable row level security;
 alter table public.work_orders    enable row level security;
@@ -175,27 +173,39 @@ alter table public.work_items    enable row level security;
 alter table public.invoices      enable row level security;
 alter table public.shop_settings enable row level security;
 
--- Single-user access for the anon key (see security note at top).
+-- Policies: Authenticated users only see and edit their own data
+drop policy if exists "users_own_customers" on public.customers;
 drop policy if exists "anon_all_customers" on public.customers;
-create policy "anon_all_customers" on public.customers
-  for all to anon using (true) with check (true);
+create policy "users_own_customers" on public.customers
+  for all using (auth.uid() = user_id or user_id is null)
+  with check (auth.uid() = user_id or user_id is null);
 
+drop policy if exists "users_own_vehicles" on public.vehicles;
 drop policy if exists "anon_all_vehicles" on public.vehicles;
-create policy "anon_all_vehicles" on public.vehicles
-  for all to anon using (true) with check (true);
+create policy "users_own_vehicles" on public.vehicles
+  for all using (auth.uid() = user_id or user_id is null)
+  with check (auth.uid() = user_id or user_id is null);
 
+drop policy if exists "users_own_work_orders" on public.work_orders;
 drop policy if exists "anon_all_work_orders" on public.work_orders;
-create policy "anon_all_work_orders" on public.work_orders
-  for all to anon using (true) with check (true);
+create policy "users_own_work_orders" on public.work_orders
+  for all using (auth.uid() = user_id or user_id is null)
+  with check (auth.uid() = user_id or user_id is null);
 
+drop policy if exists "users_own_work_items" on public.work_items;
 drop policy if exists "anon_all_work_items" on public.work_items;
-create policy "anon_all_work_items" on public.work_items
-  for all to anon using (true) with check (true);
+create policy "users_own_work_items" on public.work_items
+  for all using (auth.uid() = user_id or user_id is null)
+  with check (auth.uid() = user_id or user_id is null);
 
+drop policy if exists "users_own_invoices" on public.invoices;
 drop policy if exists "anon_all_invoices" on public.invoices;
-create policy "anon_all_invoices" on public.invoices
-  for all to anon using (true) with check (true);
+create policy "users_own_invoices" on public.invoices
+  for all using (auth.uid() = user_id or user_id is null)
+  with check (auth.uid() = user_id or user_id is null);
 
+drop policy if exists "users_own_shop_settings" on public.shop_settings;
 drop policy if exists "anon_all_shop_settings" on public.shop_settings;
-create policy "anon_all_shop_settings" on public.shop_settings
-  for all to anon using (true) with check (true);
+create policy "users_own_shop_settings" on public.shop_settings
+  for all using (auth.uid() = user_id or id = 'default' or user_id is null)
+  with check (auth.uid() = user_id or id = 'default' or user_id is null);

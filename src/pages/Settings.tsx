@@ -1,7 +1,8 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useToast } from '../components/Toast';
-import { WrenchIcon, TrashIcon, CheckIcon, PlusIcon } from '../components/icons';
+import { WrenchIcon, TrashIcon, CheckIcon, PlusIcon, UsersIcon } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Spinner, Textarea } from '../components/ui';
+import { useAuth } from '../lib/auth';
 import { useShopSettings } from '../lib/settings';
 import { processLogoImage } from '../lib/image';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
@@ -9,6 +10,7 @@ import { check, errMsg, requireSupabase } from '../lib/supabase';
 export default function Settings() {
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { user, signOut } = useAuth();
   const { settings, loading, updateSettings } = useShopSettings();
 
   const [form, setForm] = useState(settings);
@@ -100,6 +102,26 @@ export default function Settings() {
         title="Shop Settings"
         sub="Manage your business info, labor rates, and invoice branding."
       />
+
+      {/* User Account Bar */}
+      {user && (
+        <Card className="flex items-center justify-between p-3.5 bg-slate-900 text-white">
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium text-amber-400 uppercase tracking-wide">
+              Signed in account
+            </p>
+            <p className="text-xs font-semibold truncate text-slate-200">{user.email}</p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={signOut}
+            className="text-xs text-slate-300 border border-slate-700 hover:bg-slate-800 hover:text-white"
+          >
+            Sign Out
+          </Button>
+        </Card>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Shop Logo Section */}
