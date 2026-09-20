@@ -3,6 +3,9 @@ import Layout from './components/Layout';
 import { ToastProvider } from './components/Toast';
 import { Spinner } from './components/ui';
 import { AuthProvider, useAuth } from './lib/auth';
+import { useShopSettings } from './lib/settings';
+import { getSubscriptionInfo } from './lib/subscription';
+import SubscriptionLockout from './components/SubscriptionLockout';
 import Auth from './pages/Auth';
 import CustomerDetail from './pages/CustomerDetail';
 import Customers from './pages/Customers';
@@ -17,9 +20,10 @@ import WorkOrderDetail from './pages/WorkOrderDetail';
 import WorkOrders from './pages/WorkOrders';
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { settings, loading: settingsLoading } = useShopSettings();
 
-  if (loading) {
+  if (authLoading || (user && settingsLoading)) {
     return (
       <div className="grid min-h-dvh place-items-center bg-slate-900">
         <Spinner />
@@ -29,6 +33,11 @@ function AppRoutes() {
 
   if (!user) {
     return <Auth />;
+  }
+
+  const sub = getSubscriptionInfo(user, settings);
+  if (sub.isLocked) {
+    return <SubscriptionLockout />;
   }
 
   return (

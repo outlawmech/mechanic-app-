@@ -1,10 +1,13 @@
 import { Link } from 'react-router-dom';
 import WorkOrderCard from '../components/WorkOrderCard';
-import { ClipboardIcon, ReceiptIcon } from '../components/icons';
+import { ClipboardIcon, ReceiptIcon, SparklesIcon } from '../components/icons';
 import { Badge, Card, EmptyState, ErrorState, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, isToday, longDate, money, num } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
+import { useAuth } from '../lib/auth';
+import { useShopSettings } from '../lib/settings';
+import { getSubscriptionInfo, STRIPE_PAYMENT_URL } from '../lib/subscription';
 import type { InvoiceFull, WorkOrderFull } from '../types';
 
 function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
@@ -23,6 +26,10 @@ function Stat({ label, value, accent }: { label: string; value: string; accent?:
 }
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const { settings } = useShopSettings();
+  const sub = getSubscriptionInfo(user, settings);
+
   const { data, error, loading } = useAsync(async () => {
     const sb = requireSupabase();
     const [woRes, invRes] = await Promise.all([
@@ -70,25 +77,41 @@ export default function Dashboard() {
       <PageTitle title={greeting} sub={longDate(new Date().toISOString())} />
 
       {/* Pro Trial / Subscription Banner */}
-      <div className="mb-4 flex items-center justify-between rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-3 text-white shadow-sm ring-1 ring-amber-500/20">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-400 text-slate-950 text-xs font-black">
-            PRO
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-slate-100 truncate">Solo Rig Subscription</p>
-            <p className="text-[11px] text-amber-300/90 truncate">$29/mo • 14-Day Free Trial</p>
+      {!sub.isPro ? (
+        <div className="mb-4 flex items-center justify-between rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-3 text-white shadow-sm ring-1 ring-amber-500/20">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-400 text-slate-950 text-xs font-black">
+              PRO
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-slate-100 truncate">Solo Rig Subscription</p>
+              <p className="text-[11px] text-amber-300/90 truncate">
+                {sub.daysLeft} {sub.daysLeft === 1 ? 'day' : 'days'} trial remaining • $29/mo
+              </p>
+            </div>
+          </div>
+          <a
+            href={STRIPE_PAYMENT_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 shadow transition hover:bg-amber-300 active:scale-95"
+          >
+            Upgrade
+          </a>
+        </div>
+      ) : (
+        <div className="mb-4 flex items-center justify-between rounded-xl bg-slate-900 p-3 text-white shadow-sm">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500 text-slate-950">
+              <SparklesIcon className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="text-xs font-bold text-slate-100">Solo Rig Pro Active</p>
+              <p className="text-[11px] text-emerald-400">Unlimited jobs, parts &amp; invoicing</p>
+            </div>
           </div>
         </div>
-        <a
-          href="https://buy.stripe.com/5kQ6oHgEX8G781ceZ62go00"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 shadow transition hover:bg-amber-300 active:scale-95"
-        >
-          Upgrade
-        </a>
-      </div>
+      )}
 
       <div className="grid grid-cols-3 gap-2">
         <Stat label="Active WOs" value={String(active.length)} />

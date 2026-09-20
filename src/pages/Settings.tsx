@@ -1,11 +1,12 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useToast } from '../components/Toast';
-import { WrenchIcon, TrashIcon, CheckIcon, PlusIcon, UsersIcon } from '../components/icons';
+import { WrenchIcon, TrashIcon, CheckIcon, PlusIcon, LockClosedIcon, SparklesIcon } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Spinner, Textarea } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useShopSettings } from '../lib/settings';
 import { processLogoImage } from '../lib/image';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
+import { getSubscriptionInfo, STRIPE_PAYMENT_URL, unlockWithCode } from '../lib/subscription';
 
 export default function Settings() {
   const toast = useToast();
@@ -17,6 +18,8 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [processingImage, setProcessingImage] = useState(false);
   const [wiping, setWiping] = useState(false);
+  const [licenseCode, setLicenseCode] = useState('');
+  const [showCodeBox, setShowCodeBox] = useState(false);
 
   // Sync state if initial fetch completes
   const [synced, setSynced] = useState(false);
@@ -26,6 +29,21 @@ export default function Settings() {
   }
 
   if (loading) return <Spinner />;
+
+  const sub = getSubscriptionInfo(user, settings);
+
+  function handleUnlockKey() {
+    if (!licenseCode.trim()) {
+      toast('Please enter a license key', 'error');
+      return;
+    }
+    if (unlockWithCode(licenseCode)) {
+      toast('Pro Plan unlocked permanently!');
+      window.location.reload();
+    } else {
+      toast('Invalid license key. Check spelling or subscribe below.', 'error');
+    }
+  }
 
   async function handleLogoUpload(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -292,8 +310,20 @@ export default function Settings() {
       <Card className="space-y-4 border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-5 text-white shadow-lg">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
-              Solo Rig • Pro Tier
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                sub.isPro
+                  ? 'bg-emerald-500/20 text-emerald-300'
+                  : 'bg-amber-400/20 text-amber-300'
+              }`}
+            >
+              {sub.isPro ? (
+                <>
+                  <SparklesIcon className="h-3 w-3" /> Solo Rig • Pro Active
+                </>
+              ) : (
+                `Solo Rig • 14-Day Trial (${sub.daysLeft} days left)`
+              )}
             </span>
             <h3 className="text-base font-bold text-white">Outlaw Shop Systems Pro</h3>
           </div>
@@ -326,19 +356,61 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="pt-2">
-          <a
-            href="https://buy.stripe.com/5kQ6oHgEX8G781ceZ62go00"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-400 shadow-md active:scale-[0.99]"
-          >
-            Start 14-Day Free Trial
-            <span className="text-xs font-normal text-slate-900">(Then $29/mo)</span>
-          </a>
-          <p className="mt-2 text-center text-[11px] text-slate-400">
-            Secure 256-bit Stripe checkout. Cancel anytime with 1 click.
-          </p>
+        {!sub.isPro ? (
+          <div className="pt-2 space-y-2">
+            <a
+              href={STRIPE_PAYMENT_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-400 shadow-md active:scale-[0.99]"
+            >
+              Start 14-Day Free Trial
+              <span className="text-xs font-normal text-slate-900">(Then $29/mo)</span>
+            </a>
+            <p className="text-center text-[11px] text-slate-400">
+              Secure 256-bit Stripe checkout. Lockout applies after Day 14 without active subscription.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-center text-xs font-semibold text-emerald-400">
+            ✓ Your Outlaw Shop Systems Pro Plan is fully active!
+          </div>
+        )}
+
+        {/* License code redemption */}
+        <div className="border-t border-slate-800 pt-3">
+          {!showCodeBox ? (
+            <button
+              type="button"
+              onClick={() => setShowCodeBox(true)}
+              className="text-[11px] text-slate-400 hover:text-slate-200 underline"
+            >
+              Have a license key or activation code?
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                Enter Activation Key
+              </label>
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  value={licenseCode}
+                  onChange={(e) => setLicenseCode(e.target.value)}
+                  placeholder="e.g. OUTLAW-PRO-2026"
+                  className="bg-slate-800 text-white border-slate-700 text-xs uppercase"
+                />
+                <Button
+                  type="button"
+                  variant="accent"
+                  onClick={handleUnlockKey}
+                  className="shrink-0 text-xs px-3 font-bold"
+                >
+                  Activate
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </Card>
 

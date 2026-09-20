@@ -253,3 +253,16 @@ export const SendIcon = (p: P) => (
     <polygon points="22 2 15 22 11 13 2 9 22 2" />
   </Svg>
 );
+
+export const LockClosedIcon = (p: P) => (
+  <Svg {...p}>
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </Svg>
+);
+
+export const SparklesIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z" />
+  </Svg>
+);

@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { BoxIcon, ClipboardIcon, HomeIcon, ReceiptIcon, SettingsIcon, UsersIcon, WrenchIcon } from './icons';
 import { useShopSettings } from '../lib/settings';
+import TrialBanner from './TrialBanner';
 
 const tabs = [
   { to: '/', label: 'Home', icon: HomeIcon, end: true },
@@ -35,6 +36,8 @@ export default function Layout() {
           </div>
         </div>
       </header>
+
+      <TrialBanner />
 
       <main className="flex-1 px-4 pb-28 pt-4">
         <Outlet />

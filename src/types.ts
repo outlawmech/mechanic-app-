@@ -96,6 +96,7 @@ export type InvoiceSummary = Pick<Invoice, 'id' | 'number' | 'total' | 'status'>
 
 export type ShopSettings = {
   id: string;
+  user_id?: string;
   shop_name: string;
   tagline: string;
   phone: string;
@@ -105,6 +106,8 @@ export type ShopSettings = {
   default_tax_rate: number | string;
   invoice_notes: string;
   logo_url?: string;
+  subscription_status?: 'trialing' | 'active' | 'lifetime' | 'canceled' | 'past_due';
+  trial_ends_at?: string | null;
   updated_at?: string;
 };
 
