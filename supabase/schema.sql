@@ -30,18 +30,22 @@ create table if not exists public.customers (
 );
 
 create table if not exists public.vehicles (
-  id           uuid primary key default gen_random_uuid(),
-  customer_id  uuid not null references public.customers (id) on delete cascade,
-  type         text not null default 'auto',
-  year         int,
-  make         text not null default '',
-  model        text not null default '',
-  trim         text not null default '',
-  vin          text not null default '',
-  plate        text not null default '',
-  engine_hours numeric(10,1),
-  engine_info  text not null default '',
-  created_at   timestamptz not null default now()
+  id             uuid primary key default gen_random_uuid(),
+  customer_id    uuid not null references public.customers (id) on delete cascade,
+  type           text not null default 'auto',
+  year           int,
+  make           text not null default '',
+  model          text not null default '',
+  trim           text not null default '',
+  vin            text not null default '',
+  plate          text not null default '',
+  engine_hours   numeric(10,1),
+  engine_info    text not null default '',
+  engine_serial  text not null default '',
+  engine2_info   text not null default '',
+  engine2_serial text not null default '',
+  engine2_hours  numeric(10,1),
+  created_at     timestamptz not null default now()
 );
 
 -- ---------------- Work orders ----------------

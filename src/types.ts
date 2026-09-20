@@ -30,6 +30,10 @@ export type Vehicle = {
   plate: string;
   engine_hours?: number | string | null;
   engine_info?: string;
+  engine_serial?: string;
+  engine2_info?: string;
+  engine2_serial?: string;
+  engine2_hours?: number | string | null;
   created_at: string;
 };
 

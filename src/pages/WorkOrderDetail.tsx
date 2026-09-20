@@ -291,23 +291,49 @@ export default function WorkOrderDetail() {
           </div>
 
           {wo.vehicle ? (
-            <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-slate-50 p-2.5">
-              <span className="text-lg leading-none" role="img" aria-label="Vehicle type">
-                {vehicleTypeInfo?.emoji || '🚙'}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-slate-800">
-                  {vehicleLabel(wo.vehicle)}
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  {[
-                    wo.vehicle.plate ? `${vehicleTypeInfo?.regLabel}: ${wo.vehicle.plate}` : null,
-                    wo.vehicle.vin ? `${vehicleTypeInfo?.idLabel}: ${wo.vehicle.vin}` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
+            <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-2.5">
+              <div className="flex items-start gap-2.5">
+                <span className="text-lg leading-none" role="img" aria-label="Vehicle type">
+                  {vehicleTypeInfo?.emoji || '🚙'}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-slate-800">
+                    {vehicleLabel(wo.vehicle)}
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    {[
+                      wo.vehicle.plate ? `${vehicleTypeInfo?.regLabel}: ${wo.vehicle.plate}` : null,
+                      wo.vehicle.vin ? `${vehicleTypeInfo?.idLabel}: ${wo.vehicle.vin}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                </div>
               </div>
+
+              {/* Engine Spec Details */}
+              {(wo.vehicle.engine_info || wo.vehicle.engine2_info) && (
+                <div className="border-t border-slate-200/60 pt-1.5 text-[11px] text-slate-600">
+                  {wo.vehicle.engine_info && (
+                    <p>
+                      <strong className="text-slate-700">
+                        {wo.vehicle.engine2_info ? 'Main Motor:' : 'Motor:'}
+                      </strong>{' '}
+                      {wo.vehicle.engine_info}
+                      {wo.vehicle.engine_serial ? ` (S/N: ${wo.vehicle.engine_serial})` : ''}
+                      {wo.vehicle.engine_hours ? ` · ${wo.vehicle.engine_hours} hrs` : ''}
+                    </p>
+                  )}
+                  {wo.vehicle.engine2_info && (
+                    <p className="mt-0.5">
+                      <strong className="text-slate-700">Kicker / 2nd Motor:</strong>{' '}
+                      {wo.vehicle.engine2_info}
+                      {wo.vehicle.engine2_serial ? ` (S/N: ${wo.vehicle.engine2_serial})` : ''}
+                      {wo.vehicle.engine2_hours ? ` · ${wo.vehicle.engine2_hours} hrs` : ''}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           ) : (
             <p className="mt-2 text-xs text-slate-400">No vehicle on file</p>

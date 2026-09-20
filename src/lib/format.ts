@@ -168,6 +168,13 @@ export function formatEstimateText(
     return `• [${kindTag}] ${it.description} (${qty} @ ${price}) = ${sum}`;
   });
 
+  const engine1Line = wo.vehicle?.engine_info
+    ? `Motor: ${wo.vehicle.engine_info}${wo.vehicle.engine_serial ? ` (S/N: ${wo.vehicle.engine_serial})` : ''}`
+    : null;
+  const engine2Line = wo.vehicle?.engine2_info
+    ? `Second Motor/Kicker: ${wo.vehicle.engine2_info}${wo.vehicle.engine2_serial ? ` (S/N: ${wo.vehicle.engine2_serial})` : ''}`
+    : null;
+
   const lines = [
     `Hi ${wo.customer.first_name || 'there'},`,
     '',
@@ -176,6 +183,8 @@ export function formatEstimateText(
     `Work Order: ${wo.number}`,
     `Date: ${longDate(wo.created_at)}`,
     wo.vehicle ? `Vehicle/Equipment: ${vLabel}` : null,
+    engine1Line,
+    engine2Line,
     wo.mileage_or_hours ? `Recorded Hours/Miles: ${wo.mileage_or_hours}` : null,
     '',
     'ESTIMATED SERVICES & PARTS:',
@@ -220,6 +229,13 @@ export function formatInvoiceText(
 
   const taxPct = (num(invoice.tax_rate) * 100).toFixed(2).replace(/\.?0+$/, '');
 
+  const engine1Line = vehicle?.engine_info
+    ? `Motor: ${vehicle.engine_info}${vehicle.engine_serial ? ` (S/N: ${vehicle.engine_serial})` : ''}`
+    : null;
+  const engine2Line = vehicle?.engine2_info
+    ? `Second Motor/Kicker: ${vehicle.engine2_info}${vehicle.engine2_serial ? ` (S/N: ${vehicle.engine2_serial})` : ''}`
+    : null;
+
   const lines = [
     `Hi ${invoice.customer.first_name || 'there'},`,
     '',
@@ -230,6 +246,8 @@ export function formatInvoiceText(
     `Due Date: ${longDate(invoice.due_date)}`,
     `Status: ${invoice.status.toUpperCase()}`,
     vehicle ? `Vehicle/Equipment: ${vLabel}${vehicle.plate ? ` (${vehicle.plate})` : ''}` : null,
+    engine1Line,
+    engine2Line,
     '',
     'SERVICES & PARTS PROVIDED:',
     ...(itemLines.length > 0 ? itemLines : ['• Service completed']),

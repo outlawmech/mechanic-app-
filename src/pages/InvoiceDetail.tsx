@@ -213,7 +213,7 @@ export default function InvoiceDetail() {
         </div>
 
         {vehicle && (
-          <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-700">
+          <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-700 space-y-1.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span>{vInfo?.emoji}</span>
@@ -230,7 +230,7 @@ export default function InvoiceDetail() {
               )}
             </div>
 
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-slate-500">
+            <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-slate-500">
               {vehicle.plate && (
                 <span>
                   {vInfo?.regLabel}: <strong className="text-slate-700">{vehicle.plate}</strong>
@@ -241,12 +241,31 @@ export default function InvoiceDetail() {
                   {vInfo?.idLabel}: <strong className="text-slate-700">{vehicle.vin}</strong>
                 </span>
               )}
-              {vehicle.engine_info && (
-                <span>
-                  Engine: <span className="italic text-slate-700">{vehicle.engine_info}</span>
-                </span>
-              )}
             </div>
+
+            {/* Engine 1 & 2 details */}
+            {(vehicle.engine_info || vehicle.engine2_info) && (
+              <div className="border-t border-slate-200/60 pt-1 text-[11px] text-slate-600 space-y-0.5">
+                {vehicle.engine_info && (
+                  <p>
+                    <strong className="text-slate-700">
+                      {vehicle.engine2_info ? 'Main Engine:' : 'Engine:'}
+                    </strong>{' '}
+                    {vehicle.engine_info}
+                    {vehicle.engine_serial ? ` (S/N: ${vehicle.engine_serial})` : ''}
+                    {vehicle.engine_hours ? ` · ${vehicle.engine_hours} hrs` : ''}
+                  </p>
+                )}
+                {vehicle.engine2_info && (
+                  <p>
+                    <strong className="text-slate-700">Second Engine / Kicker:</strong>{' '}
+                    {vehicle.engine2_info}
+                    {vehicle.engine2_serial ? ` (S/N: ${vehicle.engine2_serial})` : ''}
+                    {vehicle.engine2_hours ? ` · ${vehicle.engine2_hours} hrs` : ''}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
 

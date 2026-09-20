@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon } from '../components/icons';
+import { ArrowLeftIcon, PlusIcon } from '../components/icons';
 import { Button, Card, ErrorState, Field, Input, PageTitle, Select, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { getVehicleTypeInfo, VEHICLE_TYPES } from '../lib/format';
@@ -25,6 +25,11 @@ const empty = {
   plate: '',
   engine_hours: '',
   engine_info: '',
+  engine_serial: '',
+  has_second_engine: false,
+  engine2_info: '',
+  engine2_serial: '',
+  engine2_hours: '',
 };
 
 export default function NewCustomer() {
@@ -86,6 +91,8 @@ export default function NewCustomer() {
         form.plate,
         form.engine_hours,
         form.engine_info,
+        form.engine_serial,
+        form.engine2_info,
       ].some((v) => v.trim() !== '');
 
       if (hasVehicle) {
@@ -101,6 +108,10 @@ export default function NewCustomer() {
             plate: form.plate.trim(),
             engine_hours: form.engine_hours ? Number(form.engine_hours) : null,
             engine_info: form.engine_info.trim(),
+            engine_serial: form.engine_serial.trim(),
+            engine2_info: form.has_second_engine ? form.engine2_info.trim() : '',
+            engine2_serial: form.has_second_engine ? form.engine2_serial.trim() : '',
+            engine2_hours: form.has_second_engine && form.engine2_hours ? Number(form.engine2_hours) : null,
           })
         );
       }
@@ -147,7 +158,7 @@ export default function NewCustomer() {
 
         <Card className="space-y-3 p-4">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-            Vehicle / Equipment <span className="font-medium normal-case text-slate-400">(optional)</span>
+            Vehicle / Vessel <span className="font-medium normal-case text-slate-400">(optional)</span>
           </p>
 
           <Field label="Category">
@@ -171,7 +182,7 @@ export default function NewCustomer() {
                   onChange={set('make')}
                   placeholder={
                     form.type === 'marine'
-                      ? 'Sea-Doo / Boston Whaler'
+                      ? 'Lund / Boston Whaler / Sea-Doo'
                       : form.type === 'atv'
                         ? 'Polaris / Can-Am'
                         : form.type === 'snowmobile'
@@ -188,11 +199,11 @@ export default function NewCustomer() {
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <Field label="Model">
-                <Input value={form.model} onChange={set('model')} placeholder="e.g. Spark / F-150 / Ranger" />
+                <Input value={form.model} onChange={set('model')} placeholder="e.g. 1875 Pro-V / F-150 / Ranger" />
               </Field>
             </div>
-            <Field label="Trim">
-              <Input value={form.trim} onChange={set('trim')} placeholder="e.g. 2UP / XLT" />
+            <Field label="Trim / Length">
+              <Input value={form.trim} onChange={set('trim')} placeholder="e.g. 19ft / XLT" />
             </Field>
           </div>
 
@@ -205,24 +216,96 @@ export default function NewCustomer() {
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* Primary Motor */}
+          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3 space-y-2.5">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-700">
+              {form.type === 'marine' ? 'Primary Engine / Main Motor' : 'Engine / Motor Details'}
+            </p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <Field label="Make & Model">
+                <Input
+                  value={form.engine_info}
+                  onChange={set('engine_info')}
+                  placeholder={form.type === 'marine' ? 'Mercury 200hp Pro XS' : 'e.g. 5.0L V8'}
+                />
+              </Field>
+              <Field label="Serial Number">
+                <Input
+                  value={form.engine_serial}
+                  onChange={set('engine_serial')}
+                  placeholder="e.g. 2B123456"
+                />
+              </Field>
+            </div>
             <Field label={`${currentTypeInfo.hoursLabel} (optional)`}>
               <Input
                 value={form.engine_hours}
                 onChange={set('engine_hours')}
                 type="number"
                 step="0.1"
-                placeholder="e.g. 125.5"
-              />
-            </Field>
-            <Field label="Engine / Motor">
-              <Input
-                value={form.engine_info}
-                onChange={set('engine_info')}
-                placeholder="e.g. Rotax 900 / 5.0L V8"
+                placeholder="e.g. 145.5"
               />
             </Field>
           </div>
+
+          {/* Second Engine / Kicker Toggle */}
+          {!form.has_second_engine ? (
+            <button
+              type="button"
+              onClick={() => setForm({ ...form, has_second_engine: true })}
+              className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 hover:text-amber-700"
+            >
+              <PlusIcon className="h-3.5 w-3.5" /> + Add Second Engine / Kicker Motor
+            </button>
+          ) : (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-amber-900">
+                  Second Engine / Kicker Motor
+                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      has_second_engine: false,
+                      engine2_info: '',
+                      engine2_serial: '',
+                      engine2_hours: '',
+                    })
+                  }
+                  className="text-[11px] font-medium text-slate-400 hover:text-red-500"
+                >
+                  Remove
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                <Field label="Make & Model">
+                  <Input
+                    value={form.engine2_info}
+                    onChange={set('engine2_info')}
+                    placeholder="e.g. Yamaha 9.9 Kicker"
+                  />
+                </Field>
+                <Field label="Serial Number">
+                  <Input
+                    value={form.engine2_serial}
+                    onChange={set('engine2_serial')}
+                    placeholder="e.g. 6AV-987654"
+                  />
+                </Field>
+              </div>
+              <Field label="Engine Hours (optional)">
+                <Input
+                  value={form.engine2_hours}
+                  onChange={set('engine2_hours')}
+                  type="number"
+                  step="0.1"
+                  placeholder="e.g. 35.0"
+                />
+              </Field>
+            </div>
+          )}
         </Card>
 
         <Button type="submit" variant="accent" disabled={saving} className="w-full">
