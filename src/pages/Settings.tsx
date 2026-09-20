@@ -288,6 +288,60 @@ export default function Settings() {
         </Button>
       </form>
 
+      {/* Stripe Subscription / Plan Card */}
+      <Card className="space-y-4 border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 p-5 text-white shadow-lg">
+        <div className="flex items-start justify-between">
+          <div className="space-y-1">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+              Solo Rig • Pro Tier
+            </span>
+            <h3 className="text-base font-bold text-white">Outlaw Shop Systems Pro</h3>
+          </div>
+          <div className="text-right">
+            <span className="text-xl font-black text-amber-400">$29</span>
+            <span className="text-xs text-slate-400"> / month</span>
+          </div>
+        </div>
+
+        <p className="text-xs text-slate-300 leading-relaxed">
+          Unlock unlimited work orders, cloud multi-tenant database sync, parts &amp; inventory tracking, offline PDF invoicing, and customer SMS dispatches.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
+          <div className="flex items-center gap-2">
+            <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+            <span>Unlimited Invoices &amp; Work Orders</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+            <span>Full Inventory &amp; Stock Management</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+            <span>Multi-Tenant Cloud Sync (Supabase)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+            <span>Instant PDF &amp; Custom Branding</span>
+          </div>
+        </div>
+
+        <div className="pt-2">
+          <a
+            href="https://buy.stripe.com/5kQ6oHgEX8G781ceZ62go00"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-400 shadow-md active:scale-[0.99]"
+          >
+            Start 14-Day Free Trial
+            <span className="text-xs font-normal text-slate-900">(Then $29/mo)</span>
+          </a>
+          <p className="mt-2 text-center text-[11px] text-slate-400">
+            Secure 256-bit Stripe checkout. Cancel anytime with 1 click.
+          </p>
+        </div>
+      </Card>
+
       {/* Data Management Card */}
       <Card className="space-y-3 border-amber-200 bg-amber-50/50 p-4">
         <h3 className="text-xs font-bold uppercase tracking-wide text-amber-900">
