@@ -40,13 +40,15 @@ export default function Invoices() {
     .reduce((s, i) => s + num(i.total), 0);
 
   return (
-    <div>
-      <PageTitle
-        title="Invoices"
-        sub={totalDue > 0 ? `${money(totalDue)} outstanding` : `${data?.length ?? 0} total`}
-      />
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <PageTitle
+          title="Invoices"
+          sub={totalDue > 0 ? `${money(totalDue)} outstanding receivables` : `${data?.length ?? 0} total invoices`}
+        />
+      </div>
 
-      <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {FILTERS.map((f) => (
           <Chip key={f.id} active={filter === f.id} onClick={() => setFilter(f.id)}>
             {f.label}
@@ -58,23 +60,23 @@ export default function Invoices() {
         <EmptyState
           icon={<ReceiptIcon className="h-8 w-8" />}
           title="No invoices"
-          sub="Generate one from a completed work order."
+          sub="Generate one from any completed work order ticket."
         />
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           {list.map((i) => (
-            <Link key={i.id} to={`/invoices/${i.id}`}>
-              <Card className="p-4">
+            <Link key={i.id} to={`/invoices/${i.id}`} className="block transition hover:-translate-y-0.5">
+              <Card className="p-4 hover:border-amber-400/50">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="font-mono text-xs font-semibold text-slate-500">{i.number}</p>
-                    <p className="mt-0.5 truncate text-sm font-semibold text-slate-900">
+                    <p className="font-mono text-xs font-bold text-slate-500">{i.number}</p>
+                    <p className="mt-0.5 truncate text-sm font-bold text-slate-900">
                       {fullName(i.customer)}
                     </p>
                   </div>
-                  <span className="text-sm font-bold text-slate-900">{money(i.total)}</span>
+                  <span className="text-base font-black text-slate-900">{money(i.total)}</span>
                 </div>
-                <div className="mt-3 flex items-center justify-between">
+                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5">
                   <span className="text-xs text-slate-500">{longDate(i.issued_at)}</span>
                   <Badge status={i.status} />
                 </div>

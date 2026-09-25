@@ -1,28 +1,31 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import WorkOrderCard from '../components/WorkOrderCard';
-import { ClipboardIcon, ReceiptIcon, SparklesIcon } from '../components/icons';
-import { Badge, Card, EmptyState, ErrorState, PageTitle, Spinner } from '../components/ui';
-import { useAsync } from '../lib/hooks';
-import { fullName, isToday, longDate, money, num } from '../lib/format';
-import { check, requireSupabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
+import {
+  ClipboardIcon,
+  ClockIcon,
+  AlertCircleIcon,
+  PlusIcon,
+  ReceiptIcon,
+  UsersIcon,
+  WrenchIcon,
+  SparklesIcon,
+} from '../components/icons';
+import { Card, EmptyState } from '../components/ui';
+import WorkOrderCard from '../components/WorkOrderCard';
+import type { WorkOrderFull } from '../types';
+import { money } from '../lib/format';
 import { useShopSettings } from '../lib/settings';
 import { getSubscriptionInfo, STRIPE_PAYMENT_URL } from '../lib/subscription';
-import type { InvoiceFull, WorkOrderFull } from '../types';
 
-function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div
-      className={`rounded-2xl p-3.5 ${
-        accent ? 'bg-slate-900 text-white ring-1 ring-slate-900' : 'bg-white ring-1 ring-slate-900/5'
-      }`}
-    >
-      <p className={`text-[11px] font-semibold uppercase tracking-wide ${accent ? 'text-slate-400' : 'text-slate-400'}`}>
-        {label}
-      </p>
-      <p className="mt-1 truncate text-lg font-bold">{value}</p>
-    </div>
-  );
+interface Metrics {
+  inProgressCount: number;
+  completedCount: number;
+  openCount: number;
+  unpaidTotal: number;
+  unpaidCount: number;
+  totalCustomers: number;
 }
 
 export default function Dashboard() {
@@ -30,63 +33,108 @@ export default function Dashboard() {
   const { settings } = useShopSettings();
   const sub = getSubscriptionInfo(user, settings);
 
-  const { data, error, loading } = useAsync(async () => {
-    const sb = requireSupabase();
-    const [woRes, invRes] = await Promise.all([
-      check(
-        await sb
+  const [recentOrders, setRecentOrders] = useState<WorkOrderFull[]>([]);
+  const [metrics, setMetrics] = useState<Metrics>({
+    inProgressCount: 0,
+    completedCount: 0,
+    openCount: 0,
+    unpaidTotal: 0,
+    unpaidCount: 0,
+    totalCustomers: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [user?.id]);
+
+  async function loadDashboard() {
+    if (!user) return;
+    setLoading(true);
+
+    try {
+      const [ordersRes, invoicesRes, customersRes] = await Promise.all([
+        supabase
           .from('work_orders')
           .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
-          .neq('status', 'invoiced')
+          .eq('user_id', user.id)
           .order('created_at', { ascending: false })
-      ),
-      check(
-        await sb
+          .limit(20),
+        supabase
           .from('invoices')
-          .select('*, customer:customers(*)')
-          .order('issued_at', { ascending: false })
-      ),
-    ]);
-    return {
-      workOrders: (woRes.data ?? []) as WorkOrderFull[],
-      invoices: (invRes.data ?? []) as InvoiceFull[],
-    };
-  });
+          .select('id, total, status')
+          .eq('user_id', user.id),
+        supabase
+          .from('customers')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id),
+      ]);
 
-  if (loading) return <Spinner />;
-  if (error) return <ErrorState message={error} />;
+      const orders = (ordersRes.data || []) as WorkOrderFull[];
+      const invoices = invoicesRes.data || [];
 
-  const { workOrders, invoices } = data!;
-  const active = workOrders.filter((w) => w.status === 'open' || w.status === 'in_progress');
-  const todayWork = workOrders.filter((w) => isToday(w.scheduled_at));
-  const totalDue = invoices
-    .filter((i) => i.status === 'unpaid')
-    .reduce((s, i) => s + num(i.total), 0);
-  const monthStart = new Date();
-  monthStart.setDate(1);
-  monthStart.setHours(0, 0, 0, 0);
-  const monthRevenue = invoices
-    .filter((i) => i.status === 'paid' && i.paid_at && new Date(i.paid_at) >= monthStart)
-    .reduce((s, i) => s + num(i.total), 0);
+      const inProgress = orders.filter((o) => o.status === 'in_progress').length;
+      const completed = orders.filter((o) => o.status === 'completed').length;
+      const open = orders.filter((o) => o.status === 'open' || o.status === 'in_progress').length;
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+      const unpaidInvoices = invoices.filter((i) => i.status === 'unpaid' || i.status === 'draft');
+      const unpaidTotal = unpaidInvoices.reduce((sum, i) => sum + Number(i.total || 0), 0);
+
+      setRecentOrders(orders.slice(0, 6));
+      setMetrics({
+        inProgressCount: inProgress,
+        completedCount: completed,
+        openCount: open,
+        unpaidTotal,
+        unpaidCount: unpaidInvoices.length,
+        totalCustomers: customersRes.count || 0,
+      });
+    } catch (err) {
+      console.error('Failed to load dashboard:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <div>
-      <PageTitle title={greeting} sub={longDate(new Date().toISOString())} />
+    <div className="space-y-6">
+      {/* Top Banner & Quick Actions Bar */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight text-slate-900">Shop Overview</h1>
+          <p className="text-xs text-slate-500">Live operational status and shop activity.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/work/new"
+            className="flex items-center gap-1.5 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-bold text-slate-950 shadow transition hover:bg-amber-300"
+          >
+            <PlusIcon className="h-4 w-4" />
+            <span>New Work Order</span>
+          </Link>
+          <Link
+            to="/customers/new"
+            className="flex items-center gap-1.5 rounded-xl bg-slate-800 px-3.5 py-2.5 text-xs font-semibold text-white shadow transition hover:bg-slate-700"
+          >
+            <UsersIcon className="h-4 w-4" />
+            <span>Add Customer</span>
+          </Link>
+        </div>
+      </div>
 
-      {/* Pro Trial / Subscription Banner */}
-      {!sub.isPro ? (
-        <div className="mb-4 flex items-center justify-between rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-3 text-white shadow-sm ring-1 ring-amber-500/20">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-400 text-slate-950 text-xs font-black">
-              PRO
+      {/* Subscription Card for Desktop */}
+      {!sub.isPro && (
+        <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-slate-900/40 p-4 text-slate-900 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400 text-slate-950 font-bold">
+              <SparklesIcon className="h-5 w-5" />
             </span>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-slate-100 truncate">Solo Rig Subscription</p>
-              <p className="text-[11px] text-amber-300/90 truncate">
-                {sub.daysLeft} {sub.daysLeft === 1 ? 'day' : 'days'} trial remaining • $29/mo
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
+                14-Day Free Trial Active ({sub.daysLeft} days remaining)
+              </p>
+              <p className="text-xs text-slate-600">
+                Lock in early founder pricing at $29/mo before beta testing concludes.
               </p>
             </div>
           </div>
@@ -94,95 +142,152 @@ export default function Dashboard() {
             href={STRIPE_PAYMENT_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="shrink-0 rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 shadow transition hover:bg-amber-300 active:scale-95"
+            className="inline-flex items-center justify-center rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 shadow hover:bg-amber-300"
           >
-            Upgrade
+            Upgrade to Solo Rig Pro ($29/mo)
           </a>
         </div>
-      ) : (
-        <div className="mb-4 flex items-center justify-between rounded-xl bg-slate-900 p-3 text-white shadow-sm">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500 text-slate-950">
-              <SparklesIcon className="h-4 w-4" />
-            </span>
-            <div>
-              <p className="text-xs font-bold text-slate-100">Solo Rig Pro Active</p>
-              <p className="text-[11px] text-emerald-400">Unlimited jobs, parts &amp; invoicing</p>
-            </div>
-          </div>
-        </div>
       )}
 
-      <div className="grid grid-cols-3 gap-2">
-        <Stat label="Active WOs" value={String(active.length)} />
-        <Stat label="Outstanding" value={money(totalDue)} accent />
-        <Stat label="Paid this mo." value={money(monthRevenue)} />
+      {/* 4 Primary Top Metrics Grid */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Link to="/work" className="block transition hover:-translate-y-0.5">
+          <Card className="flex items-center gap-3 p-4">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-600 font-bold">
+              <ClipboardIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Active Jobs</p>
+              <p className="text-xl font-black text-slate-900">{metrics.openCount}</p>
+            </div>
+          </Card>
+        </Link>
+
+        <Link to="/work" className="block transition hover:-translate-y-0.5">
+          <Card className="flex items-center gap-3 p-4">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-600 font-bold">
+              <WrenchIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">In Progress</p>
+              <p className="text-xl font-black text-slate-900">{metrics.inProgressCount}</p>
+            </div>
+          </Card>
+        </Link>
+
+        <Link to="/work" className="block transition hover:-translate-y-0.5">
+          <Card className="flex items-center gap-3 p-4">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-600 font-bold">
+              <ClockIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Completed</p>
+              <p className="text-xl font-black text-slate-900">{metrics.completedCount}</p>
+            </div>
+          </Card>
+        </Link>
+
+        <Link to="/invoices" className="block transition hover:-translate-y-0.5">
+          <Card className="flex items-center gap-3 p-4">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-600 font-bold">
+              <ReceiptIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Unpaid Invoices</p>
+              <p className="text-xl font-black text-slate-900">{money(metrics.unpaidTotal)}</p>
+            </div>
+          </Card>
+        </Link>
       </div>
 
-      {todayWork.length > 0 && (
-        <section className="mt-5">
-          <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">Due today</h3>
-          <div className="space-y-2">
-            {todayWork.map((w) => (
-              <WorkOrderCard key={w.id} wo={w} />
-            ))}
+      {/* Main Responsive Split: Recent Jobs & Shop Health */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Left 2 Cols: Active & Recent Work Orders */}
+        <div className="space-y-4 lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+              Recent Work Orders
+            </h2>
+            <Link to="/work" className="text-xs font-semibold text-amber-600 hover:text-amber-700">
+              View all ({metrics.openCount}) →
+            </Link>
           </div>
-        </section>
-      )}
 
-      <section className="mt-5">
-        <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-          Active work orders
-        </h3>
-        {active.length === 0 ? (
-          <EmptyState
-            icon={<ClipboardIcon className="h-8 w-8" />}
-            title="No active work"
-            sub="Start a new work order to get moving."
-          />
-        ) : (
-          <div className="space-y-2">
-            {active.map((w) => (
-              <WorkOrderCard key={w.id} wo={w} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="mt-5">
-        <div className="mb-2 flex items-center justify-between">
-          <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Recent invoices</h3>
-          <Link to="/invoices" className="text-xs font-semibold text-slate-500 underline">
-            View all
-          </Link>
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-200" />
+              ))}
+            </div>
+          ) : recentOrders.length === 0 ? (
+            <EmptyState
+              icon={<ClipboardIcon className="h-8 w-8 text-slate-400" />}
+              title="No work orders yet"
+              sub="Create your first job ticket to start tracking repairs, parts, and labor."
+              action={
+                <Link
+                  to="/work/new"
+                  className="inline-flex rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-300"
+                >
+                  Create First Ticket
+                </Link>
+              }
+            />
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {recentOrders.map((order) => (
+                <WorkOrderCard key={order.id} wo={order} />
+              ))}
+            </div>
+          )}
         </div>
-        {invoices.length === 0 ? (
-          <EmptyState
-            icon={<ReceiptIcon className="h-8 w-8" />}
-            title="No invoices yet"
-            sub="Invoices are generated from completed work orders."
-          />
-        ) : (
-          <div className="space-y-2">
-            {invoices.slice(0, 3).map((i) => (
-              <Link key={i.id} to={`/invoices/${i.id}`}>
-                <Card className="flex items-center justify-between p-4">
-                  <div className="min-w-0">
-                    <p className="font-mono text-xs font-semibold text-slate-500">{i.number}</p>
-                    <p className="mt-0.5 truncate text-sm font-semibold text-slate-900">
-                      {fullName(i.customer)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-slate-900">{money(i.total)}</span>
-                    <Badge status={i.status} />
-                  </div>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
+
+        {/* Right 1 Col: Quick Links & Shop Stats */}
+        <div className="space-y-4">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Shop Summary</h2>
+          <Card className="divide-y divide-slate-100 p-0 overflow-hidden shadow-sm">
+            <div className="flex items-center justify-between p-3.5">
+              <div className="flex items-center gap-2.5 text-xs text-slate-600">
+                <UsersIcon className="h-4 w-4 text-slate-400" />
+                <span>Total Customers</span>
+              </div>
+              <span className="text-xs font-bold text-slate-900">{metrics.totalCustomers}</span>
+            </div>
+
+            <div className="flex items-center justify-between p-3.5">
+              <div className="flex items-center gap-2.5 text-xs text-slate-600">
+                <ClockIcon className="h-4 w-4 text-emerald-500" />
+                <span>Completed Tickets</span>
+              </div>
+              <span className="text-xs font-bold text-slate-900">{metrics.completedCount}</span>
+            </div>
+
+            <div className="flex items-center justify-between p-3.5">
+              <div className="flex items-center gap-2.5 text-xs text-slate-600">
+                <ReceiptIcon className="h-4 w-4 text-amber-500" />
+                <span>Pending Receivables</span>
+              </div>
+              <span className="text-xs font-bold text-slate-900">
+                {money(metrics.unpaidTotal)} ({metrics.unpaidCount})
+              </span>
+            </div>
+          </Card>
+
+          {/* Shortcut Card */}
+          <Card className="bg-slate-900 text-white p-4 space-y-3 shadow-md">
+            <p className="text-xs font-bold uppercase tracking-wide text-amber-400">Outlaw Pro Tip</p>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Print invoices directly from any work order or text payment links straight to your customer's phone from the invoice screen.
+            </p>
+            <Link
+              to="/settings"
+              className="inline-block text-xs font-bold text-amber-400 hover:text-amber-300"
+            >
+              Configure Shop Info & Rates →
+            </Link>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

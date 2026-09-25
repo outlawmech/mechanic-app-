@@ -438,13 +438,13 @@ export default function Parts() {
           }
         />
       ) : (
-        <div className="space-y-2.5">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           {filteredParts.map((part) => {
             const isLowStock =
               num(part.qty_on_hand) <= num(part.reorder_point) && num(part.reorder_point) > 0;
 
             return (
-              <Card key={part.id} className="p-3.5">
+              <Card key={part.id} className="p-3.5 flex flex-col justify-between">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -476,50 +476,53 @@ export default function Parts() {
                     </div>
                   </div>
 
-                  {/* Stock Level & Quick Adjust */}
-                  <div className="flex flex-col items-end gap-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                          isLowStock
-                            ? 'bg-red-100 text-red-700 ring-1 ring-red-400/30'
-                            : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20'
-                        }`}
-                      >
-                        {part.qty_on_hand} in stock
-                      </span>
-                    </div>
+                  {/* Stock Level Badge */}
+                  <div className="shrink-0">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                        isLowStock
+                          ? 'bg-red-100 text-red-700 ring-1 ring-red-400/30'
+                          : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20'
+                      }`}
+                    >
+                      {part.qty_on_hand} in stock
+                    </span>
+                  </div>
+                </div>
 
-                    {/* Stock Quick + / - Adjuster */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => adjustStock(part, -1)}
-                        className="grid h-6 w-6 place-items-center rounded bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 active:scale-95"
-                        title="Deduct 1"
-                      >
-                        -
-                      </button>
-                      <button
-                        onClick={() => adjustStock(part, 1)}
-                        className="grid h-6 w-6 place-items-center rounded bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 active:scale-95"
-                        title="Add 1"
-                      >
-                        +
-                      </button>
-                      <button
-                        onClick={() => startEdit(part)}
-                        className="ml-1 text-[11px] font-semibold text-slate-500 underline hover:text-slate-800"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => deletePart(part.id)}
-                        className="text-slate-300 hover:text-red-500"
-                        title="Delete part"
-                      >
-                        <TrashIcon className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                {/* Stock Controls Bar at bottom of card */}
+                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
+                  <span className="text-[11px] text-slate-400">
+                    Min alert: {part.reorder_point || 0}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => adjustStock(part, -1)}
+                      className="grid h-6 w-6 place-items-center rounded bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 active:scale-95"
+                      title="Deduct 1"
+                    >
+                      -
+                    </button>
+                    <button
+                      onClick={() => adjustStock(part, 1)}
+                      className="grid h-6 w-6 place-items-center rounded bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 active:scale-95"
+                      title="Add 1"
+                    >
+                      +
+                    </button>
+                    <button
+                      onClick={() => startEdit(part)}
+                      className="ml-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => deletePart(part.id)}
+                      className="text-slate-400 hover:text-red-500 ml-1"
+                      title="Delete part"
+                    >
+                      <TrashIcon className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
               </Card>

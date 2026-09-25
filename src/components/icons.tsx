@@ -107,6 +107,21 @@ export const WrenchIcon = (p: P) => (
   </Svg>
 );
 
+export const MonitorIcon = (p: P) => (
+  <Svg {...p}>
+    <rect x="2" y="3" width="20" height="14" rx="2" />
+    <line x1="8" y1="21" x2="16" y2="21" />
+    <line x1="12" y1="17" x2="12" y2="21" />
+  </Svg>
+);
+
+export const SmartphoneIcon = (p: P) => (
+  <Svg {...p}>
+    <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+    <line x1="12" y1="18" x2="12.01" y2="18" />
+  </Svg>
+);
+
 export const PhoneIcon = (p: P) => (
   <Svg {...p}>
     <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.3a2 2 0 0 1 2.1-.4c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2z" />
