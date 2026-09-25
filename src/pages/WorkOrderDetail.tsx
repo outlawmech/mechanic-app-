@@ -59,12 +59,12 @@ export default function WorkOrderDetail() {
         .from('work_orders')
         .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
         .eq('id', id!)
-        .maybeSingle(),
+        .limit(1),
       sb.from('parts').select('id, sku, name, sell_price, qty_on_hand').order('name'),
     ]);
 
     check(woRes);
-    const wo = (woRes.data ?? null) as WorkOrderFull | null;
+    const wo = (woRes.data?.[0] ?? null) as WorkOrderFull | null;
     const inventoryParts = (partsRes.data ?? []) as Pick<
       Part,
       'id' | 'sku' | 'name' | 'sell_price' | 'qty_on_hand'
@@ -77,9 +77,10 @@ export default function WorkOrderDetail() {
           .from('invoices')
           .select('id, number, total, status')
           .eq('work_order_id', wo.id)
-          .maybeSingle()
+          .order('issued_at', { ascending: false })
+          .limit(1)
       );
-      invoice = (invRes.data ?? null) as InvoiceSummary | null;
+      invoice = (invRes.data?.[0] ?? null) as InvoiceSummary | null;
     }
     return { wo, invoice, inventoryParts };
   }, [id]);

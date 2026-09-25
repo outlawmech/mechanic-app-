@@ -53,9 +53,9 @@ export default function CustomerDetail() {
           '*, vehicles:vehicles(*), work_orders:work_orders(id, number, status, created_at, completed_at), invoices:invoices(id, number, total, status, issued_at)'
         )
         .eq('id', id!)
-        .maybeSingle()
+        .limit(1)
     );
-    return (res.data ?? null) as CustomerFull | null;
+    return (res.data?.[0] ?? null) as CustomerFull | null;
   }, [id]);
 
   const [addingVehicle, setAddingVehicle] = useState(false);

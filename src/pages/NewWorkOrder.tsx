@@ -74,10 +74,11 @@ export default function NewWorkOrder() {
             notes: notes.trim(),
           })
           .select('id')
-          .single()
       );
+      const newId = ((res.data as Array<{ id: string }>)?.[0])?.id;
+      if (!newId) throw new Error('Could not retrieve created work order ID.');
       toast('Work order created');
-      navigate(`/work/${(res.data as { id: string }).id}`, { replace: true });
+      navigate(`/work/${newId}`, { replace: true });
     } catch (err) {
       toast(errMsg(err), 'error');
       setSaving(false);

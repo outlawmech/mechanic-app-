@@ -28,9 +28,9 @@ export default function InvoiceDetail() {
   const { data, error, loading, reload } = useAsync(async () => {
     const sb = requireSupabase();
     const invRes = check(
-      await sb.from('invoices').select('*, customer:customers(*)').eq('id', id!).maybeSingle()
+      await sb.from('invoices').select('*, customer:customers(*)').eq('id', id!).limit(1)
     );
-    const invoice = (invRes.data ?? null) as InvoiceFull | null;
+    const invoice = (invRes.data?.[0] ?? null) as InvoiceFull | null;
     let items: WorkItem[] = [];
     let vehicle: Vehicle | null = null;
     let workOrder: WorkOrder | null = null;
@@ -40,14 +40,14 @@ export default function InvoiceDetail() {
           .from('work_orders')
           .select('*, vehicle:vehicles(*)')
           .eq('id', invoice.work_order_id)
-          .maybeSingle(),
+          .limit(1),
         sb.from('work_items').select('*').eq('work_order_id', invoice.work_order_id).order('sort_order'),
       ]);
       check(woRes);
       check(itemsRes);
-      workOrder = (woRes.data ?? null) as WorkOrder | null;
-      vehicle = ((woRes.data as { vehicle?: Vehicle | null } | null)?.vehicle ?? null) as
-        Vehicle | null;
+      const woData = woRes.data?.[0] as (WorkOrder & { vehicle?: Vehicle | null }) | undefined;
+      workOrder = woData ?? null;
+      vehicle = woData?.vehicle ?? null;
       items = (itemsRes.data ?? []) as WorkItem[];
     }
     return { invoice, items, vehicle, workOrder };

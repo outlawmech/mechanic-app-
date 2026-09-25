@@ -55,9 +55,10 @@ export function useShopSettings() {
           query = query.eq('id', 'default');
         }
 
-        const res = await query.maybeSingle();
-        if (!cancelled && res.data) {
-          const loaded = { ...DEFAULT_SETTINGS, ...res.data };
+        const res = await query.limit(1);
+        const settingData = res.data && res.data[0] ? res.data[0] : null;
+        if (!cancelled && settingData) {
+          const loaded = { ...DEFAULT_SETTINGS, ...settingData };
           setSettings(loaded);
           saveLocalSettings(loaded);
         } else if (!cancelled && user) {

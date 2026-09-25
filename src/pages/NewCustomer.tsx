@@ -79,9 +79,9 @@ export default function NewCustomer() {
             notes: form.notes.trim(),
           })
           .select('id')
-          .single()
       );
-      const newId = (res.data as { id: string }).id;
+      const newId = ((res.data as Array<{ id: string }>)?.[0])?.id;
+      if (!newId) throw new Error('Could not retrieve created customer ID.');
       const hasVehicle = [
         form.make,
         form.model,
