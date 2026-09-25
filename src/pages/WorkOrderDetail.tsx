@@ -7,9 +7,11 @@ import {
   ChevronRightIcon,
   ClockIcon,
   MailIcon,
+  SearchIcon,
   SendIcon,
   ShareIcon,
   TrashIcon,
+  CheckIcon,
 } from '../components/icons';
 import {
   Badge,
@@ -60,15 +62,15 @@ export default function WorkOrderDetail() {
         .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
         .eq('id', id!)
         .limit(1),
-      sb.from('parts').select('id, sku, name, sell_price, qty_on_hand').order('name'),
+      sb
+        .from('parts')
+        .select('id, sku, name, category, sell_price, cost_price, qty_on_hand, location, supplier')
+        .order('name'),
     ]);
 
     check(woRes);
     const wo = (woRes.data?.[0] ?? null) as WorkOrderFull | null;
-    const inventoryParts = (partsRes.data ?? []) as Pick<
-      Part,
-      'id' | 'sku' | 'name' | 'sell_price' | 'qty_on_hand'
-    >[];
+    const inventoryParts = (partsRes.data ?? []) as Part[];
 
     let invoice: InvoiceSummary | null = null;
     if (wo) {
@@ -97,7 +99,8 @@ export default function WorkOrderDetail() {
   const [qty, setQty] = useState('1');
   const [price, setPrice] = useState(String(settings.default_labor_rate || '95'));
   const [selectedPartId, setSelectedPartId] = useState('');
-  const [partEntryMode, setPartEntryMode] = useState<'inventory' | 'manual'>('manual');
+  const [partSearchQuery, setPartSearchQuery] = useState('');
+  const [partEntryMode, setPartEntryMode] = useState<'inventory' | 'manual'>('inventory');
   const [adding, setAdding] = useState(false);
 
   // Sync default tax % from shop settings
@@ -153,6 +156,8 @@ export default function WorkOrderDetail() {
 
   function handleKindChange(newKind: WorkItem['kind']) {
     setKind(newKind);
+    setSelectedPartId('');
+    setPartSearchQuery('');
     if (newKind === 'labor') {
       setPrice(String(settings.default_labor_rate || '95'));
       setDesc('');
@@ -165,19 +170,17 @@ export default function WorkOrderDetail() {
     }
   }
 
-  function handleSelectInventoryPart(partId: string) {
-    setSelectedPartId(partId);
-    const chosen = inventoryParts.find((p) => p.id === partId);
-    if (chosen) {
-      setDesc(chosen.sku ? `${chosen.name} (${chosen.sku})` : chosen.name);
-      setPrice(String(chosen.sell_price));
-    }
+  function handleSelectInventoryPart(p: Part) {
+    setSelectedPartId(p.id);
+    setDesc(p.sku ? `[${p.sku}] ${p.name}` : p.name);
+    setPrice(String(p.sell_price));
+    setPartSearchQuery('');
   }
 
   async function addItem(e: FormEvent) {
     e.preventDefault();
     if (!desc.trim()) {
-      toast('Please enter a description', 'error');
+      toast('Please enter a description or pick a part', 'error');
       return;
     }
     setAdding(true);
@@ -209,6 +212,7 @@ export default function WorkOrderDetail() {
       setDesc('');
       setQty('1');
       setSelectedPartId('');
+      setPartSearchQuery('');
       if (kind === 'labor') {
         setPrice(String(settings.default_labor_rate || '95'));
       } else {
@@ -330,6 +334,20 @@ export default function WorkOrderDetail() {
   }
 
   const invoiceTotal = round2(subtotal + round2(subtotal * ((Number(taxPct) || 0) / 100)));
+
+  // Instant Inventory Parts Filter for Fast Tech Search
+  const selectedPart = inventoryParts.find((p) => p.id === selectedPartId);
+  const filteredInventoryParts = inventoryParts.filter((p) => {
+    const q = partSearchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (p.sku || '').toLowerCase().includes(q) ||
+      p.name.toLowerCase().includes(q) ||
+      (p.category || '').toLowerCase().includes(q) ||
+      (p.supplier || '').toLowerCase().includes(q) ||
+      (p.location || '').toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="space-y-4">
@@ -470,7 +488,7 @@ export default function WorkOrderDetail() {
                 <div className="flex gap-2">
                   <Button
                     variant="accent"
-                    className="flex-1 text-xs"
+                    className="flex-1 text-xs font-bold"
                     disabled={acting || items.length === 0}
                     onClick={createInvoice}
                   >
@@ -530,7 +548,7 @@ export default function WorkOrderDetail() {
           </Card>
         </div>
 
-        {/* Right Column (7 Cols on desktop): Line Items & Inventory Part Chooser */}
+        {/* Right Column (7 Cols on desktop): Line Items & Fast Part Number Search */}
         <div className="space-y-4 lg:col-span-7">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-600">
@@ -575,89 +593,222 @@ export default function WorkOrderDetail() {
             </Card>
           )}
 
-          {/* Add Line Item Form with Smart Parts Selection */}
+          {/* Add Line Item Form with Instant Part Number Search */}
           <form onSubmit={addItem} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-900/10">
-            <p className="text-xs font-bold uppercase tracking-wide text-slate-700">Add Line Item</p>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Type">
-                <Select value={kind} onChange={(e) => handleKindChange(e.target.value as WorkItem['kind'])}>
-                  <option value="labor">Labor</option>
-                  <option value="part">Part</option>
-                  <option value="fee">Fee</option>
-                </Select>
-              </Field>
-
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-700">Add Line Item</p>
               {kind === 'part' && (
-                <Field label="Source">
-                  <Select
-                    value={partEntryMode}
-                    onChange={(e) => {
-                      const mode = e.target.value as 'inventory' | 'manual';
-                      setPartEntryMode(mode);
-                      if (mode === 'manual') {
-                        setSelectedPartId('');
-                      }
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPartEntryMode('inventory');
+                      setSelectedPartId('');
+                      setPartSearchQuery('');
                     }}
+                    className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                      partEntryMode === 'inventory'
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
                   >
-                    <option value="inventory">📦 From Inventory ({inventoryParts.length})</option>
-                    <option value="manual">✏️ Custom / Misc Part</option>
-                  </Select>
-                </Field>
+                    📦 Inventory Search
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPartEntryMode('manual');
+                      setSelectedPartId('');
+                      setDesc('');
+                      setPrice('0');
+                    }}
+                    className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition ${
+                      partEntryMode === 'manual'
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
+                  >
+                    ✏️ Custom / Misc Part
+                  </button>
+                </div>
               )}
             </div>
 
-            {/* If Part from Inventory */}
-            {kind === 'part' && partEntryMode === 'inventory' && inventoryParts.length > 0 && (
-              <Field label="Choose Inventory Part">
-                <Select
-                  value={selectedPartId}
-                  onChange={(e) => handleSelectInventoryPart(e.target.value)}
-                >
-                  <option value="">Select a part from inventory…</option>
-                  {inventoryParts.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.sku ? `[${p.sku}] ` : ''}
-                      {p.name} · {money(p.sell_price)} ({p.qty_on_hand} in stock)
-                    </option>
-                  ))}
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Item Type">
+                <Select value={kind} onChange={(e) => handleKindChange(e.target.value as WorkItem['kind'])}>
+                  <option value="labor">🔧 Labor</option>
+                  <option value="part">📦 Part / Material</option>
+                  <option value="fee">🧾 Shop Fee / Sublet</option>
                 </Select>
               </Field>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Qty / Hours">
+                  <Input type="number" min="0" step="0.25" value={qty} onChange={(e) => setQty(e.target.value)} />
+                </Field>
+                <Field label="Rate ($)">
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                    placeholder="0.00"
+                  />
+                </Field>
+              </div>
+            </div>
+
+            {/* INSTANT PART NUMBER SEARCH (When kind === 'part' and partEntryMode === 'inventory') */}
+            {kind === 'part' && partEntryMode === 'inventory' && (
+              <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/40 p-3">
+                {selectedPart ? (
+                  // Selected Part Preview Card
+                  <div className="flex items-start justify-between rounded-xl bg-white p-3 shadow-sm ring-1 ring-amber-400">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        {selectedPart.sku && (
+                          <span className="font-mono text-xs font-bold rounded bg-amber-100 text-amber-900 px-1.5 py-0.5">
+                            {selectedPart.sku}
+                          </span>
+                        )}
+                        <span className="text-xs font-bold text-slate-900">{selectedPart.name}</span>
+                      </div>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        Sell: <strong className="text-slate-800">{money(selectedPart.sell_price)}</strong> ·{' '}
+                        <span
+                          className={`font-semibold ${
+                            num(selectedPart.qty_on_hand) <= 0 ? 'text-red-600' : 'text-emerald-700'
+                          }`}
+                        >
+                          {selectedPart.qty_on_hand} in stock
+                        </span>
+                        {selectedPart.location ? ` · 📍 ${selectedPart.location}` : ''}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPartId('');
+                        setDesc('');
+                        setPrice('0');
+                        setPartSearchQuery('');
+                      }}
+                      className="rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600 hover:bg-slate-200"
+                    >
+                      Change Part
+                    </button>
+                  </div>
+                ) : (
+                  // Search Input & Live Results
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <SearchIcon className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <input
+                        type="text"
+                        value={partSearchQuery}
+                        onChange={(e) => setPartSearchQuery(e.target.value)}
+                        placeholder="Search SKU # (e.g. WIX-51348), part name, or brand…"
+                        className="h-9 w-full rounded-xl bg-white pl-9 pr-3 text-xs shadow-sm ring-1 ring-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        autoFocus
+                      />
+                    </div>
+
+                    {/* Quick Matching Results Box */}
+                    <div className="max-h-48 overflow-y-auto space-y-1 rounded-xl bg-white p-1 ring-1 ring-slate-200">
+                      {filteredInventoryParts.length === 0 ? (
+                        <div className="p-3 text-center text-xs text-slate-400">
+                          No parts found matching "{partSearchQuery}".
+                          <br />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPartEntryMode('manual');
+                              setDesc(partSearchQuery);
+                            }}
+                            className="mt-1 font-bold text-amber-600 underline"
+                          >
+                            Add as custom part instead
+                          </button>
+                        </div>
+                      ) : (
+                        filteredInventoryParts.slice(0, 8).map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => handleSelectInventoryPart(p)}
+                            className="flex w-full items-center justify-between rounded-lg p-2 text-left transition hover:bg-amber-50/80 active:scale-[0.99]"
+                          >
+                            <div className="min-w-0 flex-1 pr-2">
+                              <div className="flex items-center gap-1.5">
+                                {p.sku && (
+                                  <span className="font-mono text-[11px] font-bold rounded bg-slate-100 px-1 py-0.5 text-slate-700">
+                                    {p.sku}
+                                  </span>
+                                )}
+                                <p className="truncate text-xs font-bold text-slate-800">{p.name}</p>
+                              </div>
+                              <p className="mt-0.5 text-[10px] text-slate-500">
+                                {p.category} {p.location ? `· 📍 ${p.location}` : ''}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-xs font-bold text-slate-900">{money(p.sell_price)}</p>
+                              <p
+                                className={`text-[10px] font-semibold ${
+                                  num(p.qty_on_hand) <= 0 ? 'text-red-500' : 'text-emerald-600'
+                                }`}
+                              >
+                                {p.qty_on_hand} in stock
+                              </p>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                      {filteredInventoryParts.length > 8 && (
+                        <p className="py-1 text-center text-[10px] text-slate-400 border-t border-slate-100">
+                          + {filteredInventoryParts.length - 8} more matches. Type to refine SKU.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Description field */}
-            <Field label={kind === 'labor' ? 'Labor Description' : kind === 'part' ? 'Part Description' : 'Fee Description'}>
-              <Input
-                value={desc}
-                onChange={(e) => setDesc(e.target.value)}
-                placeholder={
+            {(kind !== 'part' || partEntryMode === 'manual' || selectedPart) && (
+              <Field
+                label={
                   kind === 'labor'
-                    ? 'e.g. Brake service / Diagnostic'
+                    ? 'Labor Description'
                     : kind === 'part'
-                      ? 'e.g. NGK Spark Plugs / 10W-40 Oil'
-                      : 'e.g. Shop supplies / Environmental fee'
+                      ? 'Part Description / Notes'
+                      : 'Fee Description'
                 }
-                required
-              />
-            </Field>
-
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Quantity">
-                <Input type="number" min="0" step="0.5" value={qty} onChange={(e) => setQty(e.target.value)} />
-              </Field>
-              <Field label="Unit Price ($)">
+              >
                 <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                  placeholder="0.00"
+                  value={desc}
+                  onChange={(e) => setDesc(e.target.value)}
+                  placeholder={
+                    kind === 'labor'
+                      ? 'e.g. Brake service / Diagnostic / Oil change labor'
+                      : kind === 'part'
+                        ? 'e.g. NGK Spark Plugs / 10W-40 Synthetic Oil'
+                        : 'e.g. Shop supplies / Environmental fee / Hazmat'
+                  }
+                  required
                 />
               </Field>
-            </div>
+            )}
 
-            <Button type="submit" variant="accent" disabled={adding || !desc.trim()} className="w-full text-xs font-bold">
+            <Button
+              type="submit"
+              variant="accent"
+              disabled={adding || !desc.trim()}
+              className="w-full text-xs font-bold"
+            >
               + Add to Ticket
             </Button>
           </form>
