@@ -32,13 +32,11 @@ export default function Layout() {
   const { viewMode, setViewMode } = useViewMode();
   const sub = getSubscriptionInfo(user, settings);
 
-  const isForcedMobile = viewMode === 'mobile';
-
-  if (isForcedMobile) {
-    // Forced Compact Phone Simulation Mode
+  // 1. FORCED MOBILE VIEW (Mock Phone View)
+  if (viewMode === 'mobile') {
     return (
       <div className="min-h-dvh bg-slate-950 py-4 px-2">
-        {/* Top Desktop Switcher Bar */}
+        {/* Switcher Bar */}
         <div className="mx-auto mb-3 flex max-w-md items-center justify-between rounded-xl bg-slate-900 px-3.5 py-2 text-xs text-slate-300 ring-1 ring-slate-800 shadow-md">
           <div className="flex items-center gap-1.5 font-medium">
             <SmartphoneIcon className="h-4 w-4 text-amber-400" />
@@ -46,7 +44,7 @@ export default function Layout() {
           </div>
           <button
             type="button"
-            onClick={() => setViewMode('auto')}
+            onClick={() => setViewMode('desktop')}
             className="flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-200 transition hover:bg-slate-700 hover:text-white"
           >
             <MonitorIcon className="h-3.5 w-3.5" />
@@ -54,7 +52,7 @@ export default function Layout() {
           </button>
         </div>
 
-        {/* Mobile Phone Mock Container */}
+        {/* Mobile Mock Container */}
         <div className="mx-auto flex min-h-[85vh] max-w-md flex-col overflow-hidden rounded-2xl bg-slate-50 shadow-2xl ring-1 ring-slate-800">
           <header className="no-print sticky top-0 z-20 bg-slate-900 px-4 pb-3 pt-4 text-white">
             <div className="flex items-center gap-2.5">
@@ -106,12 +104,121 @@ export default function Layout() {
     );
   }
 
-  // Responsive Layout: Full Wide Desktop View on md/lg screens, Compact Mobile on small phones
+  // 2. FORCED DESKTOP VIEW (Even on Mobile Phone Screens)
+  if (viewMode === 'desktop') {
+    return (
+      <div className="min-h-dvh bg-slate-100 min-w-[768px] overflow-x-auto">
+        {/* Desktop Left Sidebar */}
+        <aside className="no-print fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-slate-900 text-white shadow-xl">
+          <div className="flex items-center gap-3 border-b border-slate-800 p-4">
+            {settings.logo_url ? (
+              <img
+                src={settings.logo_url}
+                alt={settings.shop_name}
+                className="h-10 w-10 rounded-xl object-contain bg-white p-1 shadow"
+              />
+            ) : (
+              <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-400 text-slate-950 font-black shadow">
+                <WrenchIcon className="h-6 w-6" />
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-sm font-bold text-white">{settings.shop_name}</h1>
+              <p className="truncate text-[11px] text-slate-400">{settings.tagline}</p>
+            </div>
+          </div>
+
+          <nav className="flex-1 space-y-1 p-3">
+            {tabs.map((t) => (
+              <NavLink
+                key={t.to}
+                to={t.to}
+                end={t.end}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${
+                    isActive
+                      ? 'bg-amber-400 text-slate-950 shadow-md font-bold'
+                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                  }`
+                }
+              >
+                <t.icon className="h-4 w-4 shrink-0" />
+                <span>{t.label}</span>
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="p-3 border-t border-slate-800 space-y-2">
+            {sub.isPro ? (
+              <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-2.5 text-center">
+                <p className="flex items-center justify-center gap-1 text-[11px] font-bold text-emerald-400">
+                  <SparklesIcon className="h-3.5 w-3.5" /> Solo Rig • Pro Active
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-slate-800/80 border border-amber-500/30 p-3 text-center space-y-2">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                    14-Day Free Trial
+                  </p>
+                  <p className="text-xs font-semibold text-slate-200">
+                    {sub.daysLeft} {sub.daysLeft === 1 ? 'day' : 'days'} remaining
+                  </p>
+                </div>
+                <a
+                  href={STRIPE_PAYMENT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full rounded-lg bg-amber-400 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-amber-300"
+                >
+                  Upgrade $29/mo
+                </a>
+              </div>
+            )}
+
+            {/* Toggle to Switch Back to Mobile Mode */}
+            <button
+              type="button"
+              onClick={() => setViewMode('auto')}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-800 py-2 text-xs font-bold text-amber-400 hover:bg-slate-700 hover:text-amber-300 ring-1 ring-slate-700"
+            >
+              <SmartphoneIcon className="h-4 w-4" />
+              Switch to Phone Mode
+            </button>
+          </div>
+        </aside>
+
+        {/* Desktop Main Content */}
+        <div className="pl-64 flex flex-col min-h-dvh">
+          {/* Top Desktop Helper Notice */}
+          <div className="no-print bg-slate-900 text-slate-300 px-6 py-2 text-xs flex items-center justify-between border-b border-slate-800">
+            <span className="flex items-center gap-1.5 font-medium">
+              <MonitorIcon className="h-4 w-4 text-amber-400" />
+              Desktop Mode Active
+            </span>
+            <button
+              type="button"
+              onClick={() => setViewMode('auto')}
+              className="flex items-center gap-1 rounded bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-slate-700 hover:text-white"
+            >
+              <SmartphoneIcon className="h-3.5 w-3.5" />
+              Return to Phone View
+            </button>
+          </div>
+
+          <main className="flex-1 mx-auto w-full max-w-7xl px-6 py-6 pb-12">
+            <Outlet />
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. AUTO RESPONSIVE MODE (Mobile on phones, Desktop on monitors/tablets)
   return (
     <div className="flex min-h-dvh flex-col bg-slate-100 md:flex-row">
       {/* Desktop Left Sidebar (Visible on tablet/laptop/desktop >= md) */}
       <aside className="no-print hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-slate-900 text-white shadow-xl z-30">
-        {/* Brand Header */}
         <div className="flex items-center gap-3 border-b border-slate-800 p-4">
           {settings.logo_url ? (
             <img
@@ -130,7 +237,6 @@ export default function Layout() {
           </div>
         </div>
 
-        {/* Sidebar Navigation Links */}
         <nav className="flex-1 space-y-1 p-3">
           {tabs.map((t) => (
             <NavLink
@@ -151,7 +257,6 @@ export default function Layout() {
           ))}
         </nav>
 
-        {/* Plan / Subscription Status Card at Bottom of Sidebar */}
         <div className="p-3 border-t border-slate-800 space-y-2">
           {sub.isPro ? (
             <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-2.5 text-center">
@@ -180,7 +285,6 @@ export default function Layout() {
             </div>
           )}
 
-          {/* Toggle to Force Mobile View */}
           <button
             type="button"
             onClick={() => setViewMode('mobile')}
@@ -193,7 +297,7 @@ export default function Layout() {
       </aside>
 
       {/* Mobile Top Header (Visible only on small phones < md) */}
-      <header className="no-print sticky top-0 z-20 flex md:hidden items-center justify-between bg-slate-900 px-4 pb-3 pt-4 text-white">
+      <header className="no-print sticky top-0 z-20 flex md:hidden items-center justify-between bg-slate-900 px-4 pb-3 pt-4 text-white shadow-md">
         <div className="flex items-center gap-2.5 min-w-0">
           {settings.logo_url ? (
             <img
@@ -212,13 +316,14 @@ export default function Layout() {
           </div>
         </div>
 
+        {/* Prominent Desktop Mode Button on Phone Header */}
         <button
           type="button"
           onClick={() => setViewMode('desktop')}
-          title="Force Desktop Mode"
-          className="ml-2 rounded-lg bg-slate-800 p-2 text-slate-300 hover:bg-slate-700 hover:text-white"
+          className="ml-2 flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-bold text-amber-400 ring-1 ring-slate-700 hover:bg-slate-700 active:scale-95"
         >
           <MonitorIcon className="h-4 w-4" />
+          <span className="text-[11px]">Desktop</span>
         </button>
       </header>
 
