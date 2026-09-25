@@ -30,13 +30,21 @@ function applyViewport(mode: ViewMode) {
 
 export function useViewMode() {
   const [viewMode, setViewModeState] = useState<ViewMode>(() => {
+    // Default to 'auto' so phones ALWAYS open in clean mobile phone mode by default!
     try {
       const saved = localStorage.getItem(STORAGE_KEY) as ViewMode | null;
-      if (saved === 'mobile' || saved === 'desktop' || saved === 'auto') {
+      if (saved === 'mobile' || saved === 'desktop') {
+        // If saved was desktop, but user is on a phone, reset to auto so it doesn't open in desktop by default
+        if (saved === 'desktop' && typeof window !== 'undefined' && window.innerWidth < 768) {
+          localStorage.removeItem(STORAGE_KEY);
+          applyViewport('auto');
+          return 'auto';
+        }
         applyViewport(saved);
         return saved;
       }
     } catch {}
+    applyViewport('auto');
     return 'auto';
   });
 
@@ -48,7 +56,11 @@ export function useViewMode() {
     setViewModeState(mode);
     applyViewport(mode);
     try {
-      localStorage.setItem(STORAGE_KEY, mode);
+      if (mode === 'auto') {
+        localStorage.removeItem(STORAGE_KEY);
+      } else {
+        localStorage.setItem(STORAGE_KEY, mode);
+      }
     } catch {}
   };
 
