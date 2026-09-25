@@ -24,7 +24,7 @@ import { money, num, round2 } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import type { Part } from '../types';
 
-import { cacheLocal, getCachedLocal } from '../lib/offlineSync';
+import { cacheLocal, getCachedLocal, safeFetchWithCache } from '../lib/offlineSync';
 
 const CATEGORIES = [
   'General',
@@ -64,17 +64,15 @@ export default function Parts() {
   const [saving, setSaving] = useState(false);
 
   const { data: parts, error, loading, reload } = useAsync(async () => {
-    try {
-      const sb = requireSupabase();
-      const res = check(await sb.from('parts').select('*').order('name'));
-      const partsList = (res.data ?? []) as Part[];
-      cacheLocal('parts', partsList);
-      return partsList;
-    } catch (err) {
-      const cached = getCachedLocal<Part[]>('parts');
-      if (cached && cached.length > 0) return cached;
-      throw err;
-    }
+    return safeFetchWithCache<Part[]>(
+      'parts',
+      async () => {
+        const sb = requireSupabase();
+        const res = check(await sb.from('parts').select('*').order('name'));
+        return (res.data ?? []) as Part[];
+      },
+      []
+    );
   }, []);
 
   if (loading) return <Spinner />;

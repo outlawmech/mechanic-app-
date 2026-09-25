@@ -19,6 +19,7 @@ const CACHE_PREFIX = 'outlaw_cache_';
 
 export function cacheLocal(key: string, data: any) {
   try {
+    if (data === undefined) return;
     localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ data, cachedAt: Date.now() }));
   } catch (e) {
     console.warn('Could not write to local offline cache:', e);
@@ -33,6 +34,41 @@ export function getCachedLocal<T>(key: string): T | null {
     return parsed.data as T;
   } catch (e) {
     return null;
+  }
+}
+
+/**
+ * Universal safe data fetcher with instant local cache fallback for 100% offline reliability.
+ * Prevents "TypeError: Failed to fetch" from crashing the UI when offline.
+ */
+export async function safeFetchWithCache<T>(
+  key: string,
+  fetcher: () => Promise<T>,
+  fallbackValue?: T
+): Promise<T> {
+  const cached = getCachedLocal<T>(key);
+
+  // If currently offline, return cached data immediately (or fallback default)
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    if (cached !== null && cached !== undefined) return cached;
+    return (fallbackValue !== undefined ? fallbackValue : ([] as unknown as T));
+  }
+
+  try {
+    const result = await fetcher();
+    if (result !== undefined && result !== null) {
+      cacheLocal(key, result);
+    }
+    return result;
+  } catch (err: any) {
+    console.warn(`Network fetch failed for "${key}", falling back to offline cache:`, err?.message || err);
+    if (cached !== null && cached !== undefined) {
+      return cached;
+    }
+    if (fallbackValue !== undefined) {
+      return fallbackValue;
+    }
+    return [] as unknown as T;
   }
 }
 

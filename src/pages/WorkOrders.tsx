@@ -5,10 +5,9 @@ import { Chip, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../compon
 import { useAsync } from '../lib/hooks';
 import { fullName, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
+import { safeFetchWithCache } from '../lib/offlineSync';
 import type { WorkOrderFull } from '../types';
 import { Link } from 'react-router-dom';
-
-import { cacheLocal, getCachedLocal } from '../lib/offlineSync';
 
 const FILTERS = [
   { id: 'active', label: 'Active ROs' },
@@ -25,21 +24,19 @@ export default function WorkOrders() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const { data, error, loading } = useAsync(async () => {
-    try {
-      const res = check(
-        await requireSupabase()
-          .from('work_orders')
-          .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
-          .order('created_at', { ascending: false })
-      );
-      const orders = (res.data ?? []) as WorkOrderFull[];
-      cacheLocal('work_orders', orders);
-      return orders;
-    } catch (err) {
-      const cached = getCachedLocal<WorkOrderFull[]>('work_orders');
-      if (cached && cached.length > 0) return cached;
-      throw err;
-    }
+    return safeFetchWithCache<WorkOrderFull[]>(
+      'work_orders',
+      async () => {
+        const res = check(
+          await requireSupabase()
+            .from('work_orders')
+            .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
+            .order('created_at', { ascending: false })
+        );
+        return (res.data ?? []) as WorkOrderFull[];
+      },
+      []
+    );
   });
 
   const list = useMemo(() => {

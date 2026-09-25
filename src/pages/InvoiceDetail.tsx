@@ -17,6 +17,8 @@ import {
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import type { InvoiceFull, Vehicle, WorkItem, WorkOrder } from '../types';
 
+import { safeFetchWithCache, enqueueOfflineAction } from '../lib/offlineSync';
+
 const KIND_LABEL: Record<string, string> = { labor: 'Labor', part: 'Part', fee: 'Fee' };
 
 export default function InvoiceDetail() {
@@ -26,31 +28,37 @@ export default function InvoiceDetail() {
   const [acting, setActing] = useState(false);
 
   const { data, error, loading, reload } = useAsync(async () => {
-    const sb = requireSupabase();
-    const invRes = check(
-      await sb.from('invoices').select('*, customer:customers(*)').eq('id', id!).limit(1)
+    return safeFetchWithCache(
+      `inv_${id}`,
+      async () => {
+        const sb = requireSupabase();
+        const invRes = check(
+          await sb.from('invoices').select('*, customer:customers(*)').eq('id', id!).limit(1)
+        );
+        const invoice = (invRes.data?.[0] ?? null) as InvoiceFull | null;
+        let items: WorkItem[] = [];
+        let vehicle: Vehicle | null = null;
+        let workOrder: WorkOrder | null = null;
+        if (invoice?.work_order_id) {
+          const [woRes, itemsRes] = await Promise.all([
+            sb
+              .from('work_orders')
+              .select('*, vehicle:vehicles(*)')
+              .eq('id', invoice.work_order_id)
+              .limit(1),
+            sb.from('work_items').select('*').eq('work_order_id', invoice.work_order_id).order('sort_order'),
+          ]);
+          check(woRes);
+          check(itemsRes);
+          const woData = woRes.data?.[0] as (WorkOrder & { vehicle?: Vehicle | null }) | undefined;
+          workOrder = woData ?? null;
+          vehicle = woData?.vehicle ?? null;
+          items = (itemsRes.data ?? []) as WorkItem[];
+        }
+        return { invoice, items, vehicle, workOrder };
+      },
+      { invoice: null, items: [], vehicle: null, workOrder: null }
     );
-    const invoice = (invRes.data?.[0] ?? null) as InvoiceFull | null;
-    let items: WorkItem[] = [];
-    let vehicle: Vehicle | null = null;
-    let workOrder: WorkOrder | null = null;
-    if (invoice?.work_order_id) {
-      const [woRes, itemsRes] = await Promise.all([
-        sb
-          .from('work_orders')
-          .select('*, vehicle:vehicles(*)')
-          .eq('id', invoice.work_order_id)
-          .limit(1),
-        sb.from('work_items').select('*').eq('work_order_id', invoice.work_order_id).order('sort_order'),
-      ]);
-      check(woRes);
-      check(itemsRes);
-      const woData = woRes.data?.[0] as (WorkOrder & { vehicle?: Vehicle | null }) | undefined;
-      workOrder = woData ?? null;
-      vehicle = woData?.vehicle ?? null;
-      items = (itemsRes.data ?? []) as WorkItem[];
-    }
-    return { invoice, items, vehicle, workOrder };
   }, [id]);
 
   if (loading) return <Spinner />;

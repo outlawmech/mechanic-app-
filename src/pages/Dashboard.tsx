@@ -19,6 +19,8 @@ import { money } from '../lib/format';
 import { useShopSettings } from '../lib/settings';
 import { getSubscriptionInfo, STRIPE_PAYMENT_URL } from '../lib/subscription';
 
+import { cacheLocal, getCachedLocal } from '../lib/offlineSync';
+
 interface Metrics {
   inProgressCount: number;
   completedCount: number;
@@ -33,14 +35,20 @@ export default function Dashboard() {
   const { settings } = useShopSettings();
   const sub = getSubscriptionInfo(user, settings);
 
-  const [recentOrders, setRecentOrders] = useState<WorkOrderFull[]>([]);
-  const [metrics, setMetrics] = useState<Metrics>({
-    inProgressCount: 0,
-    completedCount: 0,
-    openCount: 0,
-    unpaidTotal: 0,
-    unpaidCount: 0,
-    totalCustomers: 0,
+  const [recentOrders, setRecentOrders] = useState<WorkOrderFull[]>(() => {
+    return getCachedLocal<WorkOrderFull[]>('dashboard_orders') || [];
+  });
+  const [metrics, setMetrics] = useState<Metrics>(() => {
+    return (
+      getCachedLocal<Metrics>('dashboard_metrics') || {
+        inProgressCount: 0,
+        completedCount: 0,
+        openCount: 0,
+        unpaidTotal: 0,
+        unpaidCount: 0,
+        totalCustomers: 0,
+      }
+    );
   });
   const [loading, setLoading] = useState(true);
 
@@ -49,8 +57,20 @@ export default function Dashboard() {
   }, [user?.id]);
 
   async function loadDashboard() {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const cachedOrders = getCachedLocal<WorkOrderFull[]>('dashboard_orders') || getCachedLocal<WorkOrderFull[]>('work_orders');
+      const cachedMetrics = getCachedLocal<Metrics>('dashboard_metrics');
+      if (cachedOrders) setRecentOrders(cachedOrders.slice(0, 6));
+      if (cachedMetrics) setMetrics(cachedMetrics);
+      setLoading(false);
+      return;
+    }
 
     try {
       const [ordersRes, invoicesRes, customersRes] = await Promise.all([
@@ -80,17 +100,25 @@ export default function Dashboard() {
       const unpaidInvoices = invoices.filter((i) => i.status === 'unpaid' || i.status === 'draft');
       const unpaidTotal = unpaidInvoices.reduce((sum, i) => sum + Number(i.total || 0), 0);
 
-      setRecentOrders(orders.slice(0, 6));
-      setMetrics({
+      const latestMetrics: Metrics = {
         inProgressCount: inProgress,
         completedCount: completed,
         openCount: open,
         unpaidTotal,
         unpaidCount: unpaidInvoices.length,
         totalCustomers: customersRes.count || 0,
-      });
+      };
+
+      setRecentOrders(orders.slice(0, 6));
+      setMetrics(latestMetrics);
+      cacheLocal('dashboard_orders', orders);
+      cacheLocal('dashboard_metrics', latestMetrics);
     } catch (err) {
-      console.error('Failed to load dashboard:', err);
+      console.warn('Dashboard online fetch failed, using local cache:', err);
+      const cachedOrders = getCachedLocal<WorkOrderFull[]>('dashboard_orders') || getCachedLocal<WorkOrderFull[]>('work_orders');
+      const cachedMetrics = getCachedLocal<Metrics>('dashboard_metrics');
+      if (cachedOrders) setRecentOrders(cachedOrders.slice(0, 6));
+      if (cachedMetrics) setMetrics(cachedMetrics);
     } finally {
       setLoading(false);
     }

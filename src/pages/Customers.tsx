@@ -5,28 +5,25 @@ import { Card, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../compon
 import { useAsync } from '../lib/hooks';
 import { fullName, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
+import { safeFetchWithCache } from '../lib/offlineSync';
 import type { CustomerWithVehicles } from '../types';
-
-import { cacheLocal, getCachedLocal } from '../lib/offlineSync';
 
 export default function Customers() {
   const [q, setQ] = useState('');
   const { data, error, loading } = useAsync(async () => {
-    try {
-      const res = check(
-        await requireSupabase()
-          .from('customers')
-          .select('*, vehicles:vehicles(*)')
-          .order('first_name')
-      );
-      const custs = (res.data ?? []) as CustomerWithVehicles[];
-      cacheLocal('customers', custs);
-      return custs;
-    } catch (err) {
-      const cached = getCachedLocal<CustomerWithVehicles[]>('customers');
-      if (cached && cached.length > 0) return cached;
-      throw err;
-    }
+    return safeFetchWithCache<CustomerWithVehicles[]>(
+      'customers',
+      async () => {
+        const res = check(
+          await requireSupabase()
+            .from('customers')
+            .select('*, vehicles:vehicles(*)')
+            .order('first_name')
+        );
+        return (res.data ?? []) as CustomerWithVehicles[];
+      },
+      []
+    );
   });
 
   const list = (data ?? []).filter((c) => {

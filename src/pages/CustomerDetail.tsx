@@ -42,20 +42,28 @@ const emptyVehicle = {
   engine2_hours: '',
 };
 
+import { safeFetchWithCache, enqueueOfflineAction } from '../lib/offlineSync';
+
 export default function CustomerDetail() {
   const { id } = useParams();
   const toast = useToast();
   const { data, error, loading, reload } = useAsync(async () => {
-    const res = check(
-      await requireSupabase()
-        .from('customers')
-        .select(
-          '*, vehicles:vehicles(*), work_orders:work_orders(id, number, status, created_at, completed_at), invoices:invoices(id, number, total, status, issued_at)'
-        )
-        .eq('id', id!)
-        .limit(1)
+    return safeFetchWithCache<CustomerFull | null>(
+      `cust_${id}`,
+      async () => {
+        const res = check(
+          await requireSupabase()
+            .from('customers')
+            .select(
+              '*, vehicles:vehicles(*), work_orders:work_orders(id, number, status, created_at, completed_at), invoices:invoices(id, number, total, status, issued_at)'
+            )
+            .eq('id', id!)
+            .limit(1)
+        );
+        return (res.data?.[0] ?? null) as CustomerFull | null;
+      },
+      null
     );
-    return (res.data?.[0] ?? null) as CustomerFull | null;
   }, [id]);
 
   const [addingVehicle, setAddingVehicle] = useState(false);
