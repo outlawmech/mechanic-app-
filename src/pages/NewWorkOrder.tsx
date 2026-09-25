@@ -6,7 +6,7 @@ import { Button, Card, EmptyState, ErrorState, Field, Input, PageTitle, Select, 
 import { useAsync } from '../lib/hooks';
 import { fullName, getVehicleTypeInfo, todayISO, vehicleLabel } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
-import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, getCachedLocal } from '../lib/offlineSync';
+import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
 import type { CustomerWithVehicles, WorkOrderFull } from '../types';
 
 export default function NewWorkOrder() {
@@ -70,7 +70,11 @@ export default function NewWorkOrder() {
     }
     setSaving(true);
 
+    const roId = generateUUID();
+    const tempNumber = `RO-${Math.floor(1000 + Math.random() * 9000)}`;
+
     const payload = {
+      id: roId,
       customer_id: customerId,
       vehicle_id: vehicleId || null,
       scheduled_at: scheduled ? `${scheduled}T12:00:00` : null,
@@ -78,89 +82,82 @@ export default function NewWorkOrder() {
       notes: notes.trim(),
     };
 
+    const offlineRo: WorkOrderFull = {
+      id: roId,
+      number: tempNumber,
+      customer_id: customerId,
+      vehicle_id: vehicleId || null,
+      customer: customer!,
+      vehicle: selectedVehicle || null,
+      scheduled_at: payload.scheduled_at,
+      mileage_or_hours: payload.mileage_or_hours,
+      notes: payload.notes,
+      status: 'open',
+      items: [],
+      created_at: new Date().toISOString(),
+      completed_at: null,
+    };
+
+    // Save into local cache immediately
+    cacheLocal(`wo_${roId}`, { wo: offlineRo, invoice: null, inventoryParts: [] });
+    const cachedOrders = getCachedLocal<WorkOrderFull[]>('work_orders') || [];
+    cacheLocal('work_orders', [offlineRo, ...cachedOrders]);
+
     try {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         const res = check(
           await requireSupabase()
             .from('work_orders')
-            .insert(payload)
+            .insert({
+              customer_id: payload.customer_id,
+              vehicle_id: payload.vehicle_id,
+              scheduled_at: payload.scheduled_at,
+              mileage_or_hours: payload.mileage_or_hours,
+              notes: payload.notes,
+            })
             .select('id, number')
         );
         const created = (res.data as Array<{ id: string; number: string }>)?.[0];
-        if (!created?.id) throw new Error('Could not retrieve created repair order ID.');
-        toast('Repair Order created');
-        navigate(`/work/${created.id}`, { replace: true });
-      } else {
-        // Offline RO Creation
-        const tempId = `ro_${Date.now()}`;
-        const tempNumber = `RO-${Math.floor(1000 + Math.random() * 9000)}`;
-
-        const offlineRo: WorkOrderFull = {
-          id: tempId,
-          number: tempNumber,
-          customer_id: customerId,
-          vehicle_id: vehicleId || null,
-          customer: customer!,
-          vehicle: selectedVehicle || null,
-          scheduled_at: payload.scheduled_at,
-          mileage_or_hours: payload.mileage_or_hours,
-          notes: payload.notes,
-          status: 'open',
-          items: [],
-          created_at: new Date().toISOString(),
-          completed_at: null,
-        };
-
-        // Save into local cache
-        cacheLocal(`wo_${tempId}`, { wo: offlineRo, invoice: null, inventoryParts: [] });
-
-        const cachedOrders = getCachedLocal<WorkOrderFull[]>('work_orders') || [];
-        cacheLocal('work_orders', [offlineRo, ...cachedOrders]);
-
-        enqueueOfflineAction({
-          table: 'work_orders',
-          type: 'insert',
-          payload,
-          description: `Create Repair Order for ${fullName(customer)}`,
-        });
-
-        toast('Repair Order created (Saved to device)');
-        navigate(`/work/${tempId}`, { replace: true });
+        if (created?.id) {
+          toast('Repair Order created');
+          navigate(`/work/${created.id}`, { replace: true });
+          return;
+        }
       }
-    } catch (err) {
-      // Fallback to offline creation if online insert fails
-      const tempId = `ro_${Date.now()}`;
-      const tempNumber = `RO-${Math.floor(1000 + Math.random() * 9000)}`;
-
-      const offlineRo: WorkOrderFull = {
-        id: tempId,
-        number: tempNumber,
-        customer_id: customerId,
-        vehicle_id: vehicleId || null,
-        customer: customer!,
-        vehicle: selectedVehicle || null,
-        scheduled_at: payload.scheduled_at,
-        mileage_or_hours: payload.mileage_or_hours,
-        notes: payload.notes,
-        status: 'open',
-        items: [],
-        created_at: new Date().toISOString(),
-        completed_at: null,
-      };
-
-      cacheLocal(`wo_${tempId}`, { wo: offlineRo, invoice: null, inventoryParts: [] });
-      const cachedOrders = getCachedLocal<WorkOrderFull[]>('work_orders') || [];
-      cacheLocal('work_orders', [offlineRo, ...cachedOrders]);
 
       enqueueOfflineAction({
         table: 'work_orders',
         type: 'insert',
-        payload,
+        payload: {
+          id: roId,
+          customer_id: payload.customer_id,
+          vehicle_id: payload.vehicle_id,
+          scheduled_at: payload.scheduled_at,
+          mileage_or_hours: payload.mileage_or_hours,
+          notes: payload.notes,
+        },
+        description: `Create Repair Order for ${fullName(customer)}`,
+      });
+
+      toast('Repair Order created (Saved to device)');
+      navigate(`/work/${roId}`, { replace: true });
+    } catch (err) {
+      enqueueOfflineAction({
+        table: 'work_orders',
+        type: 'insert',
+        payload: {
+          id: roId,
+          customer_id: payload.customer_id,
+          vehicle_id: payload.vehicle_id,
+          scheduled_at: payload.scheduled_at,
+          mileage_or_hours: payload.mileage_or_hours,
+          notes: payload.notes,
+        },
         description: `Create Repair Order for ${fullName(customer)}`,
       });
 
       toast('Repair Order created (Saved offline)');
-      navigate(`/work/${tempId}`, { replace: true });
+      navigate(`/work/${roId}`, { replace: true });
     } finally {
       setSaving(false);
     }

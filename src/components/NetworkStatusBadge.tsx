@@ -1,9 +1,10 @@
 import { useNetworkStatus } from '../lib/offlineSync';
 import { useToast } from './Toast';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export default function NetworkStatusBadge() {
-  const { isOnline, isSyncing, pendingCount, syncNow } = useNetworkStatus();
+  const { isOnline, isSyncing, pendingCount, syncNow, clearQueue } = useNetworkStatus();
+  const [manualSyncing, setManualSyncing] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -17,15 +18,34 @@ export default function NetworkStatusBadge() {
     return () => window.removeEventListener('outlaw_offline_synced', handleSynced);
   }, [toast]);
 
-  if (isOnline && pendingCount === 0 && !isSyncing) {
+  async function handleManualSync() {
+    if (manualSyncing) return;
+    setManualSyncing(true);
+    try {
+      const res = await syncNow();
+      if (res.synced > 0) {
+        toast(`✓ Synced ${res.synced} offline ${res.synced === 1 ? 'item' : 'items'} to cloud!`);
+      } else if (res.failed > 0 && pendingCount === 0) {
+        toast('Queue cleaned & refreshed!');
+      } else if (pendingCount === 0) {
+        toast('All records are up to date!');
+      }
+    } catch {
+      toast('Could not complete sync. Check internet connection.', 'error');
+    } finally {
+      setManualSyncing(false);
+    }
+  }
+
+  if (isOnline && pendingCount === 0 && !isSyncing && !manualSyncing) {
     return null;
   }
 
-  if (isSyncing) {
+  if (isSyncing || manualSyncing) {
     return (
       <div className="flex items-center gap-1.5 rounded-full bg-blue-500/20 border border-blue-400/40 px-2.5 py-1 text-[11px] font-bold text-blue-300 animate-pulse">
         <span className="h-2 w-2 rounded-full bg-blue-400 animate-ping" />
-        <span>Syncing {pendingCount} {pendingCount === 1 ? 'change' : 'changes'} to cloud…</span>
+        <span>Syncing to cloud…</span>
       </div>
     );
   }
@@ -43,7 +63,7 @@ export default function NetworkStatusBadge() {
     return (
       <button
         type="button"
-        onClick={() => syncNow()}
+        onClick={handleManualSync}
         className="flex items-center gap-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 px-2.5 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-500/30 active:scale-95 transition"
       >
         <span className="h-2 w-2 rounded-full bg-amber-400" />

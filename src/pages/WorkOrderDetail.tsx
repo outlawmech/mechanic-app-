@@ -49,7 +49,7 @@ const KIND_CLS: Record<WorkItem['kind'], string> = {
   fee: 'bg-slate-100 text-slate-500',
 };
 
-import { cacheLocal, getCachedLocal, enqueueOfflineAction } from '../lib/offlineSync';
+import { cacheLocal, getCachedLocal, enqueueOfflineAction, generateUUID } from '../lib/offlineSync';
 
 export default function WorkOrderDetail() {
   const { id } = useParams();
@@ -249,16 +249,22 @@ export default function WorkOrderDetail() {
         toast('Line item added');
         await reload();
       } else {
+        const itemId = generateUUID();
+        const offlineItemPayload = {
+          id: itemId,
+          ...newItemPayload,
+        };
+
         enqueueOfflineAction({
           table: 'work_items',
           type: 'insert',
-          payload: newItemPayload,
+          payload: offlineItemPayload,
           description: `Add ${kind}: ${desc.trim()}`,
         });
 
         // Update local items array
         const tempItem: WorkItem = {
-          id: `temp_${Date.now()}`,
+          id: itemId,
           ...newItemPayload,
           created_at: new Date().toISOString(),
         };
@@ -277,14 +283,20 @@ export default function WorkOrderDetail() {
         setPrice('0');
       }
     } catch (e) {
+      const itemId = generateUUID();
+      const offlineItemPayload = {
+        id: itemId,
+        ...newItemPayload,
+      };
+
       enqueueOfflineAction({
         table: 'work_items',
         type: 'insert',
-        payload: newItemPayload,
+        payload: offlineItemPayload,
         description: `Add ${kind}: ${desc.trim()}`,
       });
       const tempItem: WorkItem = {
-        id: `temp_${Date.now()}`,
+        id: itemId,
         ...newItemPayload,
         created_at: new Date().toISOString(),
       };

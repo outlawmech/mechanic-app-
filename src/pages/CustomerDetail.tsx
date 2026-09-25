@@ -42,7 +42,7 @@ const emptyVehicle = {
   engine2_hours: '',
 };
 
-import { safeFetchWithCache, enqueueOfflineAction, cacheLocal } from '../lib/offlineSync';
+import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
 
 export default function CustomerDetail() {
   const { id } = useParams();
@@ -95,7 +95,9 @@ export default function CustomerDetail() {
       return;
     }
     setSaving(true);
+    const vehId = generateUUID();
     const vehiclePayload = {
+      id: vehId,
       customer_id: c!.id,
       type: v.type,
       year: v.year ? Number(v.year) : null,
@@ -121,7 +123,6 @@ export default function CustomerDetail() {
         await reload();
       } else {
         const tempVeh: Vehicle = {
-          id: `veh_${Date.now()}`,
           ...vehiclePayload,
           created_at: new Date().toISOString(),
         };
@@ -139,7 +140,6 @@ export default function CustomerDetail() {
       }
     } catch (err) {
       const tempVeh: Vehicle = {
-        id: `veh_${Date.now()}`,
         ...vehiclePayload,
         created_at: new Date().toISOString(),
       };

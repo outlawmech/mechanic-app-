@@ -4,6 +4,7 @@ import { supabase } from './supabase';
 export interface OfflineAction {
   id: string;
   createdAt: number;
+  retryCount?: number;
   table: string;
   type: 'insert' | 'update' | 'delete';
   payload?: any;
@@ -14,6 +15,19 @@ export interface OfflineAction {
 
 const QUEUE_KEY = 'outlaw_offline_queue';
 const CACHE_PREFIX = 'outlaw_cache_';
+
+// ---------------- UUID Generator ----------------
+
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
 
 // ---------------- Local Cache Storage ----------------
 
@@ -83,12 +97,21 @@ export function getOfflineQueue(): OfflineAction[] {
   }
 }
 
-function saveOfflineQueue(queue: OfflineAction[]) {
+export function saveOfflineQueue(queue: OfflineAction[]) {
   try {
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
     window.dispatchEvent(new CustomEvent('outlaw_queue_changed', { detail: { count: queue.length } }));
   } catch (e) {
     console.error('Failed to save offline queue:', e);
+  }
+}
+
+export function clearOfflineQueue() {
+  try {
+    localStorage.removeItem(QUEUE_KEY);
+    window.dispatchEvent(new CustomEvent('outlaw_queue_changed', { detail: { count: 0 } }));
+  } catch (e) {
+    console.error('Failed to clear offline queue:', e);
   }
 }
 
@@ -98,6 +121,7 @@ export function enqueueOfflineAction(action: Omit<OfflineAction, 'id' | 'created
     ...action,
     id: `off_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     createdAt: Date.now(),
+    retryCount: 0,
   };
   queue.push(newAction);
   saveOfflineQueue(queue);
@@ -144,9 +168,24 @@ export async function processOfflineSyncQueue(): Promise<{ synced: number; faile
         if (res.error) throw res.error;
       }
       synced++;
-    } catch (err) {
-      console.error(`Failed to sync offline action for ${action.table}:`, err);
-      remainingQueue.push(action);
+    } catch (err: any) {
+      console.warn(`Offline sync item failed for table "${action.table}":`, err?.message || err);
+      const retries = (action.retryCount || 0) + 1;
+      
+      // Check for permanent fatal syntax or constraint errors (e.g. invalid old temp non-UUID strings)
+      const errStr = (err?.message || JSON.stringify(err) || '').toLowerCase();
+      const isFatal =
+        err?.code === '22P02' ||
+        errStr.includes('invalid input syntax for type uuid') ||
+        errStr.includes('foreign key constraint') ||
+        errStr.includes('does not exist') ||
+        retries >= 3;
+
+      if (!isFatal) {
+        remainingQueue.push({ ...action, retryCount: retries });
+      } else {
+        console.warn(`Discarding non-recoverable offline action for "${action.table}" to prevent queue blockage:`, action);
+      }
       failed++;
     }
   }
@@ -155,9 +194,9 @@ export async function processOfflineSyncQueue(): Promise<{ synced: number; faile
   isSyncingGlobal = false;
   window.dispatchEvent(new CustomEvent('outlaw_sync_status', { detail: { isSyncing: false } }));
 
-  if (synced > 0) {
+  if (synced > 0 || (failed > 0 && remainingQueue.length === 0)) {
     window.dispatchEvent(
-      new CustomEvent('outlaw_offline_synced', { detail: { syncedCount: synced } })
+      new CustomEvent('outlaw_offline_synced', { detail: { syncedCount: synced, failedCount: failed } })
     );
   }
 
@@ -216,5 +255,9 @@ export function useNetworkStatus() {
     return processOfflineSyncQueue();
   };
 
-  return { isOnline, isSyncing, pendingCount, syncNow };
+  const clearQueue = () => {
+    clearOfflineQueue();
+  };
+
+  return { isOnline, isSyncing, pendingCount, syncNow, clearQueue };
 }
