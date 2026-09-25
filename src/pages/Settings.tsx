@@ -424,6 +424,54 @@ export default function Settings() {
         </div>
       </Card>
 
+      {/* Screen & Layout Display Mode */}
+      <Card className="space-y-3 p-4">
+        <h3 className="border-b border-slate-100 pb-2 text-xs font-bold uppercase tracking-wide text-slate-700">
+          Display &amp; Layout Mode
+        </h3>
+        <p className="text-xs text-slate-500">
+          Choose how Outlaw Shop Systems adapts to your screen.
+        </p>
+        <div className="grid grid-cols-3 gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.setItem('outlaw_view_mode', 'auto');
+              window.location.reload();
+            }}
+            className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-center transition hover:bg-slate-100 active:scale-95"
+          >
+            <span className="text-lg">🔄</span>
+            <span className="text-xs font-bold text-slate-800">Automatic</span>
+            <span className="text-[10px] text-slate-400">Device adaptive</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.setItem('outlaw_view_mode', 'desktop');
+              window.location.reload();
+            }}
+            className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50/60 p-3 text-center transition hover:bg-amber-100/60 active:scale-95"
+          >
+            <span className="text-lg">🖥️</span>
+            <span className="text-xs font-bold text-amber-900">Force Desktop</span>
+            <span className="text-[10px] text-amber-700">Widescreen + Nav</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              localStorage.setItem('outlaw_view_mode', 'mobile');
+              window.location.reload();
+            }}
+            className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-center transition hover:bg-slate-100 active:scale-95"
+          >
+            <span className="text-lg">📱</span>
+            <span className="text-xs font-bold text-slate-800">Force Mobile</span>
+            <span className="text-[10px] text-slate-400">Compact phone</span>
+          </button>
+        </div>
+      </Card>
+
       {/* Data Management Card */}
       <Card className="space-y-3 border-amber-200 bg-amber-50/50 p-4">
         <h3 className="text-xs font-bold uppercase tracking-wide text-amber-900">

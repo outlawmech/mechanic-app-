@@ -15,6 +15,7 @@ import { useShopSettings } from '../lib/settings';
 import { useAuth } from '../lib/auth';
 import { getSubscriptionInfo, STRIPE_PAYMENT_URL } from '../lib/subscription';
 import { useViewMode } from '../lib/viewMode';
+import { useToast } from './Toast';
 import TrialBanner from './TrialBanner';
 
 const tabs = [
@@ -30,9 +31,25 @@ export default function Layout() {
   const { settings } = useShopSettings();
   const { user } = useAuth();
   const { viewMode, setViewMode } = useViewMode();
+  const toast = useToast();
   const sub = getSubscriptionInfo(user, settings);
 
-  // 1. FORCED MOBILE VIEW (Mock Phone View)
+  const switchToDesktop = () => {
+    setViewMode('desktop');
+    toast('Switched to Desktop Workstation Mode');
+  };
+
+  const switchToMobile = () => {
+    setViewMode('mobile');
+    toast('Switched to Mobile Phone Mode');
+  };
+
+  const switchToAuto = () => {
+    setViewMode('auto');
+    toast('Reset to Automatic Device Mode');
+  };
+
+  // 1. FORCED MOBILE VIEW (Phone Simulation View)
   if (viewMode === 'mobile') {
     return (
       <div className="min-h-dvh bg-slate-950 py-4 px-2">
@@ -44,11 +61,11 @@ export default function Layout() {
           </div>
           <button
             type="button"
-            onClick={() => setViewMode('desktop')}
-            className="flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-200 transition hover:bg-slate-700 hover:text-white"
+            onClick={switchToDesktop}
+            className="flex items-center gap-1 rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-amber-300 active:scale-95 shadow"
           >
             <MonitorIcon className="h-3.5 w-3.5" />
-            Switch to Desktop Mode
+            Switch to Desktop
           </button>
         </div>
 
@@ -107,7 +124,7 @@ export default function Layout() {
   // 2. FORCED DESKTOP VIEW (Even on Mobile Phone Screens)
   if (viewMode === 'desktop') {
     return (
-      <div className="min-h-dvh bg-slate-100 min-w-[768px] overflow-x-auto">
+      <div className="min-h-dvh bg-slate-100 min-w-[1080px] w-[1080px] sm:w-full overflow-x-auto">
         {/* Desktop Left Sidebar */}
         <aside className="no-print fixed inset-y-0 left-0 z-30 flex w-64 flex-col bg-slate-900 text-white shadow-xl">
           <div className="flex items-center gap-3 border-b border-slate-800 p-4">
@@ -179,8 +196,8 @@ export default function Layout() {
             {/* Toggle to Switch Back to Mobile Mode */}
             <button
               type="button"
-              onClick={() => setViewMode('auto')}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-800 py-2 text-xs font-bold text-amber-400 hover:bg-slate-700 hover:text-amber-300 ring-1 ring-slate-700"
+              onClick={switchToAuto}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-800 py-2.5 text-xs font-bold text-amber-400 hover:bg-slate-700 hover:text-amber-300 ring-1 ring-slate-700 active:scale-95"
             >
               <SmartphoneIcon className="h-4 w-4" />
               Switch to Phone Mode
@@ -191,15 +208,15 @@ export default function Layout() {
         {/* Desktop Main Content */}
         <div className="pl-64 flex flex-col min-h-dvh">
           {/* Top Desktop Helper Notice */}
-          <div className="no-print bg-slate-900 text-slate-300 px-6 py-2 text-xs flex items-center justify-between border-b border-slate-800">
-            <span className="flex items-center gap-1.5 font-medium">
-              <MonitorIcon className="h-4 w-4 text-amber-400" />
-              Desktop Mode Active
+          <div className="no-print bg-slate-900 text-slate-300 px-6 py-2.5 text-xs flex items-center justify-between border-b border-slate-800">
+            <span className="flex items-center gap-1.5 font-bold text-amber-400">
+              <MonitorIcon className="h-4 w-4" />
+              Desktop Workstation Mode
             </span>
             <button
               type="button"
-              onClick={() => setViewMode('auto')}
-              className="flex items-center gap-1 rounded bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-slate-700 hover:text-white"
+              onClick={switchToAuto}
+              className="flex items-center gap-1 rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 hover:bg-amber-300 active:scale-95"
             >
               <SmartphoneIcon className="h-3.5 w-3.5" />
               Return to Phone View
@@ -287,7 +304,7 @@ export default function Layout() {
 
           <button
             type="button"
-            onClick={() => setViewMode('mobile')}
+            onClick={switchToMobile}
             className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-800 py-1.5 text-[11px] font-medium text-slate-400 hover:bg-slate-800 hover:text-slate-200"
           >
             <SmartphoneIcon className="h-3.5 w-3.5" />
@@ -319,11 +336,12 @@ export default function Layout() {
         {/* Prominent Desktop Mode Button on Phone Header */}
         <button
           type="button"
-          onClick={() => setViewMode('desktop')}
-          className="ml-2 flex items-center gap-1 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-bold text-amber-400 ring-1 ring-slate-700 hover:bg-slate-700 active:scale-95"
+          onClick={switchToDesktop}
+          className="ml-2 flex items-center gap-1.5 rounded-xl bg-amber-400 px-3 py-1.5 text-xs font-black text-slate-950 shadow transition hover:bg-amber-300 active:scale-95"
+          title="Switch to full desktop widescreen workstation layout"
         >
           <MonitorIcon className="h-4 w-4" />
-          <span className="text-[11px]">Desktop</span>
+          <span>Desktop</span>
         </button>
       </header>
 
