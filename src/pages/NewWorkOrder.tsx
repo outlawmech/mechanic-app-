@@ -6,7 +6,8 @@ import { Button, Card, EmptyState, ErrorState, Field, Input, PageTitle, Select, 
 import { useAsync } from '../lib/hooks';
 import { fullName, getVehicleTypeInfo, todayISO, vehicleLabel } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
-import type { CustomerWithVehicles } from '../types';
+import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, getCachedLocal } from '../lib/offlineSync';
+import type { CustomerWithVehicles, WorkOrderFull } from '../types';
 
 export default function NewWorkOrder() {
   const navigate = useNavigate();
@@ -14,13 +15,19 @@ export default function NewWorkOrder() {
   const [search] = useSearchParams();
 
   const { data: customers, error, loading } = useAsync(async () => {
-    const res = check(
-      await requireSupabase()
-        .from('customers')
-        .select('*, vehicles:vehicles(*)')
-        .order('first_name')
+    return safeFetchWithCache<CustomerWithVehicles[]>(
+      'customers',
+      async () => {
+        const res = check(
+          await requireSupabase()
+            .from('customers')
+            .select('*, vehicles:vehicles(*)')
+            .order('first_name')
+        );
+        return (res.data ?? []) as CustomerWithVehicles[];
+      },
+      []
     );
-    return (res.data ?? []) as CustomerWithVehicles[];
   });
 
   const [customerId, setCustomerId] = useState(search.get('customer') ?? '');
@@ -43,7 +50,7 @@ export default function NewWorkOrder() {
         <PageTitle title="New Repair Order (RO)" />
         <EmptyState
           icon={<UsersIcon className="h-8 w-8" />}
-          title="No customers yet"
+          title="No customers on file"
           sub="Add a customer first, then start the repair order."
           action={
             <Link to="/customers/new">
@@ -58,29 +65,103 @@ export default function NewWorkOrder() {
   async function save(e: FormEvent) {
     e.preventDefault();
     if (!customerId) {
-      toast('Pick a customer first', 'error');
+      toast('Please select a customer first', 'error');
       return;
     }
     setSaving(true);
+
+    const payload = {
+      customer_id: customerId,
+      vehicle_id: vehicleId || null,
+      scheduled_at: scheduled ? `${scheduled}T12:00:00` : null,
+      mileage_or_hours: mileageOrHours.trim(),
+      notes: notes.trim(),
+    };
+
     try {
-      const res = check(
-        await requireSupabase()
-          .from('work_orders')
-          .insert({
-            customer_id: customerId,
-            vehicle_id: vehicleId || null,
-            scheduled_at: scheduled ? `${scheduled}T12:00:00` : null,
-            mileage_or_hours: mileageOrHours.trim(),
-            notes: notes.trim(),
-          })
-          .select('id')
-      );
-      const newId = ((res.data as Array<{ id: string }>)?.[0])?.id;
-      if (!newId) throw new Error('Could not retrieve created repair order ID.');
-      toast('Repair Order created');
-      navigate(`/work/${newId}`, { replace: true });
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        const res = check(
+          await requireSupabase()
+            .from('work_orders')
+            .insert(payload)
+            .select('id, number')
+        );
+        const created = (res.data as Array<{ id: string; number: string }>)?.[0];
+        if (!created?.id) throw new Error('Could not retrieve created repair order ID.');
+        toast('Repair Order created');
+        navigate(`/work/${created.id}`, { replace: true });
+      } else {
+        // Offline RO Creation
+        const tempId = `ro_${Date.now()}`;
+        const tempNumber = `RO-${Math.floor(1000 + Math.random() * 9000)}`;
+
+        const offlineRo: WorkOrderFull = {
+          id: tempId,
+          number: tempNumber,
+          customer_id: customerId,
+          vehicle_id: vehicleId || null,
+          customer: customer!,
+          vehicle: selectedVehicle || null,
+          scheduled_at: payload.scheduled_at,
+          mileage_or_hours: payload.mileage_or_hours,
+          notes: payload.notes,
+          status: 'open',
+          items: [],
+          created_at: new Date().toISOString(),
+          completed_at: null,
+        };
+
+        // Save into local cache
+        cacheLocal(`wo_${tempId}`, { wo: offlineRo, invoice: null, inventoryParts: [] });
+
+        const cachedOrders = getCachedLocal<WorkOrderFull[]>('work_orders') || [];
+        cacheLocal('work_orders', [offlineRo, ...cachedOrders]);
+
+        enqueueOfflineAction({
+          table: 'work_orders',
+          type: 'insert',
+          payload,
+          description: `Create Repair Order for ${fullName(customer)}`,
+        });
+
+        toast('Repair Order created (Saved to device)');
+        navigate(`/work/${tempId}`, { replace: true });
+      }
     } catch (err) {
-      toast(errMsg(err), 'error');
+      // Fallback to offline creation if online insert fails
+      const tempId = `ro_${Date.now()}`;
+      const tempNumber = `RO-${Math.floor(1000 + Math.random() * 9000)}`;
+
+      const offlineRo: WorkOrderFull = {
+        id: tempId,
+        number: tempNumber,
+        customer_id: customerId,
+        vehicle_id: vehicleId || null,
+        customer: customer!,
+        vehicle: selectedVehicle || null,
+        scheduled_at: payload.scheduled_at,
+        mileage_or_hours: payload.mileage_or_hours,
+        notes: payload.notes,
+        status: 'open',
+        items: [],
+        created_at: new Date().toISOString(),
+        completed_at: null,
+      };
+
+      cacheLocal(`wo_${tempId}`, { wo: offlineRo, invoice: null, inventoryParts: [] });
+      const cachedOrders = getCachedLocal<WorkOrderFull[]>('work_orders') || [];
+      cacheLocal('work_orders', [offlineRo, ...cachedOrders]);
+
+      enqueueOfflineAction({
+        table: 'work_orders',
+        type: 'insert',
+        payload,
+        description: `Create Repair Order for ${fullName(customer)}`,
+      });
+
+      toast('Repair Order created (Saved offline)');
+      navigate(`/work/${tempId}`, { replace: true });
+    } finally {
       setSaving(false);
     }
   }
