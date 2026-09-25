@@ -42,7 +42,7 @@ const emptyVehicle = {
   engine2_hours: '',
 };
 
-import { safeFetchWithCache, enqueueOfflineAction } from '../lib/offlineSync';
+import { safeFetchWithCache, enqueueOfflineAction, cacheLocal } from '../lib/offlineSync';
 
 export default function CustomerDetail() {
   const { id } = useParams();
@@ -95,33 +95,65 @@ export default function CustomerDetail() {
       return;
     }
     setSaving(true);
+    const vehiclePayload = {
+      customer_id: c!.id,
+      type: v.type,
+      year: v.year ? Number(v.year) : null,
+      make: v.make.trim(),
+      model: v.model.trim(),
+      trim: v.trim.trim(),
+      vin: v.vin.trim(),
+      plate: v.plate.trim(),
+      engine_hours: v.engine_hours ? Number(v.engine_hours) : null,
+      engine_info: v.engine_info.trim(),
+      engine_serial: v.engine_serial.trim(),
+      engine2_info: v.engine2_info.trim(),
+      engine2_serial: v.engine2_serial.trim(),
+      engine2_hours: v.engine2_hours ? Number(v.engine2_hours) : null,
+    };
+
     try {
-      check(
-        await requireSupabase()
-          .from('vehicles')
-          .insert({
-            customer_id: c!.id,
-            type: v.type,
-            year: v.year ? Number(v.year) : null,
-            make: v.make.trim(),
-            model: v.model.trim(),
-            trim: v.trim.trim(),
-            vin: v.vin.trim(),
-            plate: v.plate.trim(),
-            engine_hours: v.engine_hours ? Number(v.engine_hours) : null,
-            engine_info: v.engine_info.trim(),
-            engine_serial: v.engine_serial.trim(),
-            engine2_info: v.engine2_info.trim(),
-            engine2_serial: v.engine2_serial.trim(),
-            engine2_hours: v.engine2_hours ? Number(v.engine2_hours) : null,
-          })
-      );
-      toast('Vehicle / Vessel added');
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        check(await requireSupabase().from('vehicles').insert(vehiclePayload));
+        toast('Vehicle / Vessel added');
+        setV(emptyVehicle);
+        setAddingVehicle(false);
+        await reload();
+      } else {
+        const tempVeh: Vehicle = {
+          id: `veh_${Date.now()}`,
+          ...vehiclePayload,
+          created_at: new Date().toISOString(),
+        };
+        c!.vehicles = [...(c!.vehicles ?? []), tempVeh];
+        cacheLocal(`cust_${c!.id}`, c);
+        enqueueOfflineAction({
+          table: 'vehicles',
+          type: 'insert',
+          payload: vehiclePayload,
+          description: `Add vehicle for ${fullName(c)}`,
+        });
+        toast('Vehicle / Vessel added (Saved to device)');
+        setV(emptyVehicle);
+        setAddingVehicle(false);
+      }
+    } catch (err) {
+      const tempVeh: Vehicle = {
+        id: `veh_${Date.now()}`,
+        ...vehiclePayload,
+        created_at: new Date().toISOString(),
+      };
+      c!.vehicles = [...(c!.vehicles ?? []), tempVeh];
+      cacheLocal(`cust_${c!.id}`, c);
+      enqueueOfflineAction({
+        table: 'vehicles',
+        type: 'insert',
+        payload: vehiclePayload,
+        description: `Add vehicle for ${fullName(c)}`,
+      });
+      toast('Vehicle / Vessel added (Saved offline)');
       setV(emptyVehicle);
       setAddingVehicle(false);
-      await reload();
-    } catch (err) {
-      toast(errMsg(err), 'error');
     } finally {
       setSaving(false);
     }

@@ -135,6 +135,12 @@ export const MailIcon = (p: P) => (
   </Svg>
 );
 
+export const NavigationIcon = (p: P) => (
+  <Svg {...p}>
+    <polygon points="3 11 22 2 13 21 11 13 3 11" />
+  </Svg>
+);
+
 export const MapPinIcon = (p: P) => (
   <Svg {...p}>
     <path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z" />

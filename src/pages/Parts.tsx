@@ -24,7 +24,7 @@ import { money, num, round2 } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import type { Part } from '../types';
 
-import { cacheLocal, getCachedLocal, safeFetchWithCache } from '../lib/offlineSync';
+import { cacheLocal, getCachedLocal, safeFetchWithCache, enqueueOfflineAction } from '../lib/offlineSync';
 
 const CATEGORIES = [
   'General',
@@ -120,36 +120,99 @@ export default function Parts() {
     }
 
     setSaving(true);
-    try {
-      const sb = requireSupabase();
-      const payload = {
-        sku: form.sku.trim(),
-        name: form.name.trim(),
-        category: form.category || 'General',
-        cost_price: Number(form.cost_price) || 0,
-        sell_price: Number(form.sell_price) || 0,
-        qty_on_hand: Number(form.qty_on_hand) || 0,
-        reorder_point: Number(form.reorder_point) || 0,
-        location: form.location.trim(),
-        supplier: form.supplier.trim(),
-        notes: form.notes.trim(),
-        updated_at: new Date().toISOString(),
-      };
+    const payload = {
+      sku: form.sku.trim(),
+      name: form.name.trim(),
+      category: form.category || 'General',
+      cost_price: Number(form.cost_price) || 0,
+      sell_price: Number(form.sell_price) || 0,
+      qty_on_hand: Number(form.qty_on_hand) || 0,
+      reorder_point: Number(form.reorder_point) || 0,
+      location: form.location.trim(),
+      supplier: form.supplier.trim(),
+      notes: form.notes.trim(),
+      updated_at: new Date().toISOString(),
+    };
 
-      if (editingPart) {
-        check(await sb.from('parts').update(payload).eq('id', editingPart.id));
-        toast('Part updated');
+    try {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        const sb = requireSupabase();
+        if (editingPart) {
+          check(await sb.from('parts').update(payload).eq('id', editingPart.id));
+          toast('Part updated');
+        } else {
+          check(await sb.from('parts').insert(payload));
+          toast('Part added to inventory');
+        }
+        await reload();
       } else {
-        check(await sb.from('parts').insert(payload));
-        toast('Part added to inventory');
+        if (editingPart) {
+          enqueueOfflineAction({
+            table: 'parts',
+            type: 'update',
+            payload,
+            matchField: 'id',
+            matchValue: editingPart.id,
+            description: `Update part ${payload.name}`,
+          });
+          const updatedParts = allParts.map((p) =>
+            p.id === editingPart.id ? { ...p, ...payload } : p
+          );
+          cacheLocal('parts', updatedParts);
+          toast('Part updated (Saved locally)');
+        } else {
+          const tempPart: Part = {
+            id: `part_${Date.now()}`,
+            ...payload,
+            created_at: new Date().toISOString(),
+          };
+          enqueueOfflineAction({
+            table: 'parts',
+            type: 'insert',
+            payload,
+            description: `Add part ${payload.name}`,
+          });
+          cacheLocal('parts', [tempPart, ...allParts]);
+          toast('Part added (Saved locally)');
+        }
       }
 
       setForm(emptyPart);
       setAddingPart(false);
       setEditingPart(null);
-      await reload();
     } catch (err) {
-      toast(errMsg(err), 'error');
+      if (editingPart) {
+        enqueueOfflineAction({
+          table: 'parts',
+          type: 'update',
+          payload,
+          matchField: 'id',
+          matchValue: editingPart.id,
+          description: `Update part ${payload.name}`,
+        });
+        const updatedParts = allParts.map((p) =>
+          p.id === editingPart.id ? { ...p, ...payload } : p
+        );
+        cacheLocal('parts', updatedParts);
+        toast('Part updated (Saved offline)');
+      } else {
+        const tempPart: Part = {
+          id: `part_${Date.now()}`,
+          ...payload,
+          created_at: new Date().toISOString(),
+        };
+        enqueueOfflineAction({
+          table: 'parts',
+          type: 'insert',
+          payload,
+          description: `Add part ${payload.name}`,
+        });
+        cacheLocal('parts', [tempPart, ...allParts]);
+        toast('Part added (Saved offline)');
+      }
+      setForm(emptyPart);
+      setAddingPart(false);
+      setEditingPart(null);
     } finally {
       setSaving(false);
     }
@@ -158,23 +221,67 @@ export default function Parts() {
   async function adjustStock(part: Part, delta: number) {
     const newQty = Math.max(0, num(part.qty_on_hand) + delta);
     try {
-      const sb = requireSupabase();
-      check(await sb.from('parts').update({ qty_on_hand: newQty }).eq('id', part.id));
-      await reload();
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        const sb = requireSupabase();
+        check(await sb.from('parts').update({ qty_on_hand: newQty }).eq('id', part.id));
+        await reload();
+      } else {
+        enqueueOfflineAction({
+          table: 'parts',
+          type: 'update',
+          payload: { qty_on_hand: newQty },
+          matchField: 'id',
+          matchValue: part.id,
+          description: `Adjust stock for ${part.name} to ${newQty}`,
+        });
+        part.qty_on_hand = newQty;
+        cacheLocal('parts', allParts);
+      }
     } catch (err) {
-      toast(errMsg(err), 'error');
+      enqueueOfflineAction({
+        table: 'parts',
+        type: 'update',
+        payload: { qty_on_hand: newQty },
+        matchField: 'id',
+        matchValue: part.id,
+        description: `Adjust stock for ${part.name} to ${newQty}`,
+      });
+      part.qty_on_hand = newQty;
+      cacheLocal('parts', allParts);
     }
   }
 
   async function deletePart(id: string) {
     if (!window.confirm('Delete this part from inventory?')) return;
     try {
-      const sb = requireSupabase();
-      check(await sb.from('parts').delete().eq('id', id));
-      toast('Part deleted');
-      await reload();
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        const sb = requireSupabase();
+        check(await sb.from('parts').delete().eq('id', id));
+        toast('Part deleted');
+        await reload();
+      } else {
+        enqueueOfflineAction({
+          table: 'parts',
+          type: 'delete',
+          matchField: 'id',
+          matchValue: id,
+          description: 'Delete part',
+        });
+        const remaining = allParts.filter((p) => p.id !== id);
+        cacheLocal('parts', remaining);
+        toast('Part deleted (Saved locally)');
+      }
     } catch (err) {
-      toast(errMsg(err), 'error');
+      enqueueOfflineAction({
+        table: 'parts',
+        type: 'delete',
+        matchField: 'id',
+        matchValue: id,
+        description: 'Delete part',
+      });
+      const remaining = allParts.filter((p) => p.id !== id);
+      cacheLocal('parts', remaining);
+      toast('Part deleted (Saved offline)');
     }
   }
 

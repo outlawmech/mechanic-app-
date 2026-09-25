@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import {
   BoxIcon,
+  CalendarIcon,
   ClipboardIcon,
   HomeIcon,
   ReceiptIcon,
@@ -21,6 +22,7 @@ import NetworkStatusBadge from './NetworkStatusBadge';
 
 const tabs = [
   { to: '/', label: 'Home', shortLabel: 'Home', icon: HomeIcon, end: true },
+  { to: '/schedule', label: 'Schedule & Dispatch', shortLabel: 'Schedule', icon: CalendarIcon, end: false },
   { to: '/work', label: 'Repair Orders', shortLabel: 'ROs', icon: ClipboardIcon, end: false },
   { to: '/customers', label: 'Customers', shortLabel: 'Customers', icon: UsersIcon, end: false },
   { to: '/parts', label: 'Parts & Stock', shortLabel: 'Parts', icon: BoxIcon, end: false },
@@ -102,20 +104,20 @@ export default function Layout() {
           </main>
 
           <nav className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
-            <div className="mx-auto grid max-w-md grid-cols-6 pb-[env(safe-area-inset-bottom)]">
+            <div className="mx-auto grid max-w-md grid-cols-7 pb-[env(safe-area-inset-bottom)]">
               {tabs.map((t) => (
                 <NavLink
                   key={t.to}
                   to={t.to}
                   end={t.end}
                   className={({ isActive }) =>
-                    `flex flex-col items-center gap-1 py-2 text-[10px] font-medium transition ${
+                    `flex flex-col items-center gap-1 py-2 text-[9px] font-medium transition ${
                       isActive ? 'text-slate-900 font-bold' : 'text-slate-400'
                     }`
                   }
                 >
                   <t.icon className="h-4 w-4" />
-                  {t.shortLabel}
+                  <span className="truncate">{t.shortLabel}</span>
                 </NavLink>
               ))}
             </div>
@@ -369,20 +371,20 @@ export default function Layout() {
 
       {/* Mobile Bottom Tab Navigation (Visible only on small phones < md) */}
       <nav className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-6 pb-[env(safe-area-inset-bottom)]">
+        <div className="mx-auto grid max-w-md grid-cols-7 pb-[env(safe-area-inset-bottom)]">
           {tabs.map((t) => (
             <NavLink
               key={t.to}
               to={t.to}
               end={t.end}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-1 py-2 text-[10px] font-medium transition ${
+                `flex flex-col items-center gap-1 py-2 text-[9px] font-medium transition ${
                   isActive ? 'text-slate-900 font-bold' : 'text-slate-400'
                 }`
               }
             >
               <t.icon className="h-4 w-4" />
-              {t.shortLabel}
+              <span className="truncate">{t.shortLabel}</span>
             </NavLink>
           ))}
         </div>

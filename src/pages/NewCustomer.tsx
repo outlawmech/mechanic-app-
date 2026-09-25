@@ -75,17 +75,56 @@ export default function NewCustomer() {
       form.engine2_info,
     ].some((v) => v.trim() !== '');
 
-    try {
-      if (typeof navigator !== 'undefined' && navigator.onLine) {
+    const tempId = `cust_${Date.now()}`;
+    const tempVehId = `veh_${Date.now()}`;
+
+    const vehiclesList: Vehicle[] = hasVehicle
+      ? [
+          {
+            id: tempVehId,
+            customer_id: tempId,
+            type: form.type,
+            year: form.year ? Number(form.year) : null,
+            make: form.make.trim(),
+            model: form.model.trim(),
+            trim: form.trim.trim(),
+            vin: form.vin.trim(),
+            plate: form.plate.trim(),
+            engine_hours: form.engine_hours ? Number(form.engine_hours) : null,
+            engine_info: form.engine_info.trim(),
+            engine_serial: form.engine_serial.trim(),
+            engine2_info: form.has_second_engine ? form.engine2_info.trim() : '',
+            engine2_serial: form.has_second_engine ? form.engine2_serial.trim() : '',
+            engine2_hours: form.has_second_engine && form.engine2_hours ? Number(form.engine2_hours) : null,
+            created_at: new Date().toISOString(),
+          },
+        ]
+      : [];
+
+    const newCustomerObj: CustomerWithVehicles = {
+      id: tempId,
+      ...customerPayload,
+      vehicles: vehiclesList,
+      created_at: new Date().toISOString(),
+    };
+
+    // Cache customer detail & update list cache locally first
+    cacheLocal(`cust_${tempId}`, { ...newCustomerObj, work_orders: [], invoices: [] });
+    const cachedCusts = getCachedLocal<CustomerWithVehicles[]>('customers') || [];
+    cacheLocal('customers', [newCustomerObj, ...cachedCusts]);
+
+    let savedOnline = false;
+
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      try {
         const sb = requireSupabase();
-        const res = check(await sb.from('customers').insert(customerPayload).select('id'));
-        const newId = ((res.data as Array<{ id: string }>)?.[0])?.id;
-        if (!newId) throw new Error('Could not retrieve created customer ID.');
+        const res = await sb.from('customers').insert(customerPayload).select('id');
+        if (!res.error && res.data && res.data[0]?.id) {
+          const onlineId = res.data[0].id;
 
-        if (hasVehicle) {
-          check(
+          if (hasVehicle) {
             await sb.from('vehicles').insert({
-              customer_id: newId,
+              customer_id: onlineId,
               type: form.type,
               year: form.year ? Number(form.year) : null,
               make: form.make.trim(),
@@ -99,89 +138,54 @@ export default function NewCustomer() {
               engine2_info: form.has_second_engine ? form.engine2_info.trim() : '',
               engine2_serial: form.has_second_engine ? form.engine2_serial.trim() : '',
               engine2_hours: form.has_second_engine && form.engine2_hours ? Number(form.engine2_hours) : null,
-            })
-          );
+            });
+          }
+
+          savedOnline = true;
+          toast('Customer added');
+          navigate(`/customers/${onlineId}`, { replace: true });
+          return;
         }
-        toast('Customer added');
-        navigate(`/customers/${newId}`, { replace: true });
-      } else {
-        // Offline Customer Creation
-        const tempId = `cust_${Date.now()}`;
-        const tempVehId = `veh_${Date.now()}`;
-
-        const vehiclesList: Vehicle[] = hasVehicle
-          ? [
-              {
-                id: tempVehId,
-                customer_id: tempId,
-                type: form.type,
-                year: form.year ? Number(form.year) : null,
-                make: form.make.trim(),
-                model: form.model.trim(),
-                trim: form.trim.trim(),
-                vin: form.vin.trim(),
-                plate: form.plate.trim(),
-                engine_hours: form.engine_hours ? Number(form.engine_hours) : null,
-                engine_info: form.engine_info.trim(),
-                engine_serial: form.engine_serial.trim(),
-                engine2_info: form.has_second_engine ? form.engine2_info.trim() : '',
-                engine2_serial: form.has_second_engine ? form.engine2_serial.trim() : '',
-                engine2_hours: form.has_second_engine && form.engine2_hours ? Number(form.engine2_hours) : null,
-                created_at: new Date().toISOString(),
-              },
-            ]
-          : [];
-
-        const newCustomerObj: CustomerWithVehicles = {
-          id: tempId,
-          ...customerPayload,
-          vehicles: vehiclesList,
-          created_at: new Date().toISOString(),
-        };
-
-        // Cache customer detail & update list cache
-        cacheLocal(`cust_${tempId}`, { ...newCustomerObj, work_orders: [], invoices: [] });
-        const cachedCusts = getCachedLocal<CustomerWithVehicles[]>('customers') || [];
-        cacheLocal('customers', [newCustomerObj, ...cachedCusts]);
-
-        enqueueOfflineAction({
-          table: 'customers',
-          type: 'insert',
-          payload: customerPayload,
-          description: `Create Customer ${customerPayload.first_name} ${customerPayload.last_name}`,
-        });
-
-        if (hasVehicle) {
-          enqueueOfflineAction({
-            table: 'vehicles',
-            type: 'insert',
-            payload: {
-              customer_id: tempId,
-              type: form.type,
-              year: form.year ? Number(form.year) : null,
-              make: form.make.trim(),
-              model: form.model.trim(),
-              trim: form.trim.trim(),
-              vin: form.vin.trim(),
-              plate: form.plate.trim(),
-              engine_hours: form.engine_hours ? Number(form.engine_hours) : null,
-              engine_info: form.engine_info.trim(),
-              engine_serial: form.engine_serial.trim(),
-              engine2_info: form.has_second_engine ? form.engine2_info.trim() : '',
-              engine2_serial: form.has_second_engine ? form.engine2_serial.trim() : '',
-              engine2_hours: form.has_second_engine && form.engine2_hours ? Number(form.engine2_hours) : null,
-            },
-            description: `Add vehicle for ${customerPayload.first_name}`,
-          });
-        }
-
-        toast('Customer added (Saved to device)');
-        navigate(`/customers/${tempId}`, { replace: true });
+      } catch (err) {
+        console.warn('Online customer save failed, seamlessly saving offline:', err);
       }
-    } catch (err) {
-      toast(errMsg(err), 'error');
-    } finally {
-      setSaving(false);
+    }
+
+    // Offline Queue Fallback
+    if (!savedOnline) {
+      enqueueOfflineAction({
+        table: 'customers',
+        type: 'insert',
+        payload: customerPayload,
+        description: `Create Customer ${customerPayload.first_name} ${customerPayload.last_name}`,
+      });
+
+      if (hasVehicle) {
+        enqueueOfflineAction({
+          table: 'vehicles',
+          type: 'insert',
+          payload: {
+            customer_id: tempId,
+            type: form.type,
+            year: form.year ? Number(form.year) : null,
+            make: form.make.trim(),
+            model: form.model.trim(),
+            trim: form.trim.trim(),
+            vin: form.vin.trim(),
+            plate: form.plate.trim(),
+            engine_hours: form.engine_hours ? Number(form.engine_hours) : null,
+            engine_info: form.engine_info.trim(),
+            engine_serial: form.engine_serial.trim(),
+            engine2_info: form.has_second_engine ? form.engine2_info.trim() : '',
+            engine2_serial: form.has_second_engine ? form.engine2_serial.trim() : '',
+            engine2_hours: form.has_second_engine && form.engine2_hours ? Number(form.engine2_hours) : null,
+          },
+          description: `Add vehicle for ${customerPayload.first_name}`,
+        });
+      }
+
+      toast('Customer added (Saved to device)');
+      navigate(`/customers/${tempId}`, { replace: true });
     }
   }
 
