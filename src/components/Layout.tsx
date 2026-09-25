@@ -17,6 +17,7 @@ import { getSubscriptionInfo, STRIPE_PAYMENT_URL } from '../lib/subscription';
 import { useViewMode } from '../lib/viewMode';
 import { useToast } from './Toast';
 import TrialBanner from './TrialBanner';
+import NetworkStatusBadge from './NetworkStatusBadge';
 
 const tabs = [
   { to: '/', label: 'Home', shortLabel: 'Home', icon: HomeIcon, end: true },
@@ -72,22 +73,25 @@ export default function Layout() {
         {/* Mobile Mock Container */}
         <div className="mx-auto flex min-h-[85vh] max-w-md flex-col overflow-hidden rounded-2xl bg-slate-50 shadow-2xl ring-1 ring-slate-800">
           <header className="no-print sticky top-0 z-20 bg-slate-900 px-4 pb-3 pt-4 text-white">
-            <div className="flex items-center gap-2.5">
-              {settings.logo_url ? (
-                <img
-                  src={settings.logo_url}
-                  alt={settings.shop_name}
-                  className="h-9 w-9 rounded-xl object-contain bg-white p-1"
-                />
-              ) : (
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-400 text-slate-900">
-                  <WrenchIcon className="h-5 w-5" />
-                </span>
-              )}
-              <div className="min-w-0 flex-1">
-                <h1 className="truncate text-base font-bold leading-tight">{settings.shop_name}</h1>
-                <p className="truncate text-[11px] text-slate-400">{settings.tagline}</p>
+            <div className="flex items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2.5 min-w-0">
+                {settings.logo_url ? (
+                  <img
+                    src={settings.logo_url}
+                    alt={settings.shop_name}
+                    className="h-9 w-9 rounded-xl object-contain bg-white p-1"
+                  />
+                ) : (
+                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-400 text-slate-900">
+                    <WrenchIcon className="h-5 w-5" />
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h1 className="truncate text-base font-bold leading-tight">{settings.shop_name}</h1>
+                  <p className="truncate text-[11px] text-slate-400">{settings.tagline}</p>
+                </div>
               </div>
+              <NetworkStatusBadge />
             </div>
           </header>
 
@@ -209,10 +213,13 @@ export default function Layout() {
         <div className="pl-64 flex flex-col min-h-dvh">
           {/* Top Desktop Helper Notice */}
           <div className="no-print bg-slate-900 text-slate-300 px-6 py-2.5 text-xs flex items-center justify-between border-b border-slate-800">
-            <span className="flex items-center gap-1.5 font-bold text-amber-400">
-              <MonitorIcon className="h-4 w-4" />
-              Desktop Workstation Mode
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1.5 font-bold text-amber-400">
+                <MonitorIcon className="h-4 w-4" />
+                Desktop Workstation Mode
+              </span>
+              <NetworkStatusBadge />
+            </div>
             <button
               type="button"
               onClick={switchToAuto}
@@ -333,16 +340,19 @@ export default function Layout() {
           </div>
         </div>
 
-        {/* Prominent Desktop Mode Button on Phone Header */}
-        <button
-          type="button"
-          onClick={switchToDesktop}
-          className="ml-2 flex items-center gap-1.5 rounded-xl bg-amber-400 px-3 py-1.5 text-xs font-black text-slate-950 shadow transition hover:bg-amber-300 active:scale-95"
-          title="Switch to full desktop widescreen workstation layout"
-        >
-          <MonitorIcon className="h-4 w-4" />
-          <span>Desktop</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <NetworkStatusBadge />
+          {/* Prominent Desktop Mode Button on Phone Header */}
+          <button
+            type="button"
+            onClick={switchToDesktop}
+            className="flex items-center gap-1.5 rounded-xl bg-amber-400 px-3 py-1.5 text-xs font-black text-slate-950 shadow transition hover:bg-amber-300 active:scale-95"
+            title="Switch to full desktop widescreen workstation layout"
+          >
+            <MonitorIcon className="h-4 w-4" />
+            <span>Desktop</span>
+          </button>
+        </div>
       </header>
 
       {/* Trial Countdown Banner on Mobile */}

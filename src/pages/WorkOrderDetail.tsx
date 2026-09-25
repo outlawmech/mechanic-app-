@@ -49,42 +49,54 @@ const KIND_CLS: Record<WorkItem['kind'], string> = {
   fee: 'bg-slate-100 text-slate-500',
 };
 
+import { cacheLocal, getCachedLocal, enqueueOfflineAction } from '../lib/offlineSync';
+
 export default function WorkOrderDetail() {
   const { id } = useParams();
   const toast = useToast();
   const { settings } = useShopSettings();
 
   const { data, error, loading, reload } = useAsync(async () => {
-    const sb = requireSupabase();
-    const [woRes, partsRes] = await Promise.all([
-      sb
-        .from('work_orders')
-        .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
-        .eq('id', id!)
-        .limit(1),
-      sb
-        .from('parts')
-        .select('id, sku, name, category, sell_price, cost_price, qty_on_hand, location, supplier')
-        .order('name'),
-    ]);
+    try {
+      const sb = requireSupabase();
+      const [woRes, partsRes] = await Promise.all([
+        sb
+          .from('work_orders')
+          .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
+          .eq('id', id!)
+          .limit(1),
+        sb
+          .from('parts')
+          .select('id, sku, name, category, sell_price, cost_price, qty_on_hand, location, supplier')
+          .order('name'),
+      ]);
 
-    check(woRes);
-    const wo = (woRes.data?.[0] ?? null) as WorkOrderFull | null;
-    const inventoryParts = (partsRes.data ?? []) as Part[];
+      check(woRes);
+      const wo = (woRes.data?.[0] ?? null) as WorkOrderFull | null;
+      const inventoryParts = (partsRes.data ?? []) as Part[];
 
-    let invoice: InvoiceSummary | null = null;
-    if (wo) {
-      const invRes = check(
-        await sb
-          .from('invoices')
-          .select('id, number, total, status')
-          .eq('work_order_id', wo.id)
-          .order('issued_at', { ascending: false })
-          .limit(1)
-      );
-      invoice = (invRes.data?.[0] ?? null) as InvoiceSummary | null;
+      let invoice: InvoiceSummary | null = null;
+      if (wo) {
+        const invRes = check(
+          await sb
+            .from('invoices')
+            .select('id, number, total, status')
+            .eq('work_order_id', wo.id)
+            .order('issued_at', { ascending: false })
+            .limit(1)
+        );
+        invoice = (invRes.data?.[0] ?? null) as InvoiceSummary | null;
+      }
+      const result = { wo, invoice, inventoryParts };
+      if (wo) {
+        cacheLocal(`wo_${id}`, result);
+      }
+      return result;
+    } catch (err) {
+      const cached = getCachedLocal<{ wo: WorkOrderFull; invoice: InvoiceSummary | null; inventoryParts: Part[] }>(`wo_${id}`);
+      if (cached && cached.wo) return cached;
+      throw err;
     }
-    return { wo, invoice, inventoryParts };
   }, [id]);
 
   const [acting, setActing] = useState(false);
@@ -135,20 +147,45 @@ export default function WorkOrderDetail() {
 
   async function updateStatus(next: WorkOrderStatus) {
     setActing(true);
+    const completedAt = next === 'completed' ? new Date().toISOString() : wo!.completed_at;
     try {
-      check(
-        await requireSupabase()
-          .from('work_orders')
-          .update({
-            status: next,
-            completed_at: next === 'completed' ? new Date().toISOString() : wo!.completed_at,
-          })
-          .eq('id', wo!.id)
-      );
-      toast(`Status updated to ${next.replace('_', ' ')}`);
-      await reload();
+      if (navigator.onLine) {
+        check(
+          await requireSupabase()
+            .from('work_orders')
+            .update({
+              status: next,
+              completed_at: completedAt,
+            })
+            .eq('id', wo!.id)
+        );
+        toast(`Status updated to ${next.replace('_', ' ')}`);
+        await reload();
+      } else {
+        enqueueOfflineAction({
+          table: 'work_orders',
+          type: 'update',
+          payload: { status: next, completed_at: completedAt },
+          matchField: 'id',
+          matchValue: wo!.id,
+          description: `Update RO #${wo!.number} status to ${next}`,
+        });
+        wo!.status = next;
+        cacheLocal(`wo_${id}`, data);
+        toast(`Status updated to ${next.replace('_', ' ')} (Saved locally)`);
+      }
     } catch (e) {
-      toast(errMsg(e), 'error');
+      enqueueOfflineAction({
+        table: 'work_orders',
+        type: 'update',
+        payload: { status: next, completed_at: completedAt },
+        matchField: 'id',
+        matchValue: wo!.id,
+        description: `Update RO #${wo!.number} status to ${next}`,
+      });
+      wo!.status = next;
+      cacheLocal(`wo_${id}`, data);
+      toast(`Status updated to ${next.replace('_', ' ')} (Saved offline)`);
     } finally {
       setActing(false);
     }
@@ -184,29 +221,50 @@ export default function WorkOrderDetail() {
       return;
     }
     setAdding(true);
+    const quantityNum = Number(qty) || 1;
+    const unitPriceNum = Number(price) || 0;
+    const newItemPayload = {
+      work_order_id: wo!.id,
+      kind,
+      description: desc.trim(),
+      quantity: quantityNum,
+      unit_price: unitPriceNum,
+      sort_order: items.length,
+    };
+
     try {
-      const sb = requireSupabase();
-      const quantityNum = Number(qty) || 1;
-      const unitPriceNum = Number(price) || 0;
+      if (navigator.onLine) {
+        const sb = requireSupabase();
+        check(await sb.from('work_items').insert(newItemPayload));
 
-      check(
-        await sb.from('work_items').insert({
-          work_order_id: wo!.id,
-          kind,
-          description: desc.trim(),
-          quantity: quantityNum,
-          unit_price: unitPriceNum,
-          sort_order: items.length,
-        })
-      );
-
-      // If item was pulled from inventory, deduct stock on hand
-      if (kind === 'part' && selectedPartId) {
-        const chosen = inventoryParts.find((p) => p.id === selectedPartId);
-        if (chosen) {
-          const newStock = Math.max(0, num(chosen.qty_on_hand) - quantityNum);
-          await sb.from('parts').update({ qty_on_hand: newStock }).eq('id', chosen.id);
+        // If item was pulled from inventory, deduct stock on hand
+        if (kind === 'part' && selectedPartId) {
+          const chosen = inventoryParts.find((p) => p.id === selectedPartId);
+          if (chosen) {
+            const newStock = Math.max(0, num(chosen.qty_on_hand) - quantityNum);
+            await sb.from('parts').update({ qty_on_hand: newStock }).eq('id', chosen.id);
+          }
         }
+
+        toast('Line item added');
+        await reload();
+      } else {
+        enqueueOfflineAction({
+          table: 'work_items',
+          type: 'insert',
+          payload: newItemPayload,
+          description: `Add ${kind}: ${desc.trim()}`,
+        });
+
+        // Update local items array
+        const tempItem: WorkItem = {
+          id: `temp_${Date.now()}`,
+          ...newItemPayload,
+          created_at: new Date().toISOString(),
+        };
+        wo!.items = [...(wo!.items ?? []), tempItem];
+        cacheLocal(`wo_${id}`, data);
+        toast('Line item added (Saved locally)');
       }
 
       setDesc('');
@@ -218,11 +276,21 @@ export default function WorkOrderDetail() {
       } else {
         setPrice('0');
       }
-
-      toast('Line item added');
-      await reload();
     } catch (e) {
-      toast(errMsg(e), 'error');
+      enqueueOfflineAction({
+        table: 'work_items',
+        type: 'insert',
+        payload: newItemPayload,
+        description: `Add ${kind}: ${desc.trim()}`,
+      });
+      const tempItem: WorkItem = {
+        id: `temp_${Date.now()}`,
+        ...newItemPayload,
+        created_at: new Date().toISOString(),
+      };
+      wo!.items = [...(wo!.items ?? []), tempItem];
+      cacheLocal(`wo_${id}`, data);
+      toast('Line item added (Saved offline)');
     } finally {
       setAdding(false);
     }
@@ -230,27 +298,77 @@ export default function WorkOrderDetail() {
 
   async function removeItem(itemId: string) {
     try {
-      check(await requireSupabase().from('work_items').delete().eq('id', itemId));
-      toast('Item removed');
-      await reload();
+      if (navigator.onLine) {
+        check(await requireSupabase().from('work_items').delete().eq('id', itemId));
+        toast('Item removed');
+        await reload();
+      } else {
+        enqueueOfflineAction({
+          table: 'work_items',
+          type: 'delete',
+          matchField: 'id',
+          matchValue: itemId,
+          description: 'Remove line item',
+        });
+        wo!.items = (wo!.items ?? []).filter((i) => i.id !== itemId);
+        cacheLocal(`wo_${id}`, data);
+        toast('Item removed (Saved locally)');
+      }
     } catch (e) {
-      toast(errMsg(e), 'error');
+      enqueueOfflineAction({
+        table: 'work_items',
+        type: 'delete',
+        matchField: 'id',
+        matchValue: itemId,
+        description: 'Remove line item',
+      });
+      wo!.items = (wo!.items ?? []).filter((i) => i.id !== itemId);
+      cacheLocal(`wo_${id}`, data);
+      toast('Item removed (Saved offline)');
     }
   }
 
   async function saveDetails() {
-    try {
-      const updates: { notes?: string; mileage_or_hours?: string } = {};
-      if (notesDraft !== null) updates.notes = notesDraft;
-      if (hoursDraft !== null) updates.mileage_or_hours = hoursDraft;
+    const updates: { notes?: string; mileage_or_hours?: string } = {};
+    if (notesDraft !== null) updates.notes = notesDraft;
+    if (hoursDraft !== null) updates.mileage_or_hours = hoursDraft;
 
-      check(await requireSupabase().from('work_orders').update(updates).eq('id', wo!.id));
-      toast('Saved');
+    try {
+      if (navigator.onLine) {
+        check(await requireSupabase().from('work_orders').update(updates).eq('id', wo!.id));
+        toast('Saved');
+        await reload();
+      } else {
+        enqueueOfflineAction({
+          table: 'work_orders',
+          type: 'update',
+          payload: updates,
+          matchField: 'id',
+          matchValue: wo!.id,
+          description: `Update details for RO #${wo!.number}`,
+        });
+        if (updates.notes !== undefined) wo!.notes = updates.notes;
+        if (updates.mileage_or_hours !== undefined) wo!.mileage_or_hours = updates.mileage_or_hours;
+        cacheLocal(`wo_${id}`, data);
+        toast('Saved locally (Offline Mode)');
+      }
       setNotesDraft(null);
       setHoursDraft(null);
-      await reload();
     } catch (e) {
-      toast(errMsg(e), 'error');
+      enqueueOfflineAction({
+        table: 'work_orders',
+        type: 'update',
+        payload: updates,
+        matchField: 'id',
+        matchValue: wo!.id,
+        description: `Update details for RO #${wo!.number}`,
+      });
+      if (updates.notes !== undefined) wo!.notes = updates.notes;
+      if (updates.mileage_or_hours !== undefined) wo!.mileage_or_hours = updates.mileage_or_hours;
+      cacheLocal(`wo_${id}`, data);
+      toast('Saved offline');
+      setNotesDraft(null);
+      setHoursDraft(null);
     }
   }
 

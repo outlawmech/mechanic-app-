@@ -7,6 +7,8 @@ import { fullName, longDate, money, num } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
 import type { InvoiceFull } from '../types';
 
+import { cacheLocal, getCachedLocal } from '../lib/offlineSync';
+
 const FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'unpaid', label: 'Unpaid' },
@@ -20,13 +22,21 @@ export default function Invoices() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const { data, error, loading } = useAsync(async () => {
-    const res = check(
-      await requireSupabase()
-        .from('invoices')
-        .select('*, customer:customers(*)')
-        .order('issued_at', { ascending: false })
-    );
-    return (res.data ?? []) as InvoiceFull[];
+    try {
+      const res = check(
+        await requireSupabase()
+          .from('invoices')
+          .select('*, customer:customers(*)')
+          .order('issued_at', { ascending: false })
+      );
+      const invs = (res.data ?? []) as InvoiceFull[];
+      cacheLocal('invoices', invs);
+      return invs;
+    } catch (err) {
+      const cached = getCachedLocal<InvoiceFull[]>('invoices');
+      if (cached && cached.length > 0) return cached;
+      throw err;
+    }
   });
 
   const list = useMemo(() => {

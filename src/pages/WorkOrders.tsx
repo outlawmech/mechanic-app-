@@ -8,6 +8,8 @@ import { check, requireSupabase } from '../lib/supabase';
 import type { WorkOrderFull } from '../types';
 import { Link } from 'react-router-dom';
 
+import { cacheLocal, getCachedLocal } from '../lib/offlineSync';
+
 const FILTERS = [
   { id: 'active', label: 'Active ROs' },
   { id: 'open', label: 'Open' },
@@ -23,13 +25,21 @@ export default function WorkOrders() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const { data, error, loading } = useAsync(async () => {
-    const res = check(
-      await requireSupabase()
-        .from('work_orders')
-        .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
-        .order('created_at', { ascending: false })
-    );
-    return (res.data ?? []) as WorkOrderFull[];
+    try {
+      const res = check(
+        await requireSupabase()
+          .from('work_orders')
+          .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
+          .order('created_at', { ascending: false })
+      );
+      const orders = (res.data ?? []) as WorkOrderFull[];
+      cacheLocal('work_orders', orders);
+      return orders;
+    } catch (err) {
+      const cached = getCachedLocal<WorkOrderFull[]>('work_orders');
+      if (cached && cached.length > 0) return cached;
+      throw err;
+    }
   });
 
   const list = useMemo(() => {
