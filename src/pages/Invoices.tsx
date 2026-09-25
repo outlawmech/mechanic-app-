@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ReceiptIcon } from '../components/icons';
+import { ReceiptIcon, SearchIcon } from '../components/icons';
 import { Badge, Card, Chip, EmptyState, ErrorState, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, longDate, money, num } from '../lib/format';
@@ -17,6 +17,8 @@ type FilterId = (typeof FILTERS)[number]['id'];
 
 export default function Invoices() {
   const [filter, setFilter] = useState<FilterId>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+
   const { data, error, loading } = useAsync(async () => {
     const res = check(
       await requireSupabase()
@@ -27,10 +29,26 @@ export default function Invoices() {
     return (res.data ?? []) as InvoiceFull[];
   });
 
-  const list = useMemo(
-    () => (filter === 'all' ? (data ?? []) : (data ?? []).filter((i) => i.status === filter)),
-    [data, filter]
-  );
+  const list = useMemo(() => {
+    if (!data) return [];
+
+    let filtered = data;
+    if (filter !== 'all') {
+      filtered = data.filter((i) => i.status === filter);
+    }
+
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return filtered;
+
+    return filtered.filter((i) => {
+      const numberMatch = (i.number || '').toLowerCase().includes(q);
+      const custMatch = fullName(i.customer).toLowerCase().includes(q) || (i.customer?.phone || '').includes(q) || (i.customer?.email || '').toLowerCase().includes(q);
+      const totalMatch = String(i.total || '').includes(q) || money(i.total).toLowerCase().includes(q);
+      const notesMatch = (i.notes || '').toLowerCase().includes(q);
+
+      return numberMatch || custMatch || totalMatch || notesMatch;
+    });
+  }, [data, filter, searchQuery]);
 
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
@@ -48,19 +66,37 @@ export default function Invoices() {
         />
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {FILTERS.map((f) => (
-          <Chip key={f.id} active={filter === f.id} onClick={() => setFilter(f.id)}>
-            {f.label}
-          </Chip>
-        ))}
+      {/* Search & Status Filters */}
+      <div className="space-y-2.5">
+        <div className="relative max-w-md">
+          <SearchIcon className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search Invoice #, customer name, phone, amount…"
+            className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          />
+        </div>
+
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {FILTERS.map((f) => (
+            <Chip key={f.id} active={filter === f.id} onClick={() => setFilter(f.id)}>
+              {f.label}
+            </Chip>
+          ))}
+        </div>
       </div>
 
       {list.length === 0 ? (
         <EmptyState
           icon={<ReceiptIcon className="h-8 w-8" />}
-          title="No invoices"
-          sub="Generate one from any completed work order ticket."
+          title={searchQuery ? 'No matching invoices' : 'No invoices found'}
+          sub={
+            searchQuery
+              ? `No invoices match "${searchQuery}". Try searching by customer name or invoice number.`
+              : 'Generate an invoice directly from any completed repair order.'
+          }
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">

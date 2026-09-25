@@ -141,8 +141,8 @@ export default function CustomerDetail() {
         sub={`Customer since ${longDate(c.created_at)}`}
         right={
           <Link to={`/work/new?customer=${c.id}`}>
-            <Button variant="accent" className="text-xs">
-              + New Work Order
+            <Button variant="accent" className="text-xs font-bold">
+              + New Repair Order (RO)
             </Button>
           </Link>
         }
@@ -432,13 +432,13 @@ export default function CustomerDetail() {
             )}
           </section>
 
-          {/* Work Orders History Section */}
+          {/* Repair Orders History Section */}
           <section className="space-y-2">
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
-              Work Orders ({wos.length})
+              Repair Orders ({wos.length})
             </h3>
             {wos.length === 0 ? (
-              <Card className="p-4 text-center text-xs text-slate-400">No work orders on file.</Card>
+              <Card className="p-4 text-center text-xs text-slate-400">No repair orders on file.</Card>
             ) : (
               <div className="space-y-2">
                 {wos.map((w) => (

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { UsersIcon, PlusIcon } from '../components/icons';
-import { Card, EmptyState, ErrorState, Fab, Input, PageTitle, Spinner } from '../components/ui';
+import { UsersIcon, PlusIcon, SearchIcon } from '../components/icons';
+import { Card, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
@@ -22,7 +22,12 @@ export default function Customers() {
   const list = (data ?? []).filter((c) => {
     const s = q.trim().toLowerCase();
     if (!s) return true;
-    return [fullName(c), c.phone, c.email, (c.vehicles ?? []).map(vehicleLabel).join(' ')]
+    const vehText = (c.vehicles ?? [])
+      .map((v) => [vehicleLabel(v), v.plate, v.vin, v.engine_info].filter(Boolean).join(' '))
+      .join(' ');
+
+    return [fullName(c), c.phone, c.email, c.address, c.notes, vehText]
+      .filter(Boolean)
       .join(' ')
       .toLowerCase()
       .includes(s);
@@ -44,18 +49,32 @@ export default function Customers() {
         </Link>
       </div>
 
-      <Input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Search name, phone, email, vehicle…"
-        className="max-w-md"
-      />
+      <div className="relative max-w-md">
+        <SearchIcon className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+        <input
+          type="text"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search name, phone, email, vehicle, plate, address…"
+          className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-amber-400"
+        />
+      </div>
 
       {list.length === 0 ? (
         <EmptyState
           icon={<UsersIcon className="h-8 w-8" />}
           title={q ? 'No matches' : 'No customers yet'}
-          sub={q ? 'Try a different search.' : 'Add your first customer to get started.'}
+          sub={q ? `No customers match "${q}". Try another search.` : 'Add your first customer to get started.'}
+          action={
+            !q && (
+              <Link
+                to="/customers/new"
+                className="inline-flex rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-300"
+              >
+                + Add First Customer
+              </Link>
+            )
+          }
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">

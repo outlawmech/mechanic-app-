@@ -39,15 +39,15 @@ export default function NewWorkOrder() {
 
   if (customers && customers.length === 0) {
     return (
-      <div>
-        <PageTitle title="New Work Order" />
+      <div className="space-y-4">
+        <PageTitle title="New Repair Order (RO)" />
         <EmptyState
           icon={<UsersIcon className="h-8 w-8" />}
           title="No customers yet"
-          sub="Add a customer first, then start the work order."
+          sub="Add a customer first, then start the repair order."
           action={
             <Link to="/customers/new">
-              <Button variant="accent">Add customer</Button>
+              <Button variant="accent">+ Add Customer</Button>
             </Link>
           }
         />
@@ -76,8 +76,8 @@ export default function NewWorkOrder() {
           .select('id')
       );
       const newId = ((res.data as Array<{ id: string }>)?.[0])?.id;
-      if (!newId) throw new Error('Could not retrieve created work order ID.');
-      toast('Work order created');
+      if (!newId) throw new Error('Could not retrieve created repair order ID.');
+      toast('Repair Order created');
       navigate(`/work/${newId}`, { replace: true });
     } catch (err) {
       toast(errMsg(err), 'error');
@@ -86,24 +86,25 @@ export default function NewWorkOrder() {
   }
 
   return (
-    <div>
+    <div className="max-w-2xl space-y-4">
       <Link
         to="/work"
-        className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800"
       >
-        <ArrowLeftIcon className="h-3.5 w-3.5" /> Work orders
+        <ArrowLeftIcon className="h-3.5 w-3.5" /> All Repair Orders
       </Link>
-      <PageTitle title="New Work Order" sub="What are we working on?" />
+      <PageTitle title="New Repair Order (RO)" sub="What machine or vehicle are we servicing?" />
 
       <form onSubmit={save} className="space-y-4">
         <Card className="space-y-4 p-4">
-          <Field label="Customer">
+          <Field label="Customer *">
             <Select
               value={customerId}
               onChange={(e) => {
                 setCustomerId(e.target.value);
                 setVehicleId('');
               }}
+              required
             >
               <option value="">Select a customer…</option>
               {(customers ?? []).map((c) => (
@@ -115,13 +116,13 @@ export default function NewWorkOrder() {
             </Select>
           </Field>
 
-          <Field label="Vehicle / Equipment">
+          <Field label="Vehicle / Vessel / Equipment">
             <Select
               value={vehicleId}
               onChange={(e) => setVehicleId(e.target.value)}
               disabled={!customer}
             >
-              <option value="">{customer ? 'No vehicle / TBA' : 'Pick a customer first'}</option>
+              <option value="">{customer ? 'No vehicle specified / Shop equipment' : 'Pick a customer first'}</option>
               {(customer?.vehicles ?? []).map((v) => {
                 const info = getVehicleTypeInfo(v.type);
                 return (
@@ -135,11 +136,11 @@ export default function NewWorkOrder() {
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Scheduled date">
+            <Field label="Scheduled Date">
               <Input type="date" value={scheduled} onChange={(e) => setScheduled(e.target.value)} />
             </Field>
 
-            <Field label={vehicleTypeInfo ? vehicleTypeInfo.hoursLabel : 'Hours / Miles'}>
+            <Field label={vehicleTypeInfo ? vehicleTypeInfo.hoursLabel : 'Service Hours / Miles'}>
               <Input
                 value={mileageOrHours}
                 onChange={(e) => setMileageOrHours(e.target.value)}
@@ -152,17 +153,17 @@ export default function NewWorkOrder() {
             </Field>
           </div>
 
-          <Field label="Issue / Job Notes">
+          <Field label="Primary Complaint / Service Request / Notes">
             <Input
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. Annual service, won't start, clunking over bumps"
+              placeholder="e.g. 100-hr service, won't turn over, hydraulic leak"
             />
           </Field>
         </Card>
 
-        <Button type="submit" variant="accent" disabled={saving} className="w-full">
-          {saving ? 'Creating…' : 'Create work order'}
+        <Button type="submit" variant="accent" disabled={saving} className="w-full text-xs font-bold">
+          {saving ? 'Creating…' : 'Create Repair Order'}
         </Button>
       </form>
     </div>

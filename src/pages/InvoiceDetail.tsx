@@ -187,7 +187,7 @@ export default function InvoiceDetail() {
                   to={`/work/${invoice.work_order_id}`}
                   className="font-bold text-amber-600 hover:text-amber-700"
                 >
-                  View Associated Work Order →
+                  View Associated Repair Order (RO) →
                 </Link>
               </div>
             )}

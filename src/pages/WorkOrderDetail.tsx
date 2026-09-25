@@ -355,11 +355,11 @@ export default function WorkOrderDetail() {
         to="/work"
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800"
       >
-        <ArrowLeftIcon className="h-3.5 w-3.5" /> All Work Orders
+        <ArrowLeftIcon className="h-3.5 w-3.5" /> All Repair Orders
       </Link>
 
       <PageTitle
-        title={wo.number}
+        title={`RO #${wo.number}`}
         sub={`Created ${longDate(wo.created_at)}`}
         right={<Badge status={wo.status} />}
       />
@@ -453,12 +453,12 @@ export default function WorkOrderDetail() {
           <div className="space-y-2">
             {wo.status === 'open' && (
               <Button variant="accent" className="w-full text-xs font-bold" disabled={acting} onClick={() => updateStatus('in_progress')}>
-                ▶ Start Work Ticket
+                ▶ Start Repair Order
               </Button>
             )}
             {wo.status === 'in_progress' && (
               <Button variant="success" className="w-full text-xs font-bold" disabled={acting} onClick={() => updateStatus('completed')}>
-                ✓ Mark Job Completed
+                ✓ Mark RO Completed
               </Button>
             )}
             {wo.status === 'completed' && !showInvoicePanel && (
@@ -809,7 +809,7 @@ export default function WorkOrderDetail() {
               disabled={adding || !desc.trim()}
               className="w-full text-xs font-bold"
             >
-              + Add to Ticket
+              + Add to Repair Order
             </Button>
           </form>
         </div>

@@ -20,7 +20,7 @@ import TrialBanner from './TrialBanner';
 
 const tabs = [
   { to: '/', label: 'Home', shortLabel: 'Home', icon: HomeIcon, end: true },
-  { to: '/work', label: 'Work Orders', shortLabel: 'Work', icon: ClipboardIcon, end: false },
+  { to: '/work', label: 'Repair Orders', shortLabel: 'ROs', icon: ClipboardIcon, end: false },
   { to: '/customers', label: 'Customers', shortLabel: 'Customers', icon: UsersIcon, end: false },
   { to: '/parts', label: 'Parts & Stock', shortLabel: 'Parts', icon: BoxIcon, end: false },
   { to: '/invoices', label: 'Invoices', shortLabel: 'Invoices', icon: ReceiptIcon, end: false },

@@ -110,7 +110,7 @@ export default function Dashboard() {
             className="flex items-center gap-1.5 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-bold text-slate-950 shadow transition hover:bg-amber-300"
           >
             <PlusIcon className="h-4 w-4" />
-            <span>New Work Order</span>
+            <span>New Repair Order</span>
           </Link>
           <Link
             to="/customers/new"
@@ -206,7 +206,7 @@ export default function Dashboard() {
         <div className="space-y-4 lg:col-span-2">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
-              Recent Work Orders
+              Recent Repair Orders
             </h2>
             <Link to="/work" className="text-xs font-semibold text-amber-600 hover:text-amber-700">
               View all ({metrics.openCount}) →
@@ -222,14 +222,14 @@ export default function Dashboard() {
           ) : recentOrders.length === 0 ? (
             <EmptyState
               icon={<ClipboardIcon className="h-8 w-8 text-slate-400" />}
-              title="No work orders yet"
-              sub="Create your first job ticket to start tracking repairs, parts, and labor."
+              title="No repair orders yet"
+              sub="Create your first repair order to start tracking repairs, parts, and labor."
               action={
                 <Link
                   to="/work/new"
                   className="inline-flex rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-300"
                 >
-                  Create First Ticket
+                  Create First Repair Order
                 </Link>
               }
             />
@@ -257,7 +257,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between p-3.5">
               <div className="flex items-center gap-2.5 text-xs text-slate-600">
                 <ClockIcon className="h-4 w-4 text-emerald-500" />
-                <span>Completed Tickets</span>
+                <span>Completed ROs</span>
               </div>
               <span className="text-xs font-bold text-slate-900">{metrics.completedCount}</span>
             </div>
@@ -277,7 +277,7 @@ export default function Dashboard() {
           <Card className="bg-slate-900 text-white p-4 space-y-3 shadow-md">
             <p className="text-xs font-bold uppercase tracking-wide text-amber-400">Outlaw Pro Tip</p>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Print invoices directly from any work order or text payment links straight to your customer's phone from the invoice screen.
+              Generate invoices directly from any repair order or text payment links straight to your customer's phone from the invoice screen.
             </p>
             <Link
               to="/settings"

@@ -180,7 +180,7 @@ export function formatEstimateText(
     '',
     `Here is the estimate for your ${vLabel} from ${shopName}:`,
     '',
-    `Work Order: ${wo.number}`,
+    `Repair Order: ${wo.number}`,
     `Date: ${longDate(wo.created_at)}`,
     wo.vehicle ? `Vehicle/Equipment: ${vLabel}` : null,
     engine1Line,
