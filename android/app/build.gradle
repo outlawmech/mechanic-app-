@@ -3,12 +3,13 @@ apply plugin: 'com.android.application'
 android {
     namespace = "com.outlawshopsystems.app"
     compileSdk = rootProject.ext.compileSdkVersion
+    
     defaultConfig {
         applicationId "com.outlawshopsystems.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode project.hasProperty('customVersionCode') ? project.property('customVersionCode').toInteger() : (int)(System.currentTimeMillis() / 1000)
+        versionName "1.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +17,28 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+
+    signingConfigs {
+        persistentKey {
+            if (file('outlaw.keystore').exists()) {
+                storeFile file('outlaw.keystore')
+                storePassword 'outlaw123'
+                keyAlias 'outlaw'
+                keyPassword 'outlaw123'
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            if (file('outlaw.keystore').exists()) {
+                signingConfig signingConfigs.persistentKey
+            }
+        }
         release {
+            if (file('outlaw.keystore').exists()) {
+                signingConfig signingConfigs.persistentKey
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

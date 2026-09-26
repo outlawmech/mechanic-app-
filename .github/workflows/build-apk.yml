@@ -30,6 +30,19 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      - name: Generate or Restore Persistent Signing Keystore
+        run: |
+          if [ ! -f android/app/outlaw.keystore ]; then
+            keytool -genkey -v -keystore android/app/outlaw.keystore \
+              -alias outlaw \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass outlaw123 \
+              -keypass outlaw123 \
+              -dname "CN=Outlaw Shop Systems, OU=Mobile, O=Outlaw, L=Helena, S=MT, C=US"
+          fi
+
       - name: Install Node Dependencies
         run: npm install
 
@@ -42,10 +55,10 @@ jobs:
       - name: Grant Execute Permission for Gradle Wrapper
         run: chmod +x android/gradlew
 
-      - name: Build Android Debug APK
+      - name: Build Android APK with Persistent Key & VersionCode
         run: |
           cd android
-          ./gradlew assembleDebug --stacktrace --no-daemon
+          ./gradlew assembleDebug -PcustomVersionCode=${{ github.run_number }} --stacktrace --no-daemon
 
       - name: Rename APK for Easy Distribution
         run: |
@@ -70,13 +83,12 @@ jobs:
 
             Download and install the native Android `.apk` below:
             - **100% True Offline Field Operation**
-            - **No browser headers or reload glitches**
+            - **Seamless 1-Tap Updates (No uninstall required)**
             - **Fast local database with background Supabase cloud sync**
-            
+
             **Installation Instructions:**
             1. Download `OutlawShopSystems-v1.0.apk` below on your Android phone or tablet.
-            2. Tap the downloaded file and select **Install**. (If prompted, enable *"Allow from this source"* in Android settings).
+            2. Tap the downloaded file and select **Install** / **Update**.
             3. Open **Outlaw Shop Systems** from your home screen!
-          files: output/OutlawShopSystems-v1.0.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            output/OutlawShopSystems-v1.0.apk

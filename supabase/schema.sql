@@ -74,8 +74,22 @@ create table if not exists public.work_orders (
   scheduled_at     timestamptz,
   mileage_or_hours text not null default '',
   notes            text not null default '',
+  signature_url    text,
+  signed_by_name   text,
+  signed_at        timestamptz,
   created_at       timestamptz not null default now(),
   completed_at     timestamptz
+);
+
+-- ---------------- Work Order Photos ----------------
+create table if not exists public.work_order_photos (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid references auth.users (id) default auth.uid(),
+  work_order_id uuid not null references public.work_orders (id) on delete cascade,
+  photo_url     text not null,
+  category      text not null default 'general',
+  caption       text not null default '',
+  created_at    timestamptz not null default now()
 );
 
 -- ---------------- Work items (Labor, Parts, Fees) ----------------
