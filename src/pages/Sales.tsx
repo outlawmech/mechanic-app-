@@ -4,10 +4,12 @@ import { useToast } from '../components/Toast';
 import {
   BanknotesIcon,
   BoxIcon,
+  BuildingBankIcon,
   CheckIcon,
   ClipboardIcon,
   ClockIcon,
   PlusIcon,
+  PrinterIcon,
   ReceiptIcon,
   SearchIcon,
   SparklesIcon,
@@ -15,6 +17,7 @@ import {
   TrashIcon,
   VehicleIcon,
   WrenchIcon,
+  PencilIcon,
 } from '../components/icons';
 import {
   Badge,
@@ -55,6 +58,13 @@ const emptyUnit = {
   sale_price: '',
   location: 'Main Showroom',
   notes: '',
+  // Floorplan Financing
+  is_floored: false,
+  floorplan_company: '',
+  floorplan_balance: '',
+  floorplan_curtailment_date: '',
+  floorplan_curtailment_amount: '',
+  floorplan_paid_off: false,
 };
 
 export default function Sales() {
@@ -67,6 +77,7 @@ export default function Sales() {
   const [searchQuery, setSearchQuery] = useState('');
   const [addingUnit, setAddingUnit] = useState(false);
   const [editingUnit, setEditingUnit] = useState<DealershipUnit | null>(null);
+  const [printingTagUnit, setPrintingTagUnit] = useState<DealershipUnit | null>(null);
   const [form, setForm] = useState(emptyUnit);
   const [decoding, setDecoding] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -94,11 +105,18 @@ export default function Sales() {
   const allUnits = data?.units ?? [];
   const allDeals = data?.deals ?? [];
 
-  // Metrics
+  // Metrics Calculations
   const inStockUnits = allUnits.filter((u) => u.status === 'in_stock' || u.status === 'sale_pending');
   const totalShowroomValue = inStockUnits.reduce((sum, u) => sum + num(u.sale_price || u.msrp_price), 0);
   const totalCostValue = inStockUnits.reduce((sum, u) => sum + num(u.cost_price), 0);
   const soldUnits = allUnits.filter((u) => u.status === 'sold');
+
+  // Commercial Floorplan Metrics
+  const activeFlooredUnits = inStockUnits.filter((u) => u.is_floored && !u.floorplan_paid_off);
+  const totalFloorplanBalance = activeFlooredUnits.reduce(
+    (sum, u) => sum + num(u.floorplan_balance || u.cost_price),
+    0
+  );
 
   // Filtered Units List
   const filteredUnits = useMemo(() => {
@@ -106,6 +124,8 @@ export default function Sales() {
     if (filterCondition !== 'all') {
       if (filterCondition === 'in_stock') {
         list = list.filter((u) => u.status === 'in_stock');
+      } else if (filterCondition === 'floored') {
+        list = list.filter((u) => u.is_floored);
       } else if (filterCondition === 'sold') {
         list = list.filter((u) => u.status === 'sold');
       } else {
@@ -122,7 +142,8 @@ export default function Sales() {
       const matchVin = (u.vin || '').toLowerCase().includes(q);
       const matchStock = (u.stock_number || '').toLowerCase().includes(q);
       const matchYear = String(u.year || '').includes(q);
-      return matchMake || matchModel || matchVin || matchStock || matchYear;
+      const matchFloor = (u.floorplan_company || '').toLowerCase().includes(q);
+      return matchMake || matchModel || matchVin || matchStock || matchYear || matchFloor;
     });
   }, [allUnits, filterCondition, searchQuery]);
 
@@ -183,6 +204,13 @@ export default function Sales() {
       status: editingUnit ? editingUnit.status : ('in_stock' as UnitStatus),
       location: form.location.trim() || 'Main Showroom',
       notes: form.notes.trim(),
+      // Floorplan financing
+      is_floored: Boolean(form.is_floored),
+      floorplan_company: form.floorplan_company.trim() || null,
+      floorplan_balance: form.floorplan_balance ? num(form.floorplan_balance) : (form.is_floored ? num(form.cost_price) : null),
+      floorplan_curtailment_date: form.floorplan_curtailment_date.trim() || null,
+      floorplan_curtailment_amount: form.floorplan_curtailment_amount ? num(form.floorplan_curtailment_amount) : null,
+      floorplan_paid_off: Boolean(form.floorplan_paid_off),
       updated_at: new Date().toISOString(),
     };
 
@@ -349,11 +377,17 @@ export default function Sales() {
       mileage_or_hours: u.mileage_or_hours || '',
       engine_info: u.engine_info || '',
       engine_serial: u.engine_serial || '',
-      cost_price: String(u.cost_price || ''),
-      msrp_price: String(u.msrp_price || ''),
-      sale_price: String(u.sale_price || ''),
+      cost_price: u.cost_price ? String(u.cost_price) : '',
+      msrp_price: u.msrp_price ? String(u.msrp_price) : '',
+      sale_price: u.sale_price ? String(u.sale_price) : '',
       location: u.location || 'Main Showroom',
       notes: u.notes || '',
+      is_floored: Boolean(u.is_floored),
+      floorplan_company: u.floorplan_company || '',
+      floorplan_balance: u.floorplan_balance ? String(u.floorplan_balance) : '',
+      floorplan_curtailment_date: u.floorplan_curtailment_date || '',
+      floorplan_curtailment_amount: u.floorplan_curtailment_amount ? String(u.floorplan_curtailment_amount) : '',
+      floorplan_paid_off: Boolean(u.floorplan_paid_off),
     });
     setAddingUnit(true);
   }
@@ -368,7 +402,7 @@ export default function Sales() {
         <div>
           <PageTitle
             title="Showroom &amp; Unit Sales"
-            sub={`${inStockUnits.length} units in stock · ${money(totalShowroomValue)} retail floor value`}
+            sub={`${inStockUnits.length} in stock · ${money(totalShowroomValue)} floor MSRP · ${activeFlooredUnits.length} floored units`}
           />
         </div>
 
@@ -398,30 +432,35 @@ export default function Sales() {
         </div>
       </div>
 
-      {/* Top 4 Metrics Grid */}
+      {/* Top 4 Metrics Grid (Showroom, Cost, Commercial Floorplan, Sales) */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Card className="p-4 space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">In-Stock Units</p>
           <p className="text-2xl font-black text-slate-900">{inStockUnits.length}</p>
-          <p className="text-[11px] text-slate-500">Available on floor</p>
+          <p className="text-[11px] text-slate-500">Available on showroom floor</p>
         </Card>
 
         <Card className="p-4 space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Floor MSRP</p>
           <p className="text-2xl font-black text-emerald-600">{money(totalShowroomValue)}</p>
-          <p className="text-[11px] text-slate-500">Cost: <strong className="text-slate-700">{money(totalCostValue)}</strong></p>
+          <p className="text-[11px] text-slate-500">Dealer Cost: <strong className="text-slate-700">{money(totalCostValue)}</strong></p>
+        </Card>
+
+        <Card className="p-4 space-y-1 border-amber-200 bg-amber-50/30">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-900">Floorplan Financing</p>
+            <BuildingBankIcon className="h-3.5 w-3.5 text-amber-600" />
+          </div>
+          <p className="text-2xl font-black text-amber-900">{money(totalFloorplanBalance)}</p>
+          <p className="text-[11px] text-amber-700 font-medium">
+            {activeFlooredUnits.length} floored unit{activeFlooredUnits.length === 1 ? '' : 's'} on line
+          </p>
         </Card>
 
         <Card className="p-4 space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Buyer's Orders</p>
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Deals &amp; Delivered</p>
           <p className="text-2xl font-black text-slate-900">{allDeals.length}</p>
-          <p className="text-[11px] text-slate-500">Deals generated</p>
-        </Card>
-
-        <Card className="p-4 space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Sold Units</p>
-          <p className="text-2xl font-black text-amber-600">{soldUnits.length}</p>
-          <p className="text-[11px] text-slate-500">Delivered to customers</p>
+          <p className="text-[11px] text-slate-500">{soldUnits.length} units sold &amp; delivered</p>
         </Card>
       </div>
 
@@ -463,7 +502,7 @@ export default function Sales() {
                 {editingUnit ? 'Edit Showroom Unit' : 'Add New Unit / Motorcycle / ATV'}
               </h3>
               <p className="text-xs text-slate-500">
-                Enter vehicle specs, VIN, dealer cost, and advertised price.
+                Enter vehicle specs, VIN, dealer cost, floorplan financing, and advertised price.
               </p>
             </div>
             <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-900">
@@ -500,63 +539,69 @@ export default function Sales() {
               <Input
                 value={form.stock_number}
                 onChange={(e) => setForm({ ...form, stock_number: e.target.value })}
-                placeholder="e.g. STK-2024-042"
+                placeholder="e.g. STK-2024-01"
               />
             </Field>
           </div>
 
-          {/* 1-Tap VIN / HIN Decoder */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <Field label="VIN / Hull ID (1-Tap Auto-Fill)">
-              <div className="flex gap-2">
+          {/* VIN Decoder Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+            <div className="sm:col-span-8">
+              <Field label="VIN / HIN (17 or 12 Characters)">
+                <div className="flex gap-2">
+                  <Input
+                    value={form.vin}
+                    onChange={(e) => setForm({ ...form, vin: e.target.value.toUpperCase() })}
+                    placeholder="Enter VIN or Hull Identification Number"
+                    className="font-mono uppercase text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleDecodeVin}
+                    disabled={decoding || !form.vin.trim()}
+                    className="flex items-center gap-1.5 rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-xs"
+                  >
+                    <SparklesIcon className="h-3.5 w-3.5" />
+                    <span>{decoding ? 'Decoding…' : 'Decode VIN'}</span>
+                  </button>
+                </div>
+              </Field>
+            </div>
+
+            <div className="sm:col-span-4">
+              <Field label="Color / Graphics">
                 <Input
-                  value={form.vin}
-                  onChange={(e) => setForm({ ...form, vin: e.target.value.toUpperCase() })}
-                  placeholder="17-Digit VIN or 12-Digit HIN"
-                  className="font-mono uppercase text-xs flex-1"
+                  value={form.color}
+                  onChange={(e) => setForm({ ...form, color: e.target.value })}
+                  placeholder="e.g. Championship Yellow / Matte Black"
                 />
-                <button
-                  type="button"
-                  onClick={handleDecodeVin}
-                  disabled={decoding || !form.vin.trim()}
-                  className="flex items-center gap-1 rounded-xl bg-amber-400 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-xs"
-                >
-                  <SparklesIcon className="h-3.5 w-3.5" />
-                  <span>{decoding ? 'Decoding…' : 'Decode'}</span>
-                </button>
-              </div>
-            </Field>
-
-            <Field label="Color / Graphics">
-              <Input
-                value={form.color}
-                onChange={(e) => setForm({ ...form, color: e.target.value })}
-                placeholder="e.g. Champion Yellow / Matte Black"
-              />
-            </Field>
+              </Field>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <Field label="Year">
-              <Input
-                value={form.year}
-                onChange={(e) => setForm({ ...form, year: e.target.value })}
-                type="number"
-                min="1980"
-                max="2035"
-                placeholder="2024"
-                required
-              />
-            </Field>
-            <div className="sm:col-span-2">
-              <Field label="Make / Brand *">
+          {/* Specs Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
+              <Field label="Year *">
                 <Input
-                  value={form.make}
-                  onChange={(e) => setForm({ ...form, make: e.target.value })}
-                  placeholder="e.g. Suzuki / Beta / KYMCO / SSR"
+                  value={form.year}
+                  onChange={(e) => setForm({ ...form, year: e.target.value })}
+                  type="number"
+                  min="1900"
+                  max="2035"
                   required
                 />
               </Field>
+              <div className="col-span-2">
+                <Field label="Make / Brand *">
+                  <Input
+                    value={form.make}
+                    onChange={(e) => setForm({ ...form, make: e.target.value })}
+                    placeholder="e.g. Suzuki / Beta / Can-Am"
+                    required
+                  />
+                </Field>
+              </div>
             </div>
             <Field label="Model *">
               <Input
@@ -566,9 +611,6 @@ export default function Sales() {
                 required
               />
             </Field>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Field label="Trim / Edition">
               <Input
                 value={form.trim}
@@ -576,6 +618,9 @@ export default function Sales() {
                 placeholder="e.g. Race Edition / 4-Stroke"
               />
             </Field>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Engine Specs / Motor">
               <Input
                 value={form.engine_info}
@@ -597,7 +642,15 @@ export default function Sales() {
             <Field label="Dealer Invoice / Cost ($)">
               <Input
                 value={form.cost_price}
-                onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
+                onChange={(e) => {
+                  const newCost = e.target.value;
+                  setForm({
+                    ...form,
+                    cost_price: newCost,
+                    // If floored and balance wasn't manually customized, match balance to cost
+                    floorplan_balance: form.is_floored && !form.floorplan_balance ? newCost : form.floorplan_balance,
+                  });
+                }}
                 type="number"
                 step="0.01"
                 placeholder="0.00"
@@ -621,6 +674,79 @@ export default function Sales() {
                 placeholder="0.00"
               />
             </Field>
+          </div>
+
+          {/* Commercial Floorplan Financing Section */}
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BuildingBankIcon className="h-4 w-4 text-amber-700" />
+                <label className="text-xs font-black uppercase tracking-wide text-amber-950 flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.is_floored}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setForm({
+                        ...form,
+                        is_floored: checked,
+                        floorplan_balance: checked && !form.floorplan_balance ? form.cost_price : form.floorplan_balance,
+                      });
+                    }}
+                    className="h-4 w-4 rounded text-amber-600 focus:ring-amber-500"
+                  />
+                  Commercial Floorplan Unit (Floored on Lender Line)
+                </label>
+              </div>
+              {form.is_floored && (
+                <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.floorplan_paid_off}
+                    onChange={(e) => setForm({ ...form, floorplan_paid_off: e.target.checked })}
+                    className="h-3.5 w-3.5 rounded text-emerald-600 focus:ring-emerald-500"
+                  />
+                  Floorplan Paid Off / Title Released
+                </label>
+              )}
+            </div>
+
+            {form.is_floored && (
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-amber-200/60 animate-in fade-in duration-150">
+                <Field label="Floorplan Lender / Company">
+                  <Input
+                    value={form.floorplan_company}
+                    onChange={(e) => setForm({ ...form, floorplan_company: e.target.value })}
+                    placeholder="e.g. Wells Fargo CDF / Northpoint / NextGear / Bank"
+                  />
+                </Field>
+                <Field label="Current Principal Balance ($)">
+                  <Input
+                    value={form.floorplan_balance}
+                    onChange={(e) => setForm({ ...form, floorplan_balance: e.target.value })}
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                  />
+                </Field>
+                <Field label="Next Curtailment Due Date">
+                  <Input
+                    value={form.floorplan_curtailment_date}
+                    onChange={(e) => setForm({ ...form, floorplan_curtailment_date: e.target.value })}
+                    type="date"
+                  />
+                </Field>
+                <Field label="Curtailment Amount ($)">
+                  <Input
+                    value={form.floorplan_curtailment_amount}
+                    onChange={(e) => setForm({ ...form, floorplan_curtailment_amount: e.target.value })}
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                  />
+                </Field>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2 pt-2">
@@ -652,7 +778,7 @@ export default function Sales() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search Make, Model, Stock #, VIN…"
+                placeholder="Search Make, Model, Stock #, VIN, Floorplan…"
                 className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-amber-400"
               />
             </div>
@@ -661,6 +787,7 @@ export default function Sales() {
               {[
                 { id: 'all', label: 'All Units' },
                 { id: 'in_stock', label: 'In Stock' },
+                { id: 'floored', label: `🏦 Floored (${activeFlooredUnits.length})` },
                 { id: 'new', label: 'New' },
                 { id: 'used', label: 'Used' },
                 { id: 'sold', label: 'Sold' },
@@ -697,34 +824,40 @@ export default function Sales() {
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredUnits.map((u) => {
-                const margin =
-                  num(u.sale_price || u.msrp_price) - num(u.cost_price);
+                const margin = num(u.sale_price || u.msrp_price) - num(u.cost_price);
                 const marginPct =
-                  num(u.sale_price) > 0
-                    ? ((margin / num(u.sale_price)) * 100).toFixed(1)
-                    : '0';
+                  num(u.sale_price) > 0 ? ((margin / num(u.sale_price)) * 100).toFixed(1) : '0';
 
                 return (
-                  <Card key={u.id} className="p-4 space-y-3 hover:border-amber-400/60 transition flex flex-col justify-between">
+                  <Card
+                    key={u.id}
+                    className="p-4 space-y-3 hover:border-amber-400/60 transition flex flex-col justify-between"
+                  >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-1.5">
                           <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-bold text-slate-700">
                             {u.stock_number || 'STK'}
                           </span>
-                          <span className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase ${
-                            u.condition === 'new' ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'
-                          }`}>
+                          <span
+                            className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase ${
+                              u.condition === 'new'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}
+                          >
                             {u.condition}
                           </span>
                         </div>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
-                          u.status === 'sold'
-                            ? 'bg-slate-200 text-slate-600'
-                            : u.status === 'sale_pending'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        }`}>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+                            u.status === 'sold'
+                              ? 'bg-slate-200 text-slate-600'
+                              : u.status === 'sale_pending'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          }`}
+                        >
                           {u.status.replace('_', ' ')}
                         </span>
                       </div>
@@ -744,6 +877,33 @@ export default function Sales() {
                         <p className="font-mono text-[11px] text-slate-500 bg-slate-50 p-1.5 rounded-lg border border-slate-100">
                           VIN: <strong className="text-slate-800">{u.vin}</strong>
                         </p>
+                      )}
+
+                      {/* Floorplan Lender Tracking Badge */}
+                      {u.is_floored && (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-2 text-[11px] text-amber-950 space-y-0.5">
+                          <div className="flex items-center justify-between font-bold">
+                            <span className="flex items-center gap-1">
+                              <BuildingBankIcon className="h-3 w-3 text-amber-700" />
+                              {u.floorplan_company || 'Floorplan Line'}
+                            </span>
+                            {u.floorplan_paid_off ? (
+                              <span className="text-emerald-700 font-black">PAID OFF</span>
+                            ) : (
+                              <span className="font-mono font-black text-amber-900">
+                                {money(u.floorplan_balance || u.cost_price)}
+                              </span>
+                            )}
+                          </div>
+                          {u.floorplan_curtailment_date && !u.floorplan_paid_off && (
+                            <div className="flex items-center justify-between text-[10px] text-amber-800">
+                              <span>Curtailment: {shortDate(u.floorplan_curtailment_date)}</span>
+                              {num(u.floorplan_curtailment_amount) > 0 && (
+                                <span>{money(u.floorplan_curtailment_amount)}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       )}
 
                       <div className="flex items-baseline justify-between border-t border-slate-100 pt-2 text-xs">
@@ -786,11 +946,20 @@ export default function Sales() {
 
                       <button
                         type="button"
+                        onClick={() => setPrintingTagUnit(u)}
+                        className="rounded-xl border border-slate-200 p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                        title="Print Showroom Spec Sheet / Window Tag"
+                      >
+                        <PrinterIcon className="h-3.5 w-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
                         onClick={() => startEditUnit(u)}
                         className="rounded-xl border border-slate-200 p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                         title="Edit unit"
                       >
-                        ✏️
+                        <PencilIcon className="h-3.5 w-3.5" />
                       </button>
 
                       <button
@@ -847,7 +1016,7 @@ export default function Sales() {
                   to={`/sales/deal/${d.id}`}
                   className="block transition hover:-translate-y-0.5"
                 >
-                  <Card className="p-4 space-y-2 hover:border-amber-400/60">
+                  <Card className="p-4 space-y-2 hover:border-amber-400/60 transition">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-xs font-bold text-slate-500">{d.order_number}</span>
                       <Badge status={d.status === 'completed' ? 'paid' : d.status === 'quote' ? 'draft' : 'unpaid'} />
@@ -876,6 +1045,125 @@ export default function Sales() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Printable Showroom Window Tag / Handlebar Spec Sheet Modal */}
+      {printingTagUnit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs">
+          <div className="relative w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-slate-900/10 space-y-5 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 no-print">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase">
+                  Showroom Spec Sheet / Window Sticker
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Printable display tag for showroom floor, handlebars, or windshield.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPrintingTagUnit(null)}
+                className="rounded-full bg-slate-100 p-1.5 text-slate-400 hover:text-slate-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Spec Card Body */}
+            <div className="border-4 border-slate-900 rounded-2xl p-6 bg-white space-y-5">
+              <div className="flex items-start justify-between border-b-2 border-slate-900 pb-3">
+                <div>
+                  <h1 className="text-xl font-black uppercase tracking-tight text-slate-900">
+                    {settings.shop_name || 'Outlaw Powersports & Marine'}
+                  </h1>
+                  <p className="text-xs font-semibold text-slate-600">
+                    {[settings.address, settings.phone].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="inline-block rounded-md bg-slate-900 px-3 py-1 font-mono text-xs font-black text-white uppercase">
+                    {printingTagUnit.condition}
+                  </span>
+                  <p className="mt-1 font-mono text-xs font-bold text-slate-600">
+                    STK: {printingTagUnit.stock_number || 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-bold uppercase tracking-widest text-amber-600">
+                  {printingTagUnit.year} {printingTagUnit.make}
+                </p>
+                <h2 className="text-2xl font-black text-slate-950 uppercase tracking-tight">
+                  {printingTagUnit.model}
+                </h2>
+                {printingTagUnit.trim && (
+                  <p className="text-xs font-bold text-slate-700 mt-0.5">{printingTagUnit.trim}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-3.5 text-xs">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Category</span>
+                  <span className="font-bold text-slate-800 uppercase">{printingTagUnit.type}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Color / Graphics</span>
+                  <span className="font-bold text-slate-800">{printingTagUnit.color || 'Factory'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Engine / Motor</span>
+                  <span className="font-bold text-slate-800">{printingTagUnit.engine_info || 'Standard'}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Hours / Odometer</span>
+                  <span className="font-bold text-slate-800">{printingTagUnit.mileage_or_hours || '0'}</span>
+                </div>
+              </div>
+
+              {printingTagUnit.vin && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 font-mono text-xs text-center">
+                  <span className="text-[10px] font-sans font-bold uppercase text-slate-400 block">
+                    Vehicle Identification Number (VIN / HIN)
+                  </span>
+                  <strong className="text-xs tracking-wider text-slate-900">{printingTagUnit.vin}</strong>
+                </div>
+              )}
+
+              <div className="border-t-2 border-dashed border-slate-300 pt-3 flex items-end justify-between">
+                <div>
+                  {num(printingTagUnit.msrp_price) > 0 && num(printingTagUnit.msrp_price) !== num(printingTagUnit.sale_price) && (
+                    <p className="text-xs text-slate-400 line-through">
+                      MSRP: {money(printingTagUnit.msrp_price)}
+                    </p>
+                  )}
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">
+                    Showroom Sale Price
+                  </span>
+                  <p className="text-2xl font-black text-slate-950">
+                    {money(printingTagUnit.sale_price || printingTagUnit.msrp_price)}
+                  </p>
+                </div>
+                <div className="text-right text-[10px] text-slate-400">
+                  * Plus applicable tax &amp; prep
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1 no-print">
+              <Button
+                variant="accent"
+                onClick={() => window.print()}
+                className="flex-1 font-bold flex items-center justify-center gap-1.5"
+              >
+                <PrinterIcon className="h-4 w-4" /> Print Window Tag
+              </Button>
+              <Button variant="ghost" onClick={() => setPrintingTagUnit(null)}>
+                Close
+              </Button>
+            </div>
+          </div>
         </div>
       )}
     </div>

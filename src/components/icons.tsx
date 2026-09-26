@@ -313,6 +313,12 @@ export const BanknotesIcon = (p: P) => (
   </Svg>
 );
 
+export const PencilIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+  </Svg>
+);
+
 export const BuildingBankIcon = (p: P) => (
   <Svg {...p}>
     <line x1="3" y1="21" x2="21" y2="21" />

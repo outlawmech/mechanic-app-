@@ -36,11 +36,20 @@ const desktopTabs = [
   { to: '/settings', label: 'Shop Settings', shortLabel: 'Settings', icon: SettingsIcon, end: false },
 ];
 
-// Clean 4 Primary Mobile Tabs (+ More Menu)
-const mobilePrimaryTabs = [
+// Solo Rig Mobile Primary Tabs
+const soloPrimaryTabs = [
   { to: '/', label: 'Home', shortLabel: 'Home', icon: HomeIcon, end: true },
   { to: '/schedule', label: 'Schedule', shortLabel: 'Schedule', icon: CalendarIcon, end: false },
   { to: '/work', label: 'ROs', shortLabel: 'ROs', icon: ClipboardIcon, end: false },
+  { to: '/customers', label: 'Customers', shortLabel: 'Customers', icon: UsersIcon, end: false },
+];
+
+// Dealership Departmental Mobile Primary Tabs
+const dealerPrimaryTabs = [
+  { to: '/', label: 'Home', shortLabel: 'Home', icon: HomeIcon, end: true },
+  { to: '/work', label: 'Service', shortLabel: 'Service', icon: ClipboardIcon, end: false },
+  { to: '/parts', label: 'Parts', shortLabel: 'Parts', icon: BoxIcon, end: false },
+  { to: '/sales', label: 'Sales', shortLabel: 'Sales', icon: TagIcon, end: false },
   { to: '/customers', label: 'Customers', shortLabel: 'Customers', icon: UsersIcon, end: false },
 ];
 
@@ -58,6 +67,8 @@ export default function Layout() {
     if (t.to === '/sales' && !settings.enable_dealership_mode) return false;
     return true;
   });
+
+  const activeMobileTabs = settings.enable_dealership_mode ? dealerPrimaryTabs : soloPrimaryTabs;
 
   const switchToDesktop = () => {
     setViewMode('desktop');
@@ -120,8 +131,8 @@ export default function Layout() {
           </main>
 
           <nav className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
-            <div className="mx-auto grid max-w-md grid-cols-5 pb-[env(safe-area-inset-bottom)]">
-              {mobilePrimaryTabs.map((t) => (
+            <div className={`mx-auto grid max-w-md ${settings.enable_dealership_mode ? 'grid-cols-6' : 'grid-cols-5'} pb-[env(safe-area-inset-bottom)]`}>
+              {activeMobileTabs.map((t) => (
                 <NavLink
                   key={t.to}
                   to={t.to}
@@ -374,10 +385,10 @@ export default function Layout() {
         </main>
       </div>
 
-      {/* Clean 5-Tab Mobile Bottom Navigation (Visible only on phones < md) */}
+      {/* Clean Mobile Bottom Navigation (Adapts between Solo Rig 5-tabs and Dealership 6-tabs) */}
       <nav className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden shadow-lg">
-        <div className="mx-auto grid max-w-md grid-cols-5 pb-[max(env(safe-area-inset-bottom,0px),8px)]">
-          {mobilePrimaryTabs.map((t) => (
+        <div className={`mx-auto grid max-w-md ${settings.enable_dealership_mode ? 'grid-cols-6' : 'grid-cols-5'} pb-[max(env(safe-area-inset-bottom,0px),8px)]`}>
+          {activeMobileTabs.map((t) => (
             <NavLink
               key={t.to}
               to={t.to}

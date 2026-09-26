@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useToast } from '../components/Toast';
 import {
   ArrowLeftIcon,
+  BuildingBankIcon,
   CheckIcon,
   CreditCardIcon,
   PrinterIcon,
@@ -65,6 +66,7 @@ export default function BuyersOrderDetail() {
   const [rebateAmount, setRebateAmount] = useState('0');
   const [downPayment, setDownPayment] = useState('0');
   const [notes, setNotes] = useState('');
+  const [markFloorplanPaidOff, setMarkFloorplanPaidOff] = useState(true);
 
   // Load Customers, Showroom Units, and Existing Order (if editing)
   const { data, error, loading, reload } = useAsync(async () => {
@@ -244,13 +246,17 @@ export default function BuyersOrderDetail() {
       const sb = requireSupabase();
       if (isNew) {
         const res = check(await sb.from('buyers_orders').insert(dealPayload).select('id').single());
-        // If marked as completed / sold, update unit status
+        // If marked as completed / sold, update unit status & floorplan payoff
         if (unitId && status === 'completed') {
-          await sb.from('dealership_units').update({
+          const unitUpdate: Record<string, any> = {
             status: 'sold',
             sold_at: new Date().toISOString(),
             sold_to_customer_id: customerId,
-          }).eq('id', unitId);
+          };
+          if (selectedUnit?.is_floored && markFloorplanPaidOff) {
+            unitUpdate.floorplan_paid_off = true;
+          }
+          await sb.from('dealership_units').update(unitUpdate).eq('id', unitId);
         }
         toast('Buyer’s Order created!');
         if (res.data?.id) {
@@ -261,11 +267,15 @@ export default function BuyersOrderDetail() {
       } else {
         check(await sb.from('buyers_orders').update(dealPayload).eq('id', id!));
         if (unitId && status === 'completed') {
-          await sb.from('dealership_units').update({
+          const unitUpdate: Record<string, any> = {
             status: 'sold',
             sold_at: new Date().toISOString(),
             sold_to_customer_id: customerId,
-          }).eq('id', unitId);
+          };
+          if (selectedUnit?.is_floored && markFloorplanPaidOff) {
+            unitUpdate.floorplan_paid_off = true;
+          }
+          await sb.from('dealership_units').update(unitUpdate).eq('id', unitId);
         }
         toast('Buyer’s Order updated!');
         await reload();
@@ -285,6 +295,7 @@ export default function BuyersOrderDetail() {
   if (error) return <ErrorState message={error} />;
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
+  const selectedUnit = units.find((u) => u.id === unitId);
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -377,6 +388,31 @@ export default function BuyersOrderDetail() {
                   ))}
                 </Select>
               </Field>
+
+              {selectedUnit && selectedUnit.is_floored && (
+                <div className="rounded-2xl border border-amber-300 bg-amber-50/80 p-3.5 space-y-1 text-xs text-amber-950">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold uppercase tracking-wider flex items-center gap-1.5 text-[11px] text-amber-900">
+                      <BuildingBankIcon className="h-4 w-4 text-amber-700" />
+                      Floorplan Financed: {selectedUnit.floorplan_company || 'Lender Line'}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+                        selectedUnit.floorplan_paid_off
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-200 text-amber-950'
+                      }`}
+                    >
+                      {selectedUnit.floorplan_paid_off
+                        ? 'Title Released'
+                        : `Payoff Due: ${money(selectedUnit.floorplan_balance || selectedUnit.cost_price)}`}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-amber-800 leading-snug">
+                    Remit lender payoff to <strong>{selectedUnit.floorplan_company || 'your floorplan financier'}</strong> upon final payment to release the Manufacturer’s Statement of Origin (MSO) or title.
+                  </p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <Field label="Condition">
@@ -621,6 +657,21 @@ export default function BuyersOrderDetail() {
                   </Select>
                 </Field>
               </div>
+
+              {/* Floored Unit Payoff Settlement Option */}
+              {status === 'completed' && selectedUnit?.is_floored && !selectedUnit.floorplan_paid_off && (
+                <label className="flex items-start gap-2 text-xs font-semibold text-amber-200 bg-amber-950/40 p-3 rounded-xl border border-amber-500/40 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={markFloorplanPaidOff}
+                    onChange={(e) => setMarkFloorplanPaidOff(e.target.checked)}
+                    className="h-4 w-4 rounded text-amber-500 focus:ring-amber-400 mt-0.5 shrink-0"
+                  />
+                  <span>
+                    <strong>Remit Floorplan Payoff ({money(selectedUnit.floorplan_balance || selectedUnit.cost_price)})</strong> to {selectedUnit.floorplan_company || 'Lender Line'} &amp; mark title/MSO released upon deal completion.
+                  </span>
+                </label>
+              )}
 
               {/* Signature Section */}
               <div className="pt-2 border-t border-slate-800 space-y-2">

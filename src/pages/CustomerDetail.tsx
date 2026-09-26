@@ -1,7 +1,20 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon, MailIcon, MapPinIcon, PhoneIcon, ClockIcon, PlusIcon, SparklesIcon, VehicleIcon } from '../components/icons';
+import {
+  ArrowLeftIcon,
+  MailIcon,
+  MapPinIcon,
+  PhoneIcon,
+  ClockIcon,
+  PlusIcon,
+  SparklesIcon,
+  VehicleIcon,
+  PencilIcon,
+  TrashIcon,
+  CheckIcon,
+  WrenchIcon,
+} from '../components/icons';
 import {
   Badge,
   Button,
@@ -18,6 +31,7 @@ import { useAsync } from '../lib/hooks';
 import { fullName, getVehicleTypeInfo, longDate, money, num, VEHICLE_TYPES, vehicleLabel } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { decodeVehicleVIN } from '../lib/vinDecoder';
+import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
 import type { Customer, Invoice, Vehicle, VehicleType, WorkOrder } from '../types';
 
 type CustomerFull = Customer & {
@@ -43,11 +57,10 @@ const emptyVehicle = {
   engine2_hours: '',
 };
 
-import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
-
 export default function CustomerDetail() {
   const { id } = useParams();
   const toast = useToast();
+
   const { data, error, loading, reload } = useAsync(async () => {
     return safeFetchWithCache<CustomerFull | null>(
       `cust_${id}`,
@@ -67,10 +80,145 @@ export default function CustomerDetail() {
     );
   }, [id]);
 
+  // Customer Edit State
+  const [editingCustomer, setEditingCustomer] = useState(false);
+  const [custForm, setCustForm] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    email: '',
+    address: '',
+    notes: '',
+  });
+
+  // Vehicle Add / Edit State
   const [addingVehicle, setAddingVehicle] = useState(false);
+  const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [decoding, setDecoding] = useState(false);
   const [v, setV] = useState(emptyVehicle);
+
+  if (loading) return <Spinner />;
+  if (error) return <ErrorState message={error} />;
+  if (!data) {
+    return (
+      <EmptyState
+        title="Customer not found"
+        action={
+          <Link to="/customers">
+            <Button variant="ghost">Back to customers</Button>
+          </Link>
+        }
+      />
+    );
+  }
+  const c = data;
+  const currentTypeInfo = getVehicleTypeInfo(v.type);
+
+  function startEditCustomer() {
+    setCustForm({
+      first_name: c.first_name || '',
+      last_name: c.last_name || '',
+      phone: c.phone || '',
+      email: c.email || '',
+      address: c.address || '',
+      notes: c.notes || '',
+    });
+    setEditingCustomer(true);
+  }
+
+  async function handleSaveCustomer(e: FormEvent) {
+    e.preventDefault();
+    if (!custForm.first_name.trim() && !custForm.last_name.trim()) {
+      toast('Please enter a customer name', 'error');
+      return;
+    }
+    setSaving(true);
+    const payload = {
+      first_name: custForm.first_name.trim(),
+      last_name: custForm.last_name.trim(),
+      phone: custForm.phone.trim(),
+      email: custForm.email.trim(),
+      address: custForm.address.trim(),
+      notes: custForm.notes.trim(),
+    };
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        check(await requireSupabase().from('customers').update(payload).eq('id', c.id));
+        toast('Customer details updated');
+        await reload();
+      } else {
+        const updatedCust: CustomerFull = {
+          ...c,
+          ...payload,
+        };
+        cacheLocal(`cust_${c.id}`, updatedCust);
+        enqueueOfflineAction({
+          table: 'customers',
+          type: 'update',
+          payload,
+          matchField: 'id',
+          matchValue: c.id,
+          description: `Update customer ${payload.first_name} ${payload.last_name}`,
+        });
+        toast('Customer details updated (Saved to device)');
+        await reload();
+      }
+      setEditingCustomer(false);
+    } catch (err: any) {
+      toast(err.message || 'Could not update customer', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function startEditVehicle(veh: Vehicle) {
+    setEditingVehicleId(veh.id);
+    setV({
+      type: (veh.type as VehicleType) || 'auto',
+      year: veh.year ? String(veh.year) : '',
+      make: veh.make || '',
+      model: veh.model || '',
+      trim: veh.trim || '',
+      vin: veh.vin || '',
+      plate: veh.plate || '',
+      engine_hours: veh.engine_hours ? String(veh.engine_hours) : '',
+      engine_info: veh.engine_info || '',
+      engine_serial: veh.engine_serial || '',
+      has_second_engine: Boolean(veh.engine2_info || veh.engine2_serial || veh.engine2_hours),
+      engine2_info: veh.engine2_info || '',
+      engine2_serial: veh.engine2_serial || '',
+      engine2_hours: veh.engine2_hours ? String(veh.engine2_hours) : '',
+    });
+    setAddingVehicle(true);
+  }
+
+  async function handleDeleteVehicle(vehId: string, label: string) {
+    if (!window.confirm(`Delete ${label} from this customer profile?`)) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        check(await requireSupabase().from('vehicles').delete().eq('id', vehId));
+        toast('Vehicle / Vessel removed');
+        await reload();
+      } else {
+        const remainingVehicles = (c.vehicles ?? []).filter((item) => item.id !== vehId);
+        const updatedCust = { ...c, vehicles: remainingVehicles };
+        cacheLocal(`cust_${c.id}`, updatedCust);
+        enqueueOfflineAction({
+          table: 'vehicles',
+          type: 'delete',
+          matchField: 'id',
+          matchValue: vehId,
+          description: `Delete vehicle ${label}`,
+        });
+        toast('Vehicle / Vessel removed (Saved to device)');
+        await reload();
+      }
+    } catch (err: any) {
+      toast(err.message || 'Failed to delete vehicle', 'error');
+    }
+  }
 
   async function handleDecodeVin() {
     const raw = v.vin.trim();
@@ -102,42 +250,22 @@ export default function CustomerDetail() {
     }
   }
 
-  if (loading) return <Spinner />;
-  if (error) return <ErrorState message={error} />;
-  if (!data) {
-    return (
-      <EmptyState
-        title="Customer not found"
-        action={
-          <Link to="/customers">
-            <Button variant="ghost">Back to customers</Button>
-          </Link>
-        }
-      />
-    );
-  }
-  const c = data;
-
-  const currentTypeInfo = getVehicleTypeInfo(v.type);
-
-  async function addVehicle(e: FormEvent) {
+  async function saveVehicle(e: FormEvent) {
     e.preventDefault();
     if (!v.make.trim() && !v.model.trim()) {
       toast('Please enter a make or model', 'error');
       return;
     }
     setSaving(true);
-    const vehId = generateUUID();
     const vehiclePayload = {
-      id: vehId,
-      customer_id: c!.id,
+      customer_id: c.id,
       type: v.type,
       year: v.year ? Number(v.year) : null,
       make: v.make.trim(),
       model: v.model.trim(),
       trim: v.trim.trim(),
-      vin: v.vin.trim(),
-      plate: v.plate.trim(),
+      vin: v.vin.trim().toUpperCase(),
+      plate: v.plate.trim().toUpperCase(),
       engine_hours: v.engine_hours ? Number(v.engine_hours) : null,
       engine_info: v.engine_info.trim(),
       engine_serial: v.engine_serial.trim(),
@@ -147,45 +275,59 @@ export default function CustomerDetail() {
     };
 
     try {
-      if (typeof navigator !== 'undefined' && navigator.onLine) {
-        check(await requireSupabase().from('vehicles').insert(vehiclePayload));
-        toast('Vehicle / Vessel added');
-        setV(emptyVehicle);
-        setAddingVehicle(false);
-        await reload();
+      if (editingVehicleId) {
+        // Update existing vehicle
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          check(await requireSupabase().from('vehicles').update(vehiclePayload).eq('id', editingVehicleId));
+          toast('Vehicle / Vessel updated');
+          await reload();
+        } else {
+          const updatedVehicles = (c.vehicles ?? []).map((veh) =>
+            veh.id === editingVehicleId ? { ...veh, ...vehiclePayload } : veh
+          );
+          const updatedCust = { ...c, vehicles: updatedVehicles };
+          cacheLocal(`cust_${c.id}`, updatedCust);
+          enqueueOfflineAction({
+            table: 'vehicles',
+            type: 'update',
+            payload: vehiclePayload,
+            matchField: 'id',
+            matchValue: editingVehicleId,
+            description: `Update vehicle ${vehiclePayload.make} ${vehiclePayload.model}`,
+          });
+          toast('Vehicle / Vessel updated (Saved to device)');
+          await reload();
+        }
       } else {
-        const tempVeh: Vehicle = {
-          ...vehiclePayload,
-          created_at: new Date().toISOString(),
-        };
-        c!.vehicles = [...(c!.vehicles ?? []), tempVeh];
-        cacheLocal(`cust_${c!.id}`, c);
-        enqueueOfflineAction({
-          table: 'vehicles',
-          type: 'insert',
-          payload: vehiclePayload,
-          description: `Add vehicle for ${fullName(c)}`,
-        });
-        toast('Vehicle / Vessel added (Saved to device)');
-        setV(emptyVehicle);
-        setAddingVehicle(false);
+        // Insert new vehicle
+        const vehId = generateUUID();
+        const newPayloadWithId = { id: vehId, ...vehiclePayload };
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          check(await requireSupabase().from('vehicles').insert(newPayloadWithId));
+          toast('Vehicle / Vessel added');
+          await reload();
+        } else {
+          const tempVeh: Vehicle = {
+            ...newPayloadWithId,
+            created_at: new Date().toISOString(),
+          };
+          c.vehicles = [...(c.vehicles ?? []), tempVeh];
+          cacheLocal(`cust_${c.id}`, c);
+          enqueueOfflineAction({
+            table: 'vehicles',
+            type: 'insert',
+            payload: newPayloadWithId,
+            description: `Add vehicle for ${fullName(c)}`,
+          });
+          toast('Vehicle / Vessel added (Saved to device)');
+        }
       }
-    } catch (err) {
-      const tempVeh: Vehicle = {
-        ...vehiclePayload,
-        created_at: new Date().toISOString(),
-      };
-      c!.vehicles = [...(c!.vehicles ?? []), tempVeh];
-      cacheLocal(`cust_${c!.id}`, c);
-      enqueueOfflineAction({
-        table: 'vehicles',
-        type: 'insert',
-        payload: vehiclePayload,
-        description: `Add vehicle for ${fullName(c)}`,
-      });
-      toast('Vehicle / Vessel added (Saved offline)');
+
       setV(emptyVehicle);
       setAddingVehicle(false);
+      setEditingVehicleId(null);
+    } catch (err: any) {
+      toast(err.message || 'Could not save vehicle', 'error');
     } finally {
       setSaving(false);
     }
@@ -212,21 +354,127 @@ export default function CustomerDetail() {
         title={fullName(c)}
         sub={`Customer since ${longDate(c.created_at)}`}
         right={
-          <Link to={`/work/new?customer=${c.id}`}>
-            <Button variant="accent" className="text-xs font-bold">
-              + New Repair Order (RO)
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={startEditCustomer}
+              className="text-xs font-bold"
+            >
+              <PencilIcon className="h-3.5 w-3.5 mr-1" /> Edit Profile
             </Button>
-          </Link>
+            <Link to={`/work/new?customer=${c.id}`}>
+              <Button variant="accent" className="text-xs font-bold">
+                + New Repair Order (RO)
+              </Button>
+            </Link>
+          </div>
         }
       />
+
+      {/* Edit Customer Form (Modal/Inline) */}
+      {editingCustomer && (
+        <form
+          onSubmit={handleSaveCustomer}
+          className="rounded-3xl bg-white p-5 shadow-md ring-1 ring-slate-900/10 space-y-4 animate-in fade-in duration-150"
+        >
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">
+                Edit Customer Details
+              </h3>
+              <p className="text-xs text-slate-500">
+                Update name, phone number, email, billing/service address, and customer notes.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="First Name *">
+              <Input
+                value={custForm.first_name}
+                onChange={(e) => setCustForm({ ...custForm, first_name: e.target.value })}
+                required
+                placeholder="First name"
+              />
+            </Field>
+            <Field label="Last Name">
+              <Input
+                value={custForm.last_name}
+                onChange={(e) => setCustForm({ ...custForm, last_name: e.target.value })}
+                placeholder="Last name"
+              />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Phone Number">
+              <Input
+                value={custForm.phone}
+                onChange={(e) => setCustForm({ ...custForm, phone: e.target.value })}
+                placeholder="(406) 555-0199"
+                type="tel"
+              />
+            </Field>
+            <Field label="Email Address">
+              <Input
+                value={custForm.email}
+                onChange={(e) => setCustForm({ ...custForm, email: e.target.value })}
+                placeholder="customer@email.com"
+                type="email"
+              />
+            </Field>
+          </div>
+
+          <Field label="Street Address / City / State / Zip">
+            <Input
+              value={custForm.address}
+              onChange={(e) => setCustForm({ ...custForm, address: e.target.value })}
+              placeholder="123 Main St, Helena, MT 59601"
+            />
+          </Field>
+
+          <Field label="Customer Account Notes (Internal)">
+            <textarea
+              value={custForm.notes}
+              onChange={(e) => setCustForm({ ...custForm, notes: e.target.value })}
+              placeholder="e.g. VIP client, preferred tech, gate code, fleet discount..."
+              rows={2}
+              className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+            />
+          </Field>
+
+          <div className="flex gap-2 pt-2">
+            <Button type="submit" variant="accent" disabled={saving} className="flex-1 font-bold">
+              {saving ? 'Saving…' : 'Save Customer Profile'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setEditingCustomer(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
 
       {/* Responsive 2-Column Desktop Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left Column (5 Cols on desktop): Customer Info & Invoices */}
         <div className="space-y-5 lg:col-span-5">
           <Card className="space-y-3 p-4">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Contact Info</h3>
-            {c.phone && (
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Contact Info</h3>
+              <button
+                type="button"
+                onClick={startEditCustomer}
+                className="text-[11px] font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
+              >
+                <PencilIcon className="h-3 w-3" /> Edit
+              </button>
+            </div>
+
+            {c.phone ? (
               <a
                 href={`tel:${c.phone}`}
                 className="flex items-center gap-2 text-sm font-semibold text-slate-800 hover:text-slate-950"
@@ -234,8 +482,11 @@ export default function CustomerDetail() {
                 <PhoneIcon className="h-4 w-4 text-slate-400" />
                 {c.phone}
               </a>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No phone number on file</p>
             )}
-            {c.email && (
+
+            {c.email ? (
               <a
                 href={`mailto:${c.email}`}
                 className="flex items-center gap-2 text-xs text-slate-600 hover:text-slate-900"
@@ -243,13 +494,19 @@ export default function CustomerDetail() {
                 <MailIcon className="h-4 w-4 text-slate-400" />
                 {c.email}
               </a>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No email on file</p>
             )}
-            {c.address && (
+
+            {c.address ? (
               <p className="flex items-center gap-2 text-xs text-slate-600">
                 <MapPinIcon className="h-4 w-4 text-slate-400" />
                 {c.address}
               </p>
+            ) : (
+              <p className="text-xs text-slate-400 italic">No address on file</p>
             )}
+
             {c.notes && (
               <div className="border-t border-slate-100 pt-2 text-xs text-slate-500">
                 <strong className="text-slate-700">Notes:</strong> {c.notes}
@@ -272,7 +529,7 @@ export default function CustomerDetail() {
               <div className="space-y-2">
                 {invs.map((i) => (
                   <Link key={i.id} to={`/invoices/${i.id}`}>
-                    <Card className="flex items-center justify-between p-3.5 hover:border-amber-400/50">
+                    <Card className="flex items-center justify-between p-3.5 hover:border-amber-400/50 transition">
                       <div>
                         <p className="font-mono text-xs font-bold text-slate-600">{i.number}</p>
                         <p className="mt-0.5 text-xs text-slate-500">{longDate(i.issued_at)}</p>
@@ -300,7 +557,11 @@ export default function CustomerDetail() {
               {!addingVehicle && (
                 <button
                   type="button"
-                  onClick={() => setAddingVehicle(true)}
+                  onClick={() => {
+                    setEditingVehicleId(null);
+                    setV(emptyVehicle);
+                    setAddingVehicle(true);
+                  }}
                   className="flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-700"
                 >
                   <PlusIcon className="h-3.5 w-3.5" /> + Add Vehicle
@@ -308,87 +569,17 @@ export default function CustomerDetail() {
               )}
             </div>
 
-            {vehs.length === 0 && !addingVehicle ? (
-              <Card className="p-4 text-center text-xs text-slate-400">
-                No vehicles or vessels attached to this customer.
-              </Card>
-            ) : (
-              <div className="space-y-2.5">
-                {vehs.map((veh) => {
-                  const info = getVehicleTypeInfo(veh.type);
-                  return (
-                    <Card key={veh.id} className="p-3.5">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <VehicleIcon type={veh.type} className="h-4 w-4 text-slate-700 shrink-0" />
-                          <span className="text-xs font-bold text-slate-900">
-                            {vehicleLabel(veh)}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {[
-                            veh.plate ? `${info.regLabel}: ${veh.plate}` : null,
-                            veh.vin ? `${info.idLabel}: ${veh.vin}` : null,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ') || 'No ID on file'}
-                        </p>
-
-                        {/* Primary Motor / Engine */}
-                        {(veh.engine_info || veh.engine_serial || veh.engine_hours) && (
-                          <div className="mt-2 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-700">
-                            <div className="flex items-center justify-between font-semibold text-slate-800">
-                              <span>
-                                {veh.type === 'marine' && veh.engine2_info ? 'Main Motor:' : 'Engine / Motor:'}
-                              </span>
-                              {veh.engine_hours && (
-                                <span className="inline-flex items-center gap-1 text-amber-800">
-                                  <ClockIcon className="h-3 w-3" />
-                                  {veh.engine_hours} hrs
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-0.5 text-slate-600">
-                              {veh.engine_info && <span>{veh.engine_info}</span>}
-                              {veh.engine_serial && (
-                                <span className="text-slate-400"> (S/N: {veh.engine_serial})</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Secondary Engine / Kicker */}
-                        {(veh.engine2_info || veh.engine2_serial || veh.engine2_hours) && (
-                          <div className="mt-1.5 rounded-lg border border-slate-200 bg-slate-50/80 p-2 text-[11px] text-slate-700">
-                            <div className="flex items-center justify-between font-semibold text-slate-800">
-                              <span>Second Motor / Aux:</span>
-                              {veh.engine2_hours && (
-                                <span className="inline-flex items-center gap-1 text-amber-800">
-                                  <ClockIcon className="h-3 w-3" />
-                                  {veh.engine2_hours} hrs
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-0.5 text-slate-600">
-                              {veh.engine2_info && <span>{veh.engine2_info}</span>}
-                              {veh.engine2_serial && (
-                                <span className="text-slate-400"> (S/N: {veh.engine2_serial})</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-
+            {/* Vehicle Add / Edit Form */}
             {addingVehicle && (
-              <form onSubmit={addVehicle} className="mt-3 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-900/10">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
-                  Add Vehicle or Equipment
-                </p>
+              <form onSubmit={saveVehicle} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-900/10">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
+                    {editingVehicleId ? 'Edit Vehicle / Vessel' : 'Add Vehicle or Equipment'}
+                  </p>
+                  <span className="text-[10px] font-bold uppercase text-slate-400">
+                    {currentTypeInfo.label}
+                  </span>
+                </div>
 
                 <Field label="Category">
                   <Select
@@ -411,7 +602,7 @@ export default function CustomerDetail() {
                       type="number"
                       min="1900"
                       max="2035"
-                      placeholder="2021"
+                      placeholder="2024"
                     />
                   </Field>
                   <div className="col-span-2">
@@ -430,6 +621,7 @@ export default function CustomerDetail() {
                                   ? 'e.g. Kubota / John Deere'
                                   : 'e.g. Ford / Chevy'
                         }
+                        required
                       />
                     </Field>
                   </div>
@@ -437,11 +629,12 @@ export default function CustomerDetail() {
 
                 <div className="grid grid-cols-3 gap-3">
                   <div className="col-span-2">
-                    <Field label="Model">
+                    <Field label="Model *">
                       <Input
                         value={v.model}
                         onChange={(e) => setV({ ...v, model: e.target.value })}
                         placeholder="e.g. 1875 Pro-V / F-150 / Ranger"
+                        required
                       />
                     </Field>
                   </div>
@@ -477,7 +670,7 @@ export default function CustomerDetail() {
                   <Field label={currentTypeInfo.regLabel}>
                     <Input
                       value={v.plate}
-                      onChange={(e) => setV({ ...v, plate: e.target.value })}
+                      onChange={(e) => setV({ ...v, plate: e.target.value.toUpperCase() })}
                       placeholder={v.type === 'marine' ? 'e.g. MT-1234-AB' : 'Plate / Tag #'}
                     />
                   </Field>
@@ -505,14 +698,127 @@ export default function CustomerDetail() {
                 </div>
 
                 <div className="flex gap-2 pt-1">
-                  <Button type="submit" variant="accent" disabled={saving} className="flex-1">
-                    {saving ? 'Saving…' : 'Save Vehicle / Vessel'}
+                  <Button type="submit" variant="accent" disabled={saving} className="flex-1 font-bold">
+                    {saving ? 'Saving…' : editingVehicleId ? 'Update Vehicle' : 'Save Vehicle / Vessel'}
                   </Button>
-                  <Button type="button" variant="ghost" onClick={() => setAddingVehicle(false)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setAddingVehicle(false);
+                      setEditingVehicleId(null);
+                    }}
+                  >
                     Cancel
                   </Button>
                 </div>
               </form>
+            )}
+
+            {vehs.length === 0 && !addingVehicle ? (
+              <Card className="p-4 text-center text-xs text-slate-400">
+                No vehicles or vessels attached to this customer.
+              </Card>
+            ) : (
+              <div className="space-y-2.5">
+                {vehs.map((veh) => {
+                  const info = getVehicleTypeInfo(veh.type);
+                  return (
+                    <Card key={veh.id} className="p-3.5 hover:border-amber-400/50 transition">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <VehicleIcon type={veh.type} className="h-4 w-4 text-slate-700 shrink-0" />
+                            <span className="text-xs font-bold text-slate-900 truncate">
+                              {vehicleLabel(veh)}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {[
+                              veh.plate ? `${info.regLabel}: ${veh.plate}` : null,
+                              veh.vin ? `${info.idLabel}: ${veh.vin}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ') || 'No ID on file'}
+                          </p>
+
+                          {/* Primary Motor / Engine */}
+                          {(veh.engine_info || veh.engine_serial || veh.engine_hours) && (
+                            <div className="mt-2 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-700">
+                              <div className="flex items-center justify-between font-semibold text-slate-800">
+                                <span>
+                                  {veh.type === 'marine' && veh.engine2_info ? 'Main Motor:' : 'Engine / Motor:'}
+                                </span>
+                                {veh.engine_hours && (
+                                  <span className="inline-flex items-center gap-1 text-amber-800">
+                                    <ClockIcon className="h-3 w-3" />
+                                    {veh.engine_hours} hrs
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-0.5 text-slate-600">
+                                {veh.engine_info && <span>{veh.engine_info}</span>}
+                                {veh.engine_serial && (
+                                  <span className="text-slate-400"> (S/N: {veh.engine_serial})</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Secondary Engine / Kicker */}
+                          {(veh.engine2_info || veh.engine2_serial || veh.engine2_hours) && (
+                            <div className="mt-1.5 rounded-lg border border-slate-200 bg-slate-50/80 p-2 text-[11px] text-slate-700">
+                              <div className="flex items-center justify-between font-semibold text-slate-800">
+                                <span>Second Motor / Aux:</span>
+                                {veh.engine2_hours && (
+                                  <span className="inline-flex items-center gap-1 text-amber-800">
+                                    <ClockIcon className="h-3 w-3" />
+                                    {veh.engine2_hours} hrs
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-0.5 text-slate-600">
+                                {veh.engine2_info && <span>{veh.engine2_info}</span>}
+                                {veh.engine2_serial && (
+                                  <span className="text-slate-400"> (S/N: {veh.engine2_serial})</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Link
+                            to={`/work/new?customer=${c.id}&vehicle=${veh.id}`}
+                            className="inline-flex items-center gap-1 rounded-lg bg-amber-400 px-2 py-1 text-[11px] font-black text-slate-950 hover:bg-amber-300 transition shadow-2xs"
+                            title="Start new repair order for this machine"
+                          >
+                            <WrenchIcon className="h-3 w-3" />
+                            <span>+ RO</span>
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => startEditVehicle(veh)}
+                            className="rounded-lg border border-slate-200 p-1 text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                            title="Edit vehicle details"
+                          >
+                            <PencilIcon className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteVehicle(veh.id, vehicleLabel(veh))}
+                            className="rounded-lg border border-slate-200 p-1 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            title="Delete vehicle"
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
             )}
           </section>
 
@@ -527,7 +833,7 @@ export default function CustomerDetail() {
               <div className="space-y-2">
                 {wos.map((w) => (
                   <Link key={w.id} to={`/work/${w.id}`}>
-                    <Card className="flex items-center justify-between p-3.5 hover:border-amber-400/50">
+                    <Card className="flex items-center justify-between p-3.5 hover:border-amber-400/50 transition">
                       <div>
                         <p className="font-mono text-xs font-bold text-slate-600">{w.number}</p>
                         <p className="mt-0.5 text-xs text-slate-500">{longDate(w.created_at)}</p>

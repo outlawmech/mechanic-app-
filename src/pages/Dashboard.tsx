@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import {
   BanknotesIcon,
+  BuildingBankIcon,
   ClipboardIcon,
   ClockIcon,
   AlertCircleIcon,
@@ -15,7 +16,7 @@ import {
 } from '../components/icons';
 import { Card, EmptyState } from '../components/ui';
 import WorkOrderCard from '../components/WorkOrderCard';
-import type { WorkOrderFull } from '../types';
+import type { WorkOrderFull, DealershipUnit } from '../types';
 import { money } from '../lib/format';
 import { useShopSettings } from '../lib/settings';
 import { getSubscriptionInfo, STRIPE_PAYMENT_URL } from '../lib/subscription';
@@ -39,6 +40,7 @@ export default function Dashboard() {
   const [recentOrders, setRecentOrders] = useState<WorkOrderFull[]>(() => {
     return getCachedLocal<WorkOrderFull[]>('dashboard_orders') || [];
   });
+  const [upcomingCurtailments, setUpcomingCurtailments] = useState<DealershipUnit[]>([]);
   const [metrics, setMetrics] = useState<Metrics>(() => {
     return (
       getCachedLocal<Metrics>('dashboard_metrics') || {
@@ -74,7 +76,7 @@ export default function Dashboard() {
     }
 
     try {
-      const [ordersRes, invoicesRes, customersRes] = await Promise.all([
+      const [ordersRes, invoicesRes, customersRes, unitsRes] = await Promise.all([
         supabase
           .from('work_orders')
           .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
@@ -89,10 +91,27 @@ export default function Dashboard() {
           .from('customers')
           .select('id', { count: 'exact', head: true })
           .eq('user_id', user.id),
+        supabase
+          .from('dealership_units')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_floored', true)
+          .eq('floorplan_paid_off', false),
       ]);
 
       const orders = (ordersRes.data || []) as WorkOrderFull[];
       const invoices = invoicesRes.data || [];
+      const floored = (unitsRes.data || []) as DealershipUnit[];
+
+      // Check for curtailments due within next 30 days or past due
+      const in30Days = new Date();
+      in30Days.setDate(in30Days.getDate() + 30);
+      const dueSoon = floored.filter((u) => {
+        if (!u.floorplan_curtailment_date) return false;
+        const d = new Date(u.floorplan_curtailment_date);
+        return d <= in30Days;
+      });
+      setUpcomingCurtailments(dueSoon);
 
       const inProgress = orders.filter((o) => o.status === 'in_progress').length;
       const completed = orders.filter((o) => o.status === 'completed').length;
@@ -175,6 +194,36 @@ export default function Dashboard() {
           >
             Upgrade to Solo Rig Pro ($29/mo)
           </a>
+        </div>
+      )}
+
+      {/* Commercial Floorplan Curtailment Alert Banner */}
+      {upcomingCurtailments.length > 0 && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex items-start gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400 text-slate-950 font-bold">
+              <BuildingBankIcon className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-amber-950">
+                Upcoming Floorplan Curtailment ({upcomingCurtailments.length} Floored Unit{upcomingCurtailments.length === 1 ? '' : 's'})
+              </p>
+              <p className="text-xs text-amber-900 mt-0.5">
+                {upcomingCurtailments
+                  .map(
+                    (u) =>
+                      `${u.year} ${u.make} ${u.model} (${u.floorplan_company || 'Lender'} · due ${u.floorplan_curtailment_date})`
+                  )
+                  .join(' · ')}
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/sales"
+            className="inline-flex items-center justify-center rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-bold text-slate-950 shadow hover:bg-amber-300 shrink-0"
+          >
+            Manage Showroom Units →
+          </Link>
         </div>
       )}
 

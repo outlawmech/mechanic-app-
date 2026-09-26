@@ -31,7 +31,7 @@ export default function NewWorkOrder() {
   });
 
   const [customerId, setCustomerId] = useState(search.get('customer') ?? '');
-  const [vehicleId, setVehicleId] = useState('');
+  const [vehicleId, setVehicleId] = useState(search.get('vehicle') ?? '');
   const [scheduled, setScheduled] = useState(todayISO());
   const [mileageOrHours, setMileageOrHours] = useState('');
   const [notes, setNotes] = useState('');

@@ -188,6 +188,13 @@ export type DealershipUnit = {
   status: UnitStatus;
   location?: string;
   notes?: string;
+  // Floorplan & Flooring Financial Tracking
+  is_floored?: boolean;
+  floorplan_company?: string | null;
+  floorplan_balance?: number | string | null;
+  floorplan_curtailment_date?: string | null;
+  floorplan_curtailment_amount?: number | string | null;
+  floorplan_paid_off?: boolean;
   sold_at?: string | null;
   sold_to_customer_id?: string | null;
   created_at: string;
