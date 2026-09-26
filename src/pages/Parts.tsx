@@ -315,13 +315,19 @@ export default function Parts() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageTitle title="Parts &amp; Inventory" sub={`${totalSkus} SKUs in inventory`} />
         {!addingPart && (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              to="/parts/counter"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-3 py-2 text-xs font-black text-slate-950 shadow-xs hover:bg-amber-300 transition"
+            >
+              <span>⚡ Parts Counter POS</span>
+            </Link>
             <Link
               to="/reports"
               className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50"
             >
               <BanknotesIcon className="h-4 w-4 text-emerald-600" />
-              <span>Inventory Valuation</span>
+              <span>Valuation</span>
             </Link>
             <Button
               variant="accent"

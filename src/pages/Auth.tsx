@@ -90,9 +90,11 @@ export default function Auth() {
       <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-2.5">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-400 text-slate-950 font-black shadow-md shadow-amber-400/20">
-              <WrenchIcon className="h-5 w-5" />
-            </span>
+            <img
+              src="/icon-192.png"
+              alt="Outlaw Shop Systems"
+              className="h-10 w-10 rounded-xl object-cover ring-1 ring-amber-400/40 shadow-md shadow-amber-400/20"
+            />
             <div>
               <span className="font-mono text-base font-black tracking-tight text-white block leading-none">
                 OUTLAW
@@ -365,9 +367,11 @@ export default function Auth() {
       {/* Auth / Sign Up & Login Form Section */}
       <section id="auth-section" className="mx-auto max-w-md px-4 py-16 sm:py-20">
         <div className="text-center space-y-2 mb-6">
-          <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-amber-400 text-slate-950 shadow-lg shadow-amber-400/20">
-            <WrenchIcon className="h-6 w-6" />
-          </div>
+          <img
+            src="/icon-192.png"
+            alt="Outlaw Shop Systems"
+            className="mx-auto h-14 w-14 rounded-2xl object-cover ring-1 ring-amber-400/40 shadow-xl shadow-amber-400/20"
+          />
           <h2 className="text-2xl font-black tracking-tight text-white">
             {mode === 'signup' ? 'Start 14-Day Free Trial' : 'Sign In to Your Shop'}
           </h2>

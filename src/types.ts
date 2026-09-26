@@ -157,7 +157,87 @@ export type ShopSettings = {
   custom_pay_link?: string;
   subscription_status?: 'trialing' | 'active' | 'lifetime' | 'canceled' | 'past_due';
   trial_ends_at?: string | null;
+  enable_dealership_mode?: boolean;
+  dealership_doc_fee?: number | string;
+  dealership_prep_fee?: number | string;
+  dealership_freight_fee?: number | string;
   updated_at?: string;
+};
+
+export type UnitCondition = 'new' | 'used' | 'consignment';
+export type UnitStatus = 'in_stock' | 'sale_pending' | 'sold' | 'consignment';
+
+export type DealershipUnit = {
+  id: string;
+  user_id?: string;
+  stock_number: string;
+  condition: UnitCondition;
+  type: VehicleType;
+  year: number | string;
+  make: string;
+  model: string;
+  trim: string;
+  vin: string;
+  color: string;
+  mileage_or_hours?: string;
+  engine_info?: string;
+  engine_serial?: string;
+  cost_price: number | string;
+  msrp_price: number | string;
+  sale_price: number | string;
+  status: UnitStatus;
+  location?: string;
+  notes?: string;
+  sold_at?: string | null;
+  sold_to_customer_id?: string | null;
+  created_at: string;
+  updated_at?: string;
+};
+
+export type BuyersOrderStatus = 'quote' | 'pending' | 'completed' | 'canceled';
+
+export type BuyersOrder = {
+  id: string;
+  user_id?: string;
+  order_number: string;
+  customer_id: string;
+  unit_id: string | null;
+  // Unit snapshot data
+  unit_year: number | string;
+  unit_make: string;
+  unit_model: string;
+  unit_vin: string;
+  unit_color?: string;
+  unit_condition: UnitCondition;
+  // Financial breakdown
+  unit_price: number | string;
+  freight_fee: number | string;
+  prep_fee: number | string;
+  doc_fee: number | string;
+  accessories_total: number | string;
+  trade_in_allowance: number | string;
+  trade_in_payoff: number | string;
+  trade_in_info?: string;
+  tax_rate: number | string;
+  tax_amount: number | string;
+  title_reg_fee: number | string;
+  rebate_amount: number | string;
+  down_payment: number | string;
+  total_price: number | string;
+  balance_due: number | string;
+  payment_method: PaymentMethod;
+  status: BuyersOrderStatus;
+  notes?: string;
+  signature_url?: string | null;
+  signed_by_name?: string | null;
+  signed_at?: string | null;
+  created_at: string;
+  updated_at?: string;
+};
+
+export type BuyersOrderFull = BuyersOrder & {
+  customer: Customer;
+  unit?: DealershipUnit | null;
 };
 
 export type Part = {

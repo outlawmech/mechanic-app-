@@ -18,6 +18,10 @@ export const DEFAULT_SETTINGS: ShopSettings = {
   venmo_handle: '',
   cash_app_tag: '',
   custom_pay_link: '',
+  enable_dealership_mode: false,
+  dealership_doc_fee: 199,
+  dealership_prep_fee: 250,
+  dealership_freight_fee: 350,
 };
 
 const STORAGE_KEY = 'outlaw_shop_settings';
@@ -107,6 +111,10 @@ export function useShopSettings() {
           venmo_handle: updated.venmo_handle || '',
           cash_app_tag: updated.cash_app_tag || '',
           custom_pay_link: updated.custom_pay_link || '',
+          enable_dealership_mode: Boolean(updated.enable_dealership_mode),
+          dealership_doc_fee: Number(updated.dealership_doc_fee) || 0,
+          dealership_prep_fee: Number(updated.dealership_prep_fee) || 0,
+          dealership_freight_fee: Number(updated.dealership_freight_fee) || 0,
           updated_at: new Date().toISOString(),
         })
       );

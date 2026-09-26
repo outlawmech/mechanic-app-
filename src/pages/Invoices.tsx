@@ -71,13 +71,21 @@ export default function Invoices() {
           title="Invoices"
           sub={totalDue > 0 ? `${money(totalDue)} outstanding receivables` : `${data?.length ?? 0} total invoices`}
         />
-        <Link
-          to="/reports"
-          className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800"
-        >
-          <BanknotesIcon className="h-4 w-4 text-amber-400" />
-          <span>Financials &amp; QuickBooks Export</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/parts/counter"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-black text-slate-950 shadow-sm transition hover:bg-amber-300"
+          >
+            <span>⚡ Parts Counter POS</span>
+          </Link>
+          <Link
+            to="/reports"
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800"
+          >
+            <BanknotesIcon className="h-4 w-4 text-amber-400" />
+            <span>Financials &amp; Reports</span>
+          </Link>
+        </div>
       </div>
 
       {/* Search & Status Filters */}

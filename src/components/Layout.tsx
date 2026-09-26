@@ -8,6 +8,7 @@ import {
   HomeIcon,
   ReceiptIcon,
   SettingsIcon,
+  TagIcon,
   UsersIcon,
   WrenchIcon,
   MonitorIcon,
@@ -27,6 +28,7 @@ const desktopTabs = [
   { to: '/', label: 'Home', shortLabel: 'Home', icon: HomeIcon, end: true },
   { to: '/schedule', label: 'Schedule & Dispatch', shortLabel: 'Schedule', icon: CalendarIcon, end: false },
   { to: '/work', label: 'Repair Orders', shortLabel: 'ROs', icon: ClipboardIcon, end: false },
+  { to: '/sales', label: 'Showroom & Sales', shortLabel: 'Showroom', icon: TagIcon, end: false },
   { to: '/customers', label: 'Customers', shortLabel: 'Customers', icon: UsersIcon, end: false },
   { to: '/parts', label: 'Parts & Stock', shortLabel: 'Parts', icon: BoxIcon, end: false },
   { to: '/invoices', label: 'Invoices', shortLabel: 'Invoices', icon: ReceiptIcon, end: false },
@@ -91,17 +93,11 @@ export default function Layout() {
           <header className="no-print sticky top-0 z-20 bg-slate-900 px-4 pb-3 pt-4 text-white">
             <div className="flex items-center justify-between gap-2.5">
               <div className="flex items-center gap-2.5 min-w-0">
-                {settings.logo_url ? (
-                  <img
-                    src={settings.logo_url}
-                    alt={settings.shop_name}
-                    className="h-9 w-9 rounded-xl object-contain bg-white p-1"
-                  />
-                ) : (
-                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-400 text-slate-900">
-                    <WrenchIcon className="h-5 w-5" />
-                  </span>
-                )}
+                <img
+                  src={settings.logo_url || '/icon-192.png'}
+                  alt={settings.shop_name}
+                  className="h-9 w-9 rounded-xl object-cover bg-slate-900 ring-1 ring-amber-400/40 shadow-sm"
+                />
                 <div className="min-w-0 flex-1">
                   <h1 className="truncate text-base font-bold leading-tight">{settings.shop_name}</h1>
                   <p className="truncate text-[11px] text-slate-400">{settings.tagline}</p>
@@ -157,17 +153,11 @@ export default function Layout() {
         {/* Desktop Left Sidebar */}
         <aside className="no-print fixed inset-y-0 left-0 w-64 bg-slate-900 text-white shadow-xl flex flex-col z-30">
           <div className="flex items-center gap-3 border-b border-slate-800 p-4">
-            {settings.logo_url ? (
-              <img
-                src={settings.logo_url}
-                alt={settings.shop_name}
-                className="h-10 w-10 rounded-xl object-contain bg-white p-1 shadow"
-              />
-            ) : (
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-400 text-slate-950 font-black shadow">
-                <WrenchIcon className="h-6 w-6" />
-              </span>
-            )}
+            <img
+              src={settings.logo_url || '/icon-192.png'}
+              alt={settings.shop_name}
+              className="h-10 w-10 rounded-xl object-cover bg-slate-900 ring-1 ring-amber-400/40 shadow"
+            />
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-sm font-bold text-slate-100">{settings.shop_name}</h1>
               <p className="truncate text-[11px] text-slate-400">{settings.tagline}</p>
@@ -341,17 +331,11 @@ export default function Layout() {
       {/* Mobile Top Header (With Safe Area padding for status bar and camera notch) */}
       <header className="no-print sticky top-0 z-20 flex items-center justify-between gap-2.5 bg-slate-900 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top,0px),24px)+14px)] text-white md:hidden shadow-md">
         <div className="flex items-center gap-2.5 min-w-0">
-          {settings.logo_url ? (
-            <img
-              src={settings.logo_url}
-              alt={settings.shop_name}
-              className="h-9 w-9 rounded-xl object-contain bg-white p-1"
-            />
-          ) : (
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-400 text-slate-900 font-black">
-              <WrenchIcon className="h-5 w-5" />
-            </span>
-          )}
+          <img
+            src={settings.logo_url || '/icon-192.png'}
+            alt={settings.shop_name}
+            className="h-9 w-9 rounded-xl object-cover bg-slate-900 ring-1 ring-amber-400/40 shadow-sm"
+          />
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-base font-bold leading-tight">{settings.shop_name}</h1>
             <p className="truncate text-[11px] text-slate-400">{settings.tagline}</p>
@@ -446,6 +430,40 @@ export default function Layout() {
                 type="button"
                 onClick={() => {
                   setShowMoreMenu(false);
+                  navigate('/sales');
+                }}
+                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+              >
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-purple-100 text-purple-800">
+                  <TagIcon className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Showroom &amp; Sales</p>
+                  <p className="text-[10px] text-slate-500">Units &amp; Buyer’s Orders</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMoreMenu(false);
+                  navigate('/parts/counter');
+                }}
+                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+              >
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-800">
+                  <BoxIcon className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">⚡ Parts Counter POS</p>
+                  <p className="text-[10px] text-slate-500">Fast walk-in tickets</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMoreMenu(false);
                   navigate('/reports');
                 }}
                 className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
@@ -484,12 +502,12 @@ export default function Layout() {
                 }}
                 className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
               >
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-800">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-200 text-slate-800">
                   <BoxIcon className="h-5 w-5" />
                 </span>
                 <div>
-                  <p className="text-xs font-bold text-slate-900">Parts &amp; Stock</p>
-                  <p className="text-[10px] text-slate-500">Inventory &amp; SKU lookup</p>
+                  <p className="text-xs font-bold text-slate-900">Parts Inventory</p>
+                  <p className="text-[10px] text-slate-500">SKU stock lookup</p>
                 </div>
               </button>
 

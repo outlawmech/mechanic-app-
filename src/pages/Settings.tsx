@@ -359,6 +359,55 @@ export default function Settings() {
           </div>
         </Card>
 
+        {/* Powersports Dealership & Unit Sales Settings */}
+        <Card className="space-y-3 p-4 bg-purple-50/40 border-purple-200">
+          <div className="flex items-center justify-between border-b border-purple-200/80 pb-2">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wide text-purple-950">
+                Powersports Dealership &amp; Unit Sales Defaults
+              </h3>
+              <p className="text-[11px] text-purple-900/80">
+                Configure default fees for showroom sales, buyer's orders, and bill of sale calculations.
+              </p>
+            </div>
+            <span className="rounded-full bg-purple-200 px-2.5 py-0.5 text-[10px] font-bold text-purple-950">
+              Dealership DMS
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 pt-1">
+            <Field label="Default Freight / Destination ($)">
+              <Input
+                type="number"
+                step="0.01"
+                value={form.dealership_freight_fee ?? '350'}
+                onChange={(e) => setForm({ ...form, dealership_freight_fee: e.target.value })}
+                placeholder="350.00"
+              />
+            </Field>
+
+            <Field label="Default Dealer Prep / PDI ($)">
+              <Input
+                type="number"
+                step="0.01"
+                value={form.dealership_prep_fee ?? '250'}
+                onChange={(e) => setForm({ ...form, dealership_prep_fee: e.target.value })}
+                placeholder="250.00"
+              />
+            </Field>
+
+            <Field label="Default Documentation Fee ($)">
+              <Input
+                type="number"
+                step="0.01"
+                value={form.dealership_doc_fee ?? '199'}
+                onChange={(e) => setForm({ ...form, dealership_doc_fee: e.target.value })}
+                placeholder="199.00"
+              />
+            </Field>
+          </div>
+        </Card>
+
         <Button type="submit" variant="accent" disabled={saving} className="w-full">
           {saving ? 'Saving changes…' : 'Save Shop Profile'}
         </Button>
