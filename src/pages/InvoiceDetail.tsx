@@ -20,7 +20,8 @@ import type { InvoiceFull, InvoicePayment, PaymentMethod, Vehicle, WorkItem, Wor
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
 import { getWorkOrderSignature } from '../lib/photoStorage';
 import { printInvoiceDocument } from '../lib/printer';
-import { downloadInvoicePDF, shareInvoicePDFWithEmail } from '../lib/invoicePdf';
+import { Share } from '@capacitor/share';
+import { Capacitor } from '@capacitor/core';
 
 const KIND_LABEL: Record<string, string> = { labor: 'Labor', part: 'Part', fee: 'Fee' };
 
@@ -224,34 +225,27 @@ export default function InvoiceDetail() {
     }
   }
 
-  async function handleEmailInvoice() {
-    try {
-      toast('Generating PDF attachment…');
-      await shareInvoicePDFWithEmail('print-area', invoice!, invoice!.customer.email);
-    } catch (e) {
-      console.error(e);
-      toast('Opening email client…');
-      const { subject, body } = formatInvoiceText(invoice!, items, vehicle, settings);
-      const mailto = `mailto:${encodeURIComponent(invoice!.customer.email || '')}?subject=${encodeURIComponent(
-        subject
-      )}&body=${encodeURIComponent(body)}`;
-      window.location.href = mailto;
-    }
-  }
-
-  async function handleDownloadPDF() {
-    try {
-      toast('Generating PDF…');
-      await downloadInvoicePDF('print-area', invoice!.number);
-      toast('PDF saved successfully!', 'success');
-    } catch (e) {
-      console.error(e);
-      toast('Could not generate PDF file', 'error');
-    }
+  function handleEmailInvoice() {
+    const { subject, body } = formatInvoiceText(invoice!, items, vehicle, settings);
+    const mailto = `mailto:${encodeURIComponent(invoice!.customer.email || '')}?subject=${encodeURIComponent(
+      subject
+    )}&body=${encodeURIComponent(body)}`;
+    window.location.href = mailto;
   }
 
   async function handleShareInvoice() {
     const { subject, body } = formatInvoiceText(invoice!, items, vehicle, settings);
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await Share.share({
+          title: subject,
+          text: body,
+          dialogTitle: `Share Invoice #${invoice!.number}`,
+        });
+        return;
+      } catch {}
+    }
+
     if (navigator.share) {
       try {
         await navigator.share({
@@ -264,7 +258,7 @@ export default function InvoiceDetail() {
 
     try {
       await navigator.clipboard.writeText(body);
-      toast('Invoice text copied to clipboard! Ready to text or paste.');
+      toast('Invoice summary copied to clipboard! Ready to text or paste.');
     } catch {
       toast('Could not copy to clipboard', 'error');
     }
@@ -444,38 +438,29 @@ export default function InvoiceDetail() {
           <Card className="space-y-2.5 p-4">
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Share & Print</h3>
             
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="ghost"
-                className="text-xs font-semibold"
-                onClick={() => printInvoiceDocument(`Invoice_${invoice.number}`)}
-                title="Open native printer spooler"
-              >
-                <PrinterIcon className="h-4 w-4 text-slate-600" /> Print
-              </Button>
-              <Button
-                variant="ghost"
-                className="text-xs font-semibold"
-                onClick={handleDownloadPDF}
-                title="Download full US Letter PDF file to device"
-              >
-                <span>📄</span> Save PDF
-              </Button>
-            </div>
+            <Button
+              variant="accent"
+              className="w-full text-xs font-bold shadow-sm flex items-center justify-center gap-2"
+              onClick={() => printInvoiceDocument(invoice, items, vehicle, settings, workOrder)}
+              title="Open native printer spooler to Save as PDF or print wirelessly"
+            >
+              <PrinterIcon className="h-4 w-4 text-slate-950" />
+              <span>🖨️ Print / Save PDF</span>
+            </Button>
 
             <div className="grid grid-cols-2 gap-2 pt-1">
               <Button
-                variant="accent"
+                variant="ghost"
                 onClick={handleEmailInvoice}
-                className="text-xs font-bold shadow-sm"
-                title="Open email with PDF invoice attached"
+                className="text-xs font-semibold"
+                title="Open email draft to customer with full invoice breakdown"
               >
-                <MailIcon className="h-4 w-4 text-slate-900" /> Email PDF
+                <MailIcon className="h-4 w-4 text-slate-600" /> Email
               </Button>
               <Button
                 variant="ghost"
                 onClick={handleShareInvoice}
-                className="text-xs"
+                className="text-xs font-semibold"
                 title="Share via text/SMS or copy text"
               >
                 <ShareIcon className="h-4 w-4 text-slate-600" /> Text / SMS
