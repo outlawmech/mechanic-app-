@@ -1,11 +1,12 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon, PlusIcon, VehicleIcon } from '../components/icons';
+import { ArrowLeftIcon, PlusIcon, SparklesIcon, VehicleIcon } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Select } from '../components/ui';
 import { getVehicleTypeInfo, VEHICLE_TYPES } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
+import { decodeVehicleVIN } from '../lib/vinDecoder';
 import type { CustomerWithVehicles, Vehicle, VehicleType } from '../types';
 
 const empty = {
@@ -37,6 +38,7 @@ export default function NewCustomer() {
   const toast = useToast();
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
+  const [decoding, setDecoding] = useState(false);
 
   const set =
     (k: keyof typeof empty) =>
@@ -44,6 +46,36 @@ export default function NewCustomer() {
       setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const currentTypeInfo = getVehicleTypeInfo(form.type);
+
+  async function handleDecodeVin() {
+    const raw = form.vin.trim();
+    if (!raw) {
+      toast('Please enter a VIN or Hull ID first', 'error');
+      return;
+    }
+    setDecoding(true);
+    try {
+      const decoded = await decodeVehicleVIN(raw);
+      if (decoded.make || decoded.year || decoded.model) {
+        setForm((prev) => ({
+          ...prev,
+          year: decoded.year || prev.year,
+          make: decoded.make || prev.make,
+          model: decoded.model || prev.model,
+          trim: decoded.trim || prev.trim,
+          engine_info: decoded.engine_info || prev.engine_info,
+          type: (decoded.vehicle_type as VehicleType) || prev.type,
+        }));
+        toast(`Decoded: ${[decoded.year, decoded.make, decoded.model].filter(Boolean).join(' ')}`);
+      } else {
+        toast('Could not decode this VIN/HIN. Please enter specs manually.', 'error');
+      }
+    } catch {
+      toast('Decoding failed. Please check connection or enter manually.', 'error');
+    } finally {
+      setDecoding(false);
+    }
+  }
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -260,13 +292,25 @@ export default function NewCustomer() {
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label={currentTypeInfo.idLabel}>
-              <Input
-                value={form.vin}
-                onChange={set('vin')}
-                placeholder={form.type === 'marine' ? 'HIN # (12 chars)' : 'VIN (17 chars)'}
-              />
+              <div className="flex gap-2">
+                <Input
+                  value={form.vin}
+                  onChange={(e) => setForm((f) => ({ ...f, vin: e.target.value.toUpperCase() }))}
+                  placeholder={form.type === 'marine' ? 'HIN # (12 chars)' : 'VIN (17 chars)'}
+                  className="font-mono uppercase text-xs flex-1"
+                />
+                <button
+                  type="button"
+                  onClick={handleDecodeVin}
+                  disabled={decoding || !form.vin.trim()}
+                  className="flex items-center gap-1 rounded-xl bg-amber-400 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-xs"
+                >
+                  <SparklesIcon className="h-3.5 w-3.5" />
+                  <span>{decoding ? 'Decoding…' : 'Decode'}</span>
+                </button>
+              </div>
             </Field>
             <Field label={currentTypeInfo.regLabel}>
               <Input

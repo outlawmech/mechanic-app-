@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon, MailIcon, MapPinIcon, PhoneIcon, ClockIcon, PlusIcon, VehicleIcon } from '../components/icons';
+import { ArrowLeftIcon, MailIcon, MapPinIcon, PhoneIcon, ClockIcon, PlusIcon, SparklesIcon, VehicleIcon } from '../components/icons';
 import {
   Badge,
   Button,
@@ -17,6 +17,7 @@ import {
 import { useAsync } from '../lib/hooks';
 import { fullName, getVehicleTypeInfo, longDate, money, num, VEHICLE_TYPES, vehicleLabel } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
+import { decodeVehicleVIN } from '../lib/vinDecoder';
 import type { Customer, Invoice, Vehicle, VehicleType, WorkOrder } from '../types';
 
 type CustomerFull = Customer & {
@@ -68,7 +69,38 @@ export default function CustomerDetail() {
 
   const [addingVehicle, setAddingVehicle] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [decoding, setDecoding] = useState(false);
   const [v, setV] = useState(emptyVehicle);
+
+  async function handleDecodeVin() {
+    const raw = v.vin.trim();
+    if (!raw) {
+      toast('Please enter a VIN or Hull ID first', 'error');
+      return;
+    }
+    setDecoding(true);
+    try {
+      const decoded = await decodeVehicleVIN(raw);
+      if (decoded.make || decoded.year || decoded.model) {
+        setV((prev) => ({
+          ...prev,
+          year: decoded.year || prev.year,
+          make: decoded.make || prev.make,
+          model: decoded.model || prev.model,
+          trim: decoded.trim || prev.trim,
+          engine_info: decoded.engine_info || prev.engine_info,
+          type: (decoded.vehicle_type as VehicleType) || prev.type,
+        }));
+        toast(`Decoded: ${[decoded.year, decoded.make, decoded.model].filter(Boolean).join(' ')}`);
+      } else {
+        toast('Could not decode this VIN/HIN. Please enter specs manually.', 'error');
+      }
+    } catch {
+      toast('Decoding failed. Please check connection or enter manually.', 'error');
+    } finally {
+      setDecoding(false);
+    }
+  }
 
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
@@ -422,19 +454,31 @@ export default function CustomerDetail() {
                   </Field>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Field label={currentTypeInfo.idLabel}>
-                    <Input
-                      value={v.vin}
-                      onChange={(e) => setV({ ...v, vin: e.target.value })}
-                      placeholder="e.g. 1HGCR2F8XHA000000"
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        value={v.vin}
+                        onChange={(e) => setV({ ...v, vin: e.target.value.toUpperCase() })}
+                        placeholder={v.type === 'marine' ? 'HIN # (12 chars)' : 'VIN (17 chars)'}
+                        className="font-mono uppercase text-xs flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleDecodeVin}
+                        disabled={decoding || !v.vin.trim()}
+                        className="flex items-center gap-1 rounded-xl bg-amber-400 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-xs"
+                      >
+                        <SparklesIcon className="h-3.5 w-3.5" />
+                        <span>{decoding ? 'Decoding…' : 'Decode'}</span>
+                      </button>
+                    </div>
                   </Field>
                   <Field label={currentTypeInfo.regLabel}>
                     <Input
                       value={v.plate}
                       onChange={(e) => setV({ ...v, plate: e.target.value })}
-                      placeholder="e.g. MT-1234-AB"
+                      placeholder={v.type === 'marine' ? 'e.g. MT-1234-AB' : 'Plate / Tag #'}
                     />
                   </Field>
                 </div>
