@@ -50,9 +50,13 @@ const KIND_CLS: Record<WorkItem['kind'], string> = {
 };
 
 import { cacheLocal, getCachedLocal, enqueueOfflineAction, generateUUID } from '../lib/offlineSync';
+import {
+  saveWorkOrderSignature,
+  getWorkOrderSignature,
+  deleteWorkOrderSignature,
+} from '../lib/photoStorage';
 import SignaturePad from '../components/SignaturePad';
 import PhotoGallery from '../components/PhotoGallery';
-import type { WorkOrderPhoto } from '../types';
 
 export default function WorkOrderDetail() {
   const { id } = useParams();
@@ -78,6 +82,16 @@ export default function WorkOrderDetail() {
       const wo = (woRes.data?.[0] ?? null) as WorkOrderFull | null;
       const inventoryParts = (partsRes.data ?? []) as Part[];
 
+      // Merge local signature if saved on device
+      if (wo) {
+        const storedSig = await getWorkOrderSignature(wo.id);
+        if (storedSig) {
+          wo.signature_url = storedSig.signature_url;
+          wo.signed_by_name = storedSig.signed_by_name;
+          wo.signed_at = storedSig.signed_at;
+        }
+      }
+
       let invoice: InvoiceSummary | null = null;
       if (wo) {
         const invRes = check(
@@ -97,7 +111,15 @@ export default function WorkOrderDetail() {
       return result;
     } catch (err) {
       const cached = getCachedLocal<{ wo: WorkOrderFull; invoice: InvoiceSummary | null; inventoryParts: Part[] }>(`wo_${id}`);
-      if (cached && cached.wo) return cached;
+      if (cached && cached.wo) {
+        const storedSig = await getWorkOrderSignature(cached.wo.id);
+        if (storedSig) {
+          cached.wo.signature_url = storedSig.signature_url;
+          cached.wo.signed_by_name = storedSig.signed_by_name;
+          cached.wo.signed_at = storedSig.signed_at;
+        }
+        return cached;
+      }
       throw err;
     }
   }, [id]);
@@ -133,31 +155,14 @@ export default function WorkOrderDetail() {
   async function handleSaveSignature(dataUrl: string, signerName: string) {
     const signedAt = new Date().toISOString();
     try {
-      if (navigator.onLine) {
-        check(
-          await requireSupabase()
-            .from('work_orders')
-            .update({
-              signature_url: dataUrl,
-              signed_by_name: signerName,
-              signed_at: signedAt,
-            })
-            .eq('id', wo!.id)
-        );
-      } else {
-        enqueueOfflineAction({
-          table: 'work_orders',
-          type: 'update',
-          payload: {
-            signature_url: dataUrl,
-            signed_by_name: signerName,
-            signed_at: signedAt,
-          },
-          matchField: 'id',
-          matchValue: wo!.id,
-          description: `Add customer signature for RO #${wo!.number}`,
-        });
-      }
+      // Save permanently in IndexedDB
+      await saveWorkOrderSignature({
+        work_order_id: wo!.id,
+        signature_url: dataUrl,
+        signed_by_name: signerName,
+        signed_at: signedAt,
+      });
+
       wo!.signature_url = dataUrl;
       wo!.signed_by_name = signerName;
       wo!.signed_at = signedAt;
@@ -168,27 +173,15 @@ export default function WorkOrderDetail() {
       wo!.signature_url = dataUrl;
       wo!.signed_by_name = signerName;
       wo!.signed_at = signedAt;
-      cacheLocal(`wo_${id}`, data);
       setShowSignaturePad(false);
-      toast('Customer signature saved (Saved locally)');
+      toast('Customer signature saved!');
     }
   }
 
   async function handleClearSignature() {
     if (!window.confirm('Remove saved customer signature?')) return;
     try {
-      if (navigator.onLine) {
-        check(
-          await requireSupabase()
-            .from('work_orders')
-            .update({
-              signature_url: null,
-              signed_by_name: null,
-              signed_at: null,
-            })
-            .eq('id', wo!.id)
-        );
-      }
+      await deleteWorkOrderSignature(wo!.id);
       wo!.signature_url = null;
       wo!.signed_by_name = null;
       wo!.signed_at = null;
@@ -198,21 +191,8 @@ export default function WorkOrderDetail() {
       wo!.signature_url = null;
       wo!.signed_by_name = null;
       wo!.signed_at = null;
-      cacheLocal(`wo_${id}`, data);
       toast('Signature removed');
     }
-  }
-
-  function handleAddPhoto(newPhoto: WorkOrderPhoto) {
-    const updatedPhotos = [newPhoto, ...(wo!.photos ?? [])];
-    wo!.photos = updatedPhotos;
-    cacheLocal(`wo_${id}`, data);
-  }
-
-  function handleDeletePhoto(photoId: string) {
-    const updatedPhotos = (wo!.photos ?? []).filter((p) => p.id !== photoId);
-    wo!.photos = updatedPhotos;
-    cacheLocal(`wo_${id}`, data);
   }
 
   if (loading) return <Spinner />;
@@ -836,12 +816,7 @@ export default function WorkOrderDetail() {
           )}
 
           {/* Job Site Photos & Pre-Inspection Gallery */}
-          <PhotoGallery
-            workOrderId={wo.id}
-            photos={wo.photos ?? []}
-            onAddPhoto={handleAddPhoto}
-            onDeletePhoto={handleDeletePhoto}
-          />
+          <PhotoGallery workOrderId={wo.id} />
         </div>
 
         {/* Right Column (7 Cols on desktop): Line Items & Fast Part Number Search */}

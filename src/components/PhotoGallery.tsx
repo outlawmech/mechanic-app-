@@ -1,15 +1,17 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import type { PhotoCategory, WorkOrderPhoto } from '../types';
 import { Button } from './ui';
 import { TrashIcon } from './icons';
 import { useToast } from './Toast';
 import { generateUUID } from '../lib/offlineSync';
+import {
+  saveWorkOrderPhoto,
+  getWorkOrderPhotos,
+  deleteWorkOrderPhoto,
+} from '../lib/photoStorage';
 
 interface PhotoGalleryProps {
   workOrderId: string;
-  photos: WorkOrderPhoto[];
-  onAddPhoto: (photo: WorkOrderPhoto) => void;
-  onDeletePhoto: (photoId: string) => void;
 }
 
 const CATEGORY_MAP: Record<PhotoCategory, { label: string; emoji: string; color: string }> = {
@@ -20,70 +22,104 @@ const CATEGORY_MAP: Record<PhotoCategory, { label: string; emoji: string; color:
   general: { label: 'General Photo', emoji: '📷', color: 'bg-slate-50 text-slate-700 border-slate-200' },
 };
 
-export default function PhotoGallery({
-  workOrderId,
-  photos = [],
-  onAddPhoto,
-  onDeletePhoto,
-}: PhotoGalleryProps) {
+export default function PhotoGallery({ workOrderId }: PhotoGalleryProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const toast = useToast();
 
+  const [photos, setPhotos] = useState<WorkOrderPhoto[]>([]);
   const [activeCategoryFilter, setActiveCategoryFilter] = useState<string>('all');
   const [selectedPhoto, setSelectedPhoto] = useState<WorkOrderPhoto | null>(null);
   const [addingCategory, setAddingCategory] = useState<PhotoCategory>('pre_inspection');
   const [addingCaption, setAddingCaption] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Compress image before saving to optimize offline localStorage and fast loading
-  const processImageFile = (file: File) => {
-    setIsUploading(true);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const maxDim = 1200;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height && width > maxDim) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else if (height > maxDim) {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
-
-          const newPhoto: WorkOrderPhoto = {
-            id: generateUUID(),
-            work_order_id: workOrderId,
-            photo_url: compressedDataUrl,
-            category: addingCategory,
-            caption: addingCaption.trim(),
-            created_at: new Date().toISOString(),
-          };
-
-          onAddPhoto(newPhoto);
-          toast('Photo added to Repair Order');
-          setAddingCaption('');
-        }
-        setIsUploading(false);
-      };
-      img.src = e.target?.result as string;
+  // Load photos from IndexedDB on mount & when workOrderId changes
+  useEffect(() => {
+    let isMounted = true;
+    async function load() {
+      if (!workOrderId) return;
+      const stored = await getWorkOrderPhotos(workOrderId);
+      if (isMounted) {
+        setPhotos(stored);
+      }
+    }
+    load();
+    return () => {
+      isMounted = false;
     };
-    reader.readAsDataURL(file);
+  }, [workOrderId]);
+
+  // Robust client-side image compression
+  const processImageFile = async (file: File) => {
+    if (!file) return;
+    setIsProcessing(true);
+
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              const maxDim = 800; // Optimized size for mobile stability and low memory
+              let width = img.width;
+              let height = img.height;
+
+              if (width > height && width > maxDim) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else if (height > maxDim) {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) {
+                resolve(e.target?.result as string);
+                return;
+              }
+              ctx.drawImage(img, 0, 0, width, height);
+              const compressed = canvas.toDataURL('image/jpeg', 0.7);
+              resolve(compressed);
+            } catch (canvasErr) {
+              resolve(e.target?.result as string);
+            }
+          };
+          img.onerror = () => reject(new Error('Could not load image'));
+          img.src = e.target?.result as string;
+        };
+        reader.onerror = (err) => reject(err);
+        reader.readAsDataURL(file);
+      });
+
+      const newPhoto: WorkOrderPhoto = {
+        id: generateUUID(),
+        work_order_id: workOrderId,
+        photo_url: dataUrl,
+        category: addingCategory,
+        caption: addingCaption.trim(),
+        created_at: new Date().toISOString(),
+      };
+
+      // Save to IndexedDB
+      await saveWorkOrderPhoto(newPhoto);
+      setPhotos((prev) => [newPhoto, ...prev]);
+      toast('Photo saved to Repair Order');
+      setAddingCaption('');
+    } catch (err: any) {
+      console.error('Error processing photo:', err);
+      toast('Could not process photo. Please try again.', 'error');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
     const file = e.target.files?.[0];
     if (file) {
       processImageFile(file);
@@ -91,16 +127,27 @@ export default function PhotoGallery({
     e.target.value = '';
   };
 
-  const filteredPhotos = activeCategoryFilter === 'all'
-    ? photos
-    : photos.filter((p) => p.category === activeCategoryFilter);
+  const handleDelete = async (photoId: string) => {
+    if (!window.confirm('Delete this photo?')) return;
+    await deleteWorkOrderPhoto(photoId);
+    setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+    if (selectedPhoto?.id === photoId) {
+      setSelectedPhoto(null);
+    }
+    toast('Photo deleted');
+  };
+
+  const filteredPhotos =
+    activeCategoryFilter === 'all'
+      ? photos
+      : photos.filter((p) => p.category === activeCategoryFilter);
 
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
         <div>
           <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800">
-            📸 Job Site Photos & Pre-Inspection ({photos.length})
+            📸 Job Site Photos ({photos.length})
           </h3>
           <p className="text-[11px] text-slate-500">
             Document pre-existing damage, diagnostic scans, and completed repairs.
@@ -128,18 +175,26 @@ export default function PhotoGallery({
           <Button
             type="button"
             variant="accent"
-            onClick={() => cameraInputRef.current?.click()}
-            disabled={isUploading}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              cameraInputRef.current?.click();
+            }}
+            disabled={isProcessing}
             className="text-xs font-bold shadow-sm px-2.5 py-1.5"
           >
-            📷 Snap Camera
+            {isProcessing ? 'Saving…' : '📷 Snap Camera'}
           </Button>
 
           <Button
             type="button"
             variant="ghost"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isUploading}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              fileInputRef.current?.click();
+            }}
+            disabled={isProcessing}
             className="text-xs font-semibold px-2.5 py-1.5"
           >
             📁 Upload
@@ -280,12 +335,10 @@ export default function PhotoGallery({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (window.confirm('Delete this photo?')) {
-                      onDeletePhoto(selectedPhoto.id);
-                      setSelectedPhoto(null);
-                      toast('Photo deleted');
-                    }
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleDelete(selectedPhoto.id);
                   }}
                   className="rounded-lg p-1.5 text-slate-400 hover:bg-red-500/20 hover:text-red-400"
                   title="Delete Photo"

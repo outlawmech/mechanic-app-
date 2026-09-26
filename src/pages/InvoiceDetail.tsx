@@ -18,6 +18,7 @@ import {
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import type { InvoiceFull, InvoicePayment, PaymentMethod, Vehicle, WorkItem, WorkOrder } from '../types';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
+import { getWorkOrderSignature } from '../lib/photoStorage';
 
 const KIND_LABEL: Record<string, string> = { labor: 'Labor', part: 'Part', fee: 'Fee' };
 
@@ -70,6 +71,14 @@ export default function InvoiceDetail() {
           check(itemsRes);
           const woData = woRes.data?.[0] as (WorkOrder & { vehicle?: Vehicle | null }) | undefined;
           workOrder = woData ?? null;
+          if (workOrder) {
+            const storedSig = await getWorkOrderSignature(workOrder.id);
+            if (storedSig) {
+              workOrder.signature_url = storedSig.signature_url;
+              workOrder.signed_by_name = storedSig.signed_by_name;
+              workOrder.signed_at = storedSig.signed_at;
+            }
+          }
           vehicle = woData?.vehicle ?? null;
           items = (itemsRes.data ?? []) as WorkItem[];
         }
