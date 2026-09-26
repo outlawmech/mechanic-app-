@@ -2,12 +2,14 @@ import { useState, type FormEvent } from 'react';
 import { useToast } from '../components/Toast';
 import {
   AlertCircleIcon,
+  BanknotesIcon,
   BoxIcon,
   MapPinIcon,
   PlusIcon,
   SearchIcon,
   TrashIcon,
 } from '../components/icons';
+import { Link } from 'react-router-dom';
 import {
   Button,
   Card,
@@ -310,20 +312,29 @@ export default function Parts() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageTitle title="Parts &amp; Inventory" sub={`${totalSkus} SKUs in inventory`} />
         {!addingPart && (
-          <Button
-            variant="accent"
-            onClick={() => {
-              setEditingPart(null);
-              setForm(emptyPart);
-              setAddingPart(true);
-            }}
-            className="text-xs"
-          >
-            <PlusIcon className="h-4 w-4" /> Add Part
-          </Button>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/reports"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50"
+            >
+              <BanknotesIcon className="h-4 w-4 text-emerald-600" />
+              <span>Inventory Valuation</span>
+            </Link>
+            <Button
+              variant="accent"
+              onClick={() => {
+                setEditingPart(null);
+                setForm(emptyPart);
+                setAddingPart(true);
+              }}
+              className="text-xs"
+            >
+              <PlusIcon className="h-4 w-4" /> Add Part
+            </Button>
+          </div>
         )}
       </div>
 

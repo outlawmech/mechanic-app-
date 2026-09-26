@@ -313,6 +313,52 @@ export default function Settings() {
           </Field>
         </Card>
 
+        {/* Payment Methods & Digital Handles */}
+        <Card className="space-y-3 p-4">
+          <div className="border-b border-slate-100 pb-2">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">
+              Customer Payment Methods &amp; Links
+            </h3>
+            <p className="text-[11px] text-slate-500">
+              Add your payment handles to automatically show direct payment options on customer invoices and text receipts.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Zelle (Phone or Email)">
+              <Input
+                value={form.zelle_info || ''}
+                onChange={(e) => setForm({ ...form, zelle_info: e.target.value })}
+                placeholder="e.g. 406-555-0100 / pay@myshop.com"
+              />
+            </Field>
+
+            <Field label="Venmo Username">
+              <Input
+                value={form.venmo_handle || ''}
+                onChange={(e) => setForm({ ...form, venmo_handle: e.target.value })}
+                placeholder="e.g. @OutlawRig"
+              />
+            </Field>
+
+            <Field label="Cash App Cashtag">
+              <Input
+                value={form.cash_app_tag || ''}
+                onChange={(e) => setForm({ ...form, cash_app_tag: e.target.value })}
+                placeholder="e.g. $OutlawMech"
+              />
+            </Field>
+
+            <Field label="Square / Stripe Payment Link">
+              <Input
+                value={form.custom_pay_link || ''}
+                onChange={(e) => setForm({ ...form, custom_pay_link: e.target.value })}
+                placeholder="e.g. https://square.link/u/... or Stripe URL"
+              />
+            </Field>
+          </div>
+        </Card>
+
         <Button type="submit" variant="accent" disabled={saving} className="w-full">
           {saving ? 'Saving changes…' : 'Save Shop Profile'}
         </Button>

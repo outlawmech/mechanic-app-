@@ -339,6 +339,23 @@ export function buildStandaloneInvoiceHtml(
         : ''
     }
 
+    <!-- Payment Methods & Handles (if configured) -->
+    ${
+      (settings.zelle_info || settings.venmo_handle || settings.cash_app_tag || settings.custom_pay_link) && !isFullyPaid
+        ? `
+      <div style="margin-top: 10px; padding: 6px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 8pt; color: #475569;">
+        <strong style="color: #0f172a; text-transform: uppercase; font-size: 7.5pt; letter-spacing: 0.05em; display: block; margin-bottom: 2px;">Direct Payment Options:</strong>
+        <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+          ${settings.zelle_info ? `<div>Zelle: <strong style="color: #0f172a;">${escapeHtml(settings.zelle_info)}</strong></div>` : ''}
+          ${settings.venmo_handle ? `<div>Venmo: <strong style="color: #0f172a;">${escapeHtml(settings.venmo_handle)}</strong></div>` : ''}
+          ${settings.cash_app_tag ? `<div>Cash App: <strong style="color: #0f172a;">${escapeHtml(settings.cash_app_tag)}</strong></div>` : ''}
+          ${settings.custom_pay_link ? `<div>Pay Online: <strong style="color: #0f172a;">${escapeHtml(settings.custom_pay_link)}</strong></div>` : ''}
+        </div>
+      </div>
+    `
+        : ''
+    }
+
     <!-- Shop Notes / Terms -->
     ${
       invoice.notes || settings.invoice_notes

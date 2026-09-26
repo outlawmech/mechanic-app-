@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ReceiptIcon, SearchIcon } from '../components/icons';
+import { BanknotesIcon, ReceiptIcon, SearchIcon } from '../components/icons';
 import { Badge, Card, Chip, EmptyState, ErrorState, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, longDate, money, num } from '../lib/format';
@@ -71,6 +71,13 @@ export default function Invoices() {
           title="Invoices"
           sub={totalDue > 0 ? `${money(totalDue)} outstanding receivables` : `${data?.length ?? 0} total invoices`}
         />
+        <Link
+          to="/reports"
+          className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800"
+        >
+          <BanknotesIcon className="h-4 w-4 text-amber-400" />
+          <span>Financials &amp; QuickBooks Export</span>
+        </Link>
       </div>
 
       {/* Search & Status Filters */}

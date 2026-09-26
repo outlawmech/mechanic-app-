@@ -229,6 +229,13 @@ export function formatInvoiceText(
 
   const taxPct = (num(invoice.tax_rate) * 100).toFixed(2).replace(/\.?0+$/, '');
 
+  const payOptions = [
+    shop?.zelle_info ? `• Zelle: ${shop.zelle_info}` : null,
+    shop?.venmo_handle ? `• Venmo: ${shop.venmo_handle}` : null,
+    shop?.cash_app_tag ? `• Cash App: ${shop.cash_app_tag}` : null,
+    shop?.custom_pay_link ? `• Pay Online: ${shop.custom_pay_link}` : null,
+  ].filter(Boolean);
+
   const engine1Line = vehicle?.engine_info
     ? `Motor: ${vehicle.engine_info}${vehicle.engine_serial ? ` (S/N: ${vehicle.engine_serial})` : ''}`
     : null;
@@ -256,6 +263,7 @@ export function formatInvoiceText(
     num(invoice.tax) > 0 ? `Tax (${taxPct}%): ${money(invoice.tax)}` : null,
     `TOTAL: ${total}`,
     invoice.paid_at ? `Paid on ${longDate(invoice.paid_at)} - Thank you!` : 'Payment is due on or before the due date.',
+    payOptions.length > 0 && invoice.status !== 'paid' ? `\nWAYS TO PAY:\n${payOptions.join('\n')}` : null,
     '',
     invoice.notes ? `Notes:\n${invoice.notes}\n` : null,
     terms,

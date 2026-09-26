@@ -14,6 +14,10 @@ export const DEFAULT_SETTINGS: ShopSettings = {
   default_tax_rate: 0.04,
   invoice_notes: 'Thank you for your business! Payments due on or before the due date.',
   logo_url: '',
+  zelle_info: '',
+  venmo_handle: '',
+  cash_app_tag: '',
+  custom_pay_link: '',
 };
 
 const STORAGE_KEY = 'outlaw_shop_settings';
@@ -99,6 +103,10 @@ export function useShopSettings() {
           default_tax_rate: Number(updated.default_tax_rate) || 0,
           invoice_notes: updated.invoice_notes,
           logo_url: updated.logo_url || '',
+          zelle_info: updated.zelle_info || '',
+          venmo_handle: updated.venmo_handle || '',
+          cash_app_tag: updated.cash_app_tag || '',
+          custom_pay_link: updated.custom_pay_link || '',
           updated_at: new Date().toISOString(),
         })
       );

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth';
 import {
+  BanknotesIcon,
   ClipboardIcon,
   ClockIcon,
   AlertCircleIcon,
@@ -299,6 +300,17 @@ export default function Dashboard() {
                 {money(metrics.unpaidTotal)} ({metrics.unpaidCount})
               </span>
             </div>
+
+            <Link
+              to="/reports"
+              className="flex items-center justify-between p-3.5 bg-slate-50/70 hover:bg-amber-50/50 transition group"
+            >
+              <div className="flex items-center gap-2.5 text-xs font-bold text-slate-700 group-hover:text-amber-800">
+                <BanknotesIcon className="h-4 w-4 text-emerald-600" />
+                <span>Financials &amp; Tax Reports</span>
+              </div>
+              <span className="text-[11px] font-bold text-amber-600 group-hover:underline">View →</span>
+            </Link>
           </Card>
 
           {/* Shortcut Card */}

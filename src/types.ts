@@ -151,6 +151,10 @@ export type ShopSettings = {
   default_tax_rate: number | string;
   invoice_notes: string;
   logo_url?: string;
+  zelle_info?: string;
+  venmo_handle?: string;
+  cash_app_tag?: string;
+  custom_pay_link?: string;
   subscription_status?: 'trialing' | 'active' | 'lifetime' | 'canceled' | 'past_due';
   trial_ends_at?: string | null;
   updated_at?: string;

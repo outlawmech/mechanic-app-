@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
+  BanknotesIcon,
   BoxIcon,
   CalendarIcon,
   ClipboardIcon,
@@ -29,6 +30,7 @@ const desktopTabs = [
   { to: '/customers', label: 'Customers', shortLabel: 'Customers', icon: UsersIcon, end: false },
   { to: '/parts', label: 'Parts & Stock', shortLabel: 'Parts', icon: BoxIcon, end: false },
   { to: '/invoices', label: 'Invoices', shortLabel: 'Invoices', icon: ReceiptIcon, end: false },
+  { to: '/reports', label: 'Financials & Reports', shortLabel: 'Reports', icon: BanknotesIcon, end: false },
   { to: '/settings', label: 'Shop Settings', shortLabel: 'Settings', icon: SettingsIcon, end: false },
 ];
 
@@ -444,16 +446,16 @@ export default function Layout() {
                 type="button"
                 onClick={() => {
                   setShowMoreMenu(false);
-                  navigate('/parts');
+                  navigate('/reports');
                 }}
                 className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
               >
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-800">
-                  <BoxIcon className="h-5 w-5" />
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-100 text-blue-800">
+                  <BanknotesIcon className="h-5 w-5" />
                 </span>
                 <div>
-                  <p className="text-xs font-bold text-slate-900">Parts & Stock</p>
-                  <p className="text-[10px] text-slate-500">Inventory & SKU lookup</p>
+                  <p className="text-xs font-bold text-slate-900">Financials &amp; Reports</p>
+                  <p className="text-[10px] text-slate-500">QuickBooks &amp; Revenue</p>
                 </div>
               </button>
 
@@ -470,7 +472,24 @@ export default function Layout() {
                 </span>
                 <div>
                   <p className="text-xs font-bold text-slate-900">Invoices</p>
-                  <p className="text-[10px] text-slate-500">Payments & billing</p>
+                  <p className="text-[10px] text-slate-500">Payments &amp; billing</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMoreMenu(false);
+                  navigate('/parts');
+                }}
+                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+              >
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-800">
+                  <BoxIcon className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-slate-900">Parts &amp; Stock</p>
+                  <p className="text-[10px] text-slate-500">Inventory &amp; SKU lookup</p>
                 </div>
               </button>
 

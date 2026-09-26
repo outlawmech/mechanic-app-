@@ -137,8 +137,17 @@ create table if not exists public.shop_settings (
   default_tax_rate   numeric(5,4) not null default 0.04,
   invoice_notes      text not null default 'Thank you for your business! Payments due on or before the due date.',
   logo_url           text not null default '',
+  zelle_info         text not null default '',
+  venmo_handle       text not null default '',
+  cash_app_tag       text not null default '',
+  custom_pay_link    text not null default '',
   updated_at         timestamptz not null default now()
 );
+
+alter table public.shop_settings add column if not exists zelle_info text default '';
+alter table public.shop_settings add column if not exists venmo_handle text default '';
+alter table public.shop_settings add column if not exists cash_app_tag text default '';
+alter table public.shop_settings add column if not exists custom_pay_link text default '';
 
 -- ---------------- Indexes ----------------
 create index if not exists customers_user_id_idx       on public.customers (user_id);
