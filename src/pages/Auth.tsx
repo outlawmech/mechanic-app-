@@ -127,7 +127,7 @@ export default function Auth() {
               onClick={() => scrollToAuth('signup')}
               className="rounded-xl bg-amber-400 px-4 py-1.5 text-xs font-black text-slate-950 shadow-md shadow-amber-400/20 hover:bg-amber-300 transition active:scale-95"
             >
-              Start Free
+              Start Free Trial
             </button>
           </div>
         </div>
@@ -149,7 +149,7 @@ export default function Auth() {
 
           <p className="mx-auto max-w-2xl text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
             Zero lag. 100% offline reliability in steel pole barns and off-grid remote calls. 
-            Professional 1-page US Letter PDF invoices, direct payment links (Venmo, Zelle, Cash App), and multi-engine marine/powersports support. No $400/month corporate contracts.
+            Professional PDF &amp; print invoices, direct payment links (Venmo, Zelle, Cash App), and multi-engine marine/powersports support. No $400/month corporate contracts.
           </p>
 
           {/* Hero CTAs */}
@@ -180,7 +180,7 @@ export default function Auth() {
               <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> 100% Offline Capable
             </span>
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
-              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> 1-Page US Letter Invoices
+              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Professional PDF Invoices
             </span>
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
               <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Zelle / Venmo / Cash App Links
@@ -221,9 +221,9 @@ export default function Auth() {
             <span className="grid h-12 w-12 place-items-center rounded-xl bg-emerald-400/10 text-emerald-400 font-bold">
               <ReceiptIcon className="h-6 w-6" />
             </span>
-            <h3 className="text-lg font-bold text-white">Clean 1-Page US Letter Invoices</h3>
+            <h3 className="text-lg font-bold text-white">Professional Invoicing &amp; Billing</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Generate crisp, professional invoices formatted perfectly for standard US Letter printers or PDF export. Complete with your shop logo, parts breakdown, and tax totals.
+              Generate crisp, professional invoices formatted for standard printers, text messages, or PDF export. Complete with your shop logo, parts breakdown, and tax totals.
             </p>
           </div>
 
@@ -256,7 +256,7 @@ export default function Auth() {
             </span>
             <h3 className="text-lg font-bold text-white">Auto, Marine &amp; Powersports</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Not just cars. Built-in support for boats (Hull IDs / HINs, twin engines, port &amp; starboard serials), ATVs, side-by-sides, snowmobiles, and heavy equipment with engine hours.
+              Not just cars. Built-in 1-tap VIN/HIN decoding for trucks, boats (Hull IDs, twin engines, port &amp; starboard serials), ATVs, side-by-sides, snowmobiles, and equipment with engine hours.
             </p>
           </div>
 
@@ -294,14 +294,14 @@ export default function Auth() {
               I got completely fed up watching corporate software companies charge independent shops $300 to $500 a month for slow, bloated systems that crash the second you lose cell signal in a steel building or out on a mobile service call.
             </p>
             <p>
-              I built Outlaw Shop Systems to be the rugged, fast, no-nonsense tool I always wished I had in my own toolbox: zero lag, 100% offline reliability, clean 1-page invoices, and fair pricing that doesn't bleed independent mechanics dry.
+              I built Outlaw Shop Systems to be the rugged, fast, no-nonsense tool I always wished I had in my own toolbox: zero lag, 100% offline reliability, clean customer invoices, and fair pricing that doesn't bleed independent mechanics dry.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Pricing & Free Beta Access Section */}
-      <section className="mx-auto max-w-5xl px-4 py-16 sm:px-6 border-b border-slate-800/80">
+      {/* Pricing Section */}
+      <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6 border-b border-slate-800/80">
         <div className="text-center space-y-2 mb-10">
           <p className="text-xs font-bold uppercase tracking-wider text-amber-400">Simple, Honest Pricing</p>
           <h2 className="text-2xl font-black tracking-tight text-white sm:text-4xl">
@@ -312,38 +312,40 @@ export default function Auth() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 max-w-3xl mx-auto">
-          {/* Plan 1: Standard Founder Pro */}
-          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 space-y-4 flex flex-col justify-between shadow-xl">
+        <div className="max-w-lg mx-auto">
+          <div className="rounded-3xl border-2 border-amber-400/80 bg-gradient-to-b from-slate-900 to-amber-950/20 p-8 space-y-6 shadow-2xl relative">
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-white">Solo Rig Pro</h3>
-                <span className="rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-bold text-slate-300">
+                <h3 className="text-xl font-black text-white">Solo Rig Pro</h3>
+                <span className="rounded-full bg-amber-400/20 px-3 py-1 text-xs font-bold text-amber-300">
                   14-Day Free Trial
                 </span>
               </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-black text-amber-400">$29</span>
-                <span className="text-xs text-slate-400">/ month</span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-4xl font-black text-amber-400">$29</span>
+                <span className="text-sm font-semibold text-slate-400">/ month</span>
               </div>
-              <p className="text-xs text-slate-400">
-                Lock in early founder pricing for life before public release.
+              <p className="text-xs text-slate-300">
+                Lock in early founder pricing for life before public release. No credit card required to start.
               </p>
 
-              <ul className="space-y-2 text-xs text-slate-300 pt-2 border-t border-slate-800">
-                <li className="flex items-center gap-2">
+              <ul className="space-y-2.5 text-xs text-slate-200 pt-4 border-t border-slate-800">
+                <li className="flex items-center gap-2.5">
                   <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Unlimited Repair Orders &amp; Invoices
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Full 100% Offline Mode &amp; Sync
+                <li className="flex items-center gap-2.5">
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Full 100% Offline Mode &amp; Local Database
                 </li>
-                <li className="flex items-center gap-2">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> 1-Page US Letter Print &amp; PDF Invoices
+                <li className="flex items-center gap-2.5">
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> 1-Tap NHTSA VIN &amp; Boat HIN Decoder
                 </li>
-                <li className="flex items-center gap-2">
+                <li className="flex items-center gap-2.5">
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Direct Zelle, Venmo &amp; Cash App Payment Handles
+                </li>
+                <li className="flex items-center gap-2.5">
                   <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> QuickBooks CSV &amp; Financial Reports
                 </li>
-                <li className="flex items-center gap-2">
+                <li className="flex items-center gap-2.5">
                   <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Auto, Marine &amp; Powersports Specs
                 </li>
               </ul>
@@ -352,49 +354,9 @@ export default function Auth() {
             <button
               type="button"
               onClick={() => scrollToAuth('signup')}
-              className="w-full rounded-xl bg-slate-800 py-2.5 text-xs font-bold text-white hover:bg-slate-700 transition"
+              className="w-full rounded-xl bg-amber-400 py-3.5 text-sm font-black text-slate-950 hover:bg-amber-300 shadow-lg shadow-amber-400/25 transition active:scale-95"
             >
               Start 14-Day Free Trial
-            </button>
-          </div>
-
-          {/* Plan 2: Beta Tester Access */}
-          <div className="rounded-2xl border-2 border-amber-400 bg-gradient-to-b from-slate-900 to-amber-950/20 p-6 space-y-4 flex flex-col justify-between shadow-2xl relative">
-            <div className="absolute -top-3 right-6 rounded-full bg-amber-400 px-3 py-0.5 text-[10px] font-black uppercase text-slate-950 tracking-wider shadow">
-              VIP Beta
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-black text-white">Beta Tester Invite</h3>
-                <span className="rounded-full bg-amber-400/20 px-2.5 py-1 text-[10px] font-bold text-amber-300">
-                  100% Free
-                </span>
-              </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-black text-white">$0</span>
-                <span className="text-xs text-amber-300 font-bold">/ Lifetime Free Beta</span>
-              </div>
-              <p className="text-xs text-slate-300">
-                Have an invitation code from Reddit or GarageJournal? Get free full access in exchange for your feedback.
-              </p>
-
-              <div className="rounded-xl bg-slate-950/80 border border-amber-500/30 p-3 text-xs space-y-1">
-                <p className="text-[10px] uppercase font-bold text-amber-400">Sample Beta Code:</p>
-                <p className="font-mono font-bold text-white text-sm tracking-wider">VIP-RIG</p>
-                <p className="text-[10px] text-slate-400">Enter code in the sign up box below to unlock instantly.</p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                setBetaCode('VIP-RIG');
-                scrollToAuth('signup');
-              }}
-              className="w-full rounded-xl bg-amber-400 py-2.5 text-xs font-black text-slate-950 hover:bg-amber-300 shadow-md transition active:scale-95"
-            >
-              Join Beta With Code
             </button>
           </div>
         </div>
@@ -407,7 +369,7 @@ export default function Auth() {
             <WrenchIcon className="h-6 w-6" />
           </div>
           <h2 className="text-2xl font-black tracking-tight text-white">
-            {mode === 'signup' ? 'Start Free / Join Beta' : 'Sign In to Your Shop'}
+            {mode === 'signup' ? 'Start 14-Day Free Trial' : 'Sign In to Your Shop'}
           </h2>
           <p className="text-xs text-slate-400">
             {mode === 'signup'
@@ -430,7 +392,7 @@ export default function Auth() {
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Create Account / Trial
+            Create Account
           </button>
           <button
             type="button"
@@ -485,11 +447,11 @@ export default function Auth() {
             </Field>
 
             {mode === 'signup' && (
-              <Field label="Beta Access Code (Optional)">
+              <Field label="Beta / License Code (Optional)">
                 <Input
                   value={betaCode}
                   onChange={(e) => setBetaCode(e.target.value.toUpperCase())}
-                  placeholder="e.g. VIP-RIG"
+                  placeholder="Enter activation code if provided"
                 />
               </Field>
             )}
@@ -522,7 +484,7 @@ export default function Auth() {
 
           {mode === 'signup' && (
             <p className="mt-4 text-center text-[11px] text-slate-400">
-              No credit card required · Free 14-day trial or beta code
+              No credit card required · Free 14-day trial
             </p>
           )}
         </Card>
