@@ -9,13 +9,13 @@ import {
   SparklesIcon,
   ShieldCheckIcon,
   BoatIcon,
-  CarIcon,
-  TruckIcon,
+  TagIcon,
   MonitorIcon,
 } from '../components/icons';
 import { Button, Card, Field, Input } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { redeemActivationCode, STRIPE_PAYMENT_URL } from '../lib/subscription';
+import { saveLocalSettings, DEFAULT_SETTINGS } from '../lib/settings';
 
 const APK_PUBLIC_DOWNLOAD_URL =
   'https://wlacgguhevtygqvckoen.supabase.co/storage/v1/object/public/apks/OutlawShopSystems.apk';
@@ -23,6 +23,7 @@ const APK_PUBLIC_DOWNLOAD_URL =
 export default function Auth() {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('signup');
+  const [selectedPackage, setSelectedPackage] = useState<'solo' | 'dealer'>('solo');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [shopName, setShopName] = useState('');
@@ -53,6 +54,15 @@ export default function Auth() {
         if (res.error) {
           setErrorMsg(res.error.message);
         } else {
+          // If dealer package chosen, set dealership mode enabled
+          if (selectedPackage === 'dealer') {
+            saveLocalSettings({
+              ...DEFAULT_SETTINGS,
+              shop_name: shopName || DEFAULT_SETTINGS.shop_name,
+              enable_dealership_mode: true,
+            });
+          }
+
           // If beta code provided, attempt redemption
           if (betaCode.trim()) {
             await redeemActivationCode(betaCode.trim(), null);
@@ -76,8 +86,9 @@ export default function Auth() {
     }
   }
 
-  const scrollToAuth = (newMode: 'login' | 'signup') => {
+  const scrollToAuth = (newMode: 'login' | 'signup', pkg?: 'solo' | 'dealer') => {
     setMode(newMode);
+    if (pkg) setSelectedPackage(pkg);
     const el = document.getElementById('auth-section');
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
@@ -142,23 +153,23 @@ export default function Auth() {
         <div className="relative mx-auto max-w-4xl text-center space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1 text-xs font-bold text-amber-400">
             <SparklesIcon className="h-3.5 w-3.5" />
-            <span>BUILT FOR MOBILE TECHS, HEAVY DUTY &amp; INDEPENDENT GARAGES</span>
+            <span>BUILT FOR MOBILE TECHS, HEAVY DUTY &amp; POWERSPORTS DEALERS</span>
           </div>
 
           <h1 className="text-3xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl leading-[1.1]">
-            The No-BS Shop Management Software Built by a <span className="text-amber-400">Mechanic</span>, Not a Tech Bro.
+            The No-BS Shop &amp; Dealer Management Software Built by a <span className="text-amber-400">Mechanic</span>, Not a Tech Bro.
           </h1>
 
           <p className="mx-auto max-w-2xl text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
-            Zero lag. 100% offline reliability in steel pole barns and off-grid remote calls. 
-            Professional PDF &amp; print invoices, direct payment links (Venmo, Zelle, Cash App), and multi-engine marine/powersports support. No $400/month corporate contracts.
+            Zero lag. 100% offline reliability in steel pole barns and off-grid calls. 
+            Choose the focused <strong>Solo Rig</strong> tool for independent repairs or unlock the full <strong>Dealership DMS</strong> with showroom unit sales, buyer's orders, and PDI dispatch.
           </p>
 
           {/* Hero CTAs */}
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
               type="button"
-              onClick={() => scrollToAuth('signup')}
+              onClick={() => scrollToAuth('signup', 'solo')}
               className="flex items-center gap-2 rounded-xl bg-amber-400 px-6 py-3.5 text-sm font-black text-slate-950 shadow-xl shadow-amber-400/25 transition hover:bg-amber-300 active:scale-95"
             >
               <span>Start 14-Day Free Trial</span>
@@ -182,13 +193,13 @@ export default function Auth() {
               <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> 100% Offline Capable
             </span>
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
-              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Professional PDF Invoices
+              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> 1-Tap VIN &amp; Boat HIN Decoder
             </span>
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
-              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Zelle / Venmo / Cash App Links
+              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> 30-Sec Parts Counter POS
             </span>
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
-              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Auto, Marine &amp; Powersports
+              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Showroom Unit Sales &amp; PDI
             </span>
           </div>
         </div>
@@ -199,7 +210,7 @@ export default function Auth() {
         <div className="text-center space-y-2 mb-12">
           <p className="text-xs font-bold uppercase tracking-wider text-amber-400">Built For Real Shop Life</p>
           <h2 className="text-2xl font-black tracking-tight text-white sm:text-4xl">
-            Everything You Need to Run Your Rig or Shop
+            Everything You Need to Run Your Rig or Dealership
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">
             Engineered to be tapped with greasy fingers on an Android phone or managed from a desktop workstation.
@@ -243,11 +254,11 @@ export default function Auth() {
           {/* Feature 4 */}
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-3 shadow-lg">
             <span className="grid h-12 w-12 place-items-center rounded-xl bg-purple-400/10 text-purple-400 font-bold">
-              <ShieldCheckIcon className="h-6 w-6" />
+              <TagIcon className="h-6 w-6" />
             </span>
-            <h3 className="text-lg font-bold text-white">100% Offline Resilient</h3>
+            <h3 className="text-lg font-bold text-white">Showroom Sales &amp; Buyer’s Orders</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Full local database caching. Create tickets, lookup customer history, and edit invoices in steel barns or remote mountain passes with zero cell signal. Auto-syncs when reconnected.
+              Track new and used motorcycles, ATVs, and equipment. Generate itemized Buyer’s Orders with freight, prep/PDI, doc fees, trade-ins, and 1-tap assembly dispatch to your shop.
             </p>
           </div>
 
@@ -258,7 +269,7 @@ export default function Auth() {
             </span>
             <h3 className="text-lg font-bold text-white">Auto, Marine &amp; Powersports</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Not just cars. Built-in 1-tap VIN/HIN decoding for trucks, boats (Hull IDs, twin engines, port &amp; starboard serials), ATVs, side-by-sides, snowmobiles, and equipment with engine hours.
+              Built-in 1-tap VIN/HIN decoding for trucks, boats (Hull IDs, twin outboards, port &amp; starboard serials), ATVs, side-by-sides, snowmobiles, and equipment with engine hours.
             </p>
           </div>
 
@@ -293,7 +304,7 @@ export default function Auth() {
               I spent 17 years working across the board—from lot rat and flat-rate technician to parts manager and service manager. I know firsthand what it's like to bleed knuckles in a bay, hunt down backordered parts, and manage a service schedule.
             </p>
             <p>
-              I got completely fed up watching corporate software companies charge independent shops $300 to $500 a month for slow, bloated systems that crash the second you lose cell signal in a steel building or out on a mobile service call.
+              I got completely fed up watching corporate software companies charge independent shops $300 to $500 a month and dealerships $1,000+ for slow, bloated systems that crash the second you lose cell signal in a steel building or out on a mobile service call.
             </p>
             <p>
               I built Outlaw Shop Systems to be the rugged, fast, no-nonsense tool I always wished I had in my own toolbox: zero lag, 100% offline reliability, clean customer invoices, and fair pricing that doesn't bleed independent mechanics dry.
@@ -302,36 +313,42 @@ export default function Auth() {
         </div>
       </section>
 
-      {/* Pricing Section */}
-      <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6 border-b border-slate-800/80">
-        <div className="text-center space-y-2 mb-10">
-          <p className="text-xs font-bold uppercase tracking-wider text-amber-400">Simple, Honest Pricing</p>
+      {/* Two-Tier Pricing Section */}
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 border-b border-slate-800/80">
+        <div className="text-center space-y-2 mb-12">
+          <p className="text-xs font-bold uppercase tracking-wider text-amber-400">Choose Your Setup</p>
           <h2 className="text-2xl font-black tracking-tight text-white sm:text-4xl">
-            Founder Pricing for Independent Techs
+            Simple, Transparent Pricing
           </h2>
-          <p className="text-xs sm:text-sm text-slate-400 max-w-md mx-auto">
-            No per-ticket fees. No predatory long-term contracts. Everything included.
+          <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto">
+            Choose the focused mobile &amp; repair shop tool, or unlock the full powersports dealership DMS. Both include a 14-day free trial.
           </p>
         </div>
 
-        <div className="max-w-lg mx-auto">
-          <div className="rounded-3xl border-2 border-amber-400/80 bg-gradient-to-b from-slate-900 to-amber-950/20 p-8 space-y-6 shadow-2xl relative">
-            <div className="space-y-3">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 max-w-4xl mx-auto">
+          {/* Plan 1: Solo Rig & Independent Garage */}
+          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 space-y-6 flex flex-col justify-between shadow-xl hover:border-slate-700 transition">
+            <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-black text-white">Solo Rig Pro</h3>
-                <span className="rounded-full bg-amber-400/20 px-3 py-1 text-xs font-bold text-amber-300">
-                  14-Day Free Trial
+                <div>
+                  <h3 className="text-xl font-black text-white">Solo Rig &amp; Garage</h3>
+                  <p className="text-xs text-amber-400 font-semibold">For Mobile Techs &amp; Independent Shops</p>
+                </div>
+                <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300">
+                  14-Day Trial
                 </span>
               </div>
+
               <div className="flex items-baseline gap-1.5">
-                <span className="text-4xl font-black text-amber-400">$29</span>
+                <span className="text-4xl font-black text-white">$29</span>
                 <span className="text-sm font-semibold text-slate-400">/ month</span>
               </div>
-              <p className="text-xs text-slate-300">
-                Lock in early founder pricing for life before public release. No credit card required to start.
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Streamlined, distraction-free workflow for technicians and independent repair garages.
               </p>
 
-              <ul className="space-y-2.5 text-xs text-slate-200 pt-4 border-t border-slate-800">
+              <ul className="space-y-2.5 text-xs text-slate-300 pt-4 border-t border-slate-800">
                 <li className="flex items-center gap-2.5">
                   <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Unlimited Repair Orders &amp; Invoices
                 </li>
@@ -342,23 +359,80 @@ export default function Auth() {
                   <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> 1-Tap NHTSA VIN &amp; Boat HIN Decoder
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Direct Zelle, Venmo &amp; Cash App Payment Handles
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> 30-Second Over-The-Counter Parts POS
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Zelle, Venmo &amp; Cash App Payment Handles
                 </li>
                 <li className="flex items-center gap-2.5">
                   <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> QuickBooks CSV &amp; Financial Reports
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Auto, Marine &amp; Powersports Specs
                 </li>
               </ul>
             </div>
 
             <button
               type="button"
-              onClick={() => scrollToAuth('signup')}
+              onClick={() => scrollToAuth('signup', 'solo')}
+              className="w-full rounded-xl bg-slate-800 py-3.5 text-sm font-bold text-white hover:bg-slate-700 transition"
+            >
+              Start Solo Free Trial
+            </button>
+          </div>
+
+          {/* Plan 2: Powersports & Dealership DMS */}
+          <div className="rounded-3xl border-2 border-amber-400 bg-gradient-to-b from-slate-900 to-amber-950/25 p-8 space-y-6 flex flex-col justify-between shadow-2xl relative">
+            <div className="absolute -top-3.5 right-6 rounded-full bg-amber-400 px-3.5 py-0.5 text-[10px] font-black uppercase text-slate-950 tracking-wider shadow">
+              Dealership DMS
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h3 className="text-xl font-black text-white">Powersports DMS</h3>
+                  <p className="text-xs text-amber-400 font-semibold">For Motorcycle, ATV &amp; Marine Dealers</p>
+                </div>
+                <span className="rounded-full bg-amber-400/20 px-3 py-1 text-xs font-bold text-amber-300">
+                  14-Day Trial
+                </span>
+              </div>
+
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-4xl font-black text-amber-400">$99</span>
+                <span className="text-sm font-semibold text-slate-400">/ month</span>
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Complete dealership operations: Showroom units, buyer's orders, parts counter, and service shop.
+              </p>
+
+              <ul className="space-y-2.5 text-xs text-slate-200 pt-4 border-t border-slate-800">
+                <li className="flex items-center gap-2.5 font-bold text-amber-300">
+                  <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" /> Everything in Solo Rig Package, PLUS:
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Showroom Unit Inventory (New, Used, Consignment)
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> 1-Page Buyer’s Order &amp; Bill of Sale Builder
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Freight, Prep/PDI &amp; Doc Fee Desking
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Trade-in Credit &amp; Lien Payoff Calculations
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> 1-Tap PDI Dispatch to Service Department
+                </li>
+              </ul>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => scrollToAuth('signup', 'dealer')}
               className="w-full rounded-xl bg-amber-400 py-3.5 text-sm font-black text-slate-950 hover:bg-amber-300 shadow-lg shadow-amber-400/25 transition active:scale-95"
             >
-              Start 14-Day Free Trial
+              Start Dealership Free Trial
             </button>
           </div>
         </div>
@@ -377,7 +451,7 @@ export default function Auth() {
           </h2>
           <p className="text-xs text-slate-400">
             {mode === 'signup'
-              ? 'Get instant access on Web & Android.'
+              ? 'Choose your package and get instant access.'
               : 'Welcome back! Enter your login credentials.'}
           </p>
         </div>
@@ -418,14 +492,49 @@ export default function Auth() {
         <Card className="border-slate-800 bg-slate-900/90 p-6 shadow-2xl backdrop-blur ring-1 ring-white/10">
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
-              <Field label="Business / Shop Name">
-                <Input
-                  value={shopName}
-                  onChange={(e) => setShopName(e.target.value)}
-                  placeholder="e.g. Big Sky Mobile Tech"
-                  required
-                />
-              </Field>
+              <>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300">Choose Shop Package</label>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPackage('solo')}
+                      className={`rounded-xl border p-2.5 text-left transition ${
+                        selectedPackage === 'solo'
+                          ? 'border-amber-400 bg-amber-400/10 text-white shadow-xs'
+                          : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <p className="font-bold text-slate-100">🛠️ Solo Rig</p>
+                      <p className="text-[10px] text-amber-400 font-semibold mt-0.5">$29 / mo</p>
+                      <p className="text-[10px] text-slate-400 mt-1">Mobile &amp; Repair Garage</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPackage('dealer')}
+                      className={`rounded-xl border p-2.5 text-left transition ${
+                        selectedPackage === 'dealer'
+                          ? 'border-amber-400 bg-amber-400/10 text-white shadow-xs'
+                          : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <p className="font-bold text-slate-100">🏍️ Dealer DMS</p>
+                      <p className="text-[10px] text-amber-400 font-semibold mt-0.5">$99 / mo</p>
+                      <p className="text-[10px] text-slate-400 mt-1">Showroom &amp; Unit Sales</p>
+                    </button>
+                  </div>
+                </div>
+
+                <Field label="Business / Shop Name">
+                  <Input
+                    value={shopName}
+                    onChange={(e) => setShopName(e.target.value)}
+                    placeholder={selectedPackage === 'dealer' ? 'e.g. Big Sky Powersports' : 'e.g. Big Sky Mobile Tech'}
+                    required
+                  />
+                </Field>
+              </>
             )}
 
             <Field label="Email Address">
@@ -481,7 +590,7 @@ export default function Auth() {
               {loading
                 ? 'Please wait…'
                 : mode === 'signup'
-                  ? 'Launch Outlaw Shop Systems'
+                  ? `Start Free 14-Day Trial (${selectedPackage === 'dealer' ? '$99/mo' : '$29/mo'})`
                   : 'Log In to Shop'}
             </Button>
           </form>
@@ -497,7 +606,7 @@ export default function Auth() {
       {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950 px-4 py-8 text-center text-xs text-slate-500 space-y-2">
         <p className="font-semibold text-slate-400">
-          Outlaw Shop Systems · Built for independent mobile techs and shops nationwide.
+          Outlaw Shop Systems · Built for independent mobile techs and powersports dealers nationwide.
         </p>
         <div className="flex justify-center gap-4 text-[11px]">
           <a

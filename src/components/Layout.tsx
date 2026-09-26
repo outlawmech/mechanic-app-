@@ -53,6 +53,12 @@ export default function Layout() {
   const sub = getSubscriptionInfo(user, settings);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
+  // Filter tabs based on active package tier
+  const activeDesktopTabs = desktopTabs.filter((t) => {
+    if (t.to === '/sales' && !settings.enable_dealership_mode) return false;
+    return true;
+  });
+
   const switchToDesktop = () => {
     setViewMode('desktop');
     toast('Switched to Desktop Workstation Mode');
@@ -165,7 +171,7 @@ export default function Layout() {
           </div>
 
           <nav className="flex-1 space-y-1.5 p-3 overflow-y-auto">
-            {desktopTabs.map((t) => (
+            {activeDesktopTabs.map((t) => (
               <NavLink
                 key={t.to}
                 to={t.to}
@@ -277,7 +283,7 @@ export default function Layout() {
         </div>
 
         <nav className="flex-1 space-y-1.5 p-3 overflow-y-auto">
-          {desktopTabs.map((t) => (
+          {activeDesktopTabs.map((t) => (
             <NavLink
               key={t.to}
               to={t.to}
