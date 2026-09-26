@@ -25,6 +25,7 @@ export const DEFAULT_SETTINGS: ShopSettings = {
 };
 
 const STORAGE_KEY = 'outlaw_shop_settings';
+const TIER_KEY = 'outlaw_active_tier';
 
 export function getLocalSettings(): ShopSettings {
   try {
@@ -37,6 +38,7 @@ export function getLocalSettings(): ShopSettings {
 export function saveLocalSettings(s: ShopSettings): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    localStorage.setItem(TIER_KEY, s.enable_dealership_mode ? 'dealer' : 'solo');
   } catch {}
 }
 
@@ -59,13 +61,12 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<ShopSettings>(() => {
     const local = getLocalSettings();
     if (user?.user_metadata) {
+      const userMetaDms = user.user_metadata.enable_dealership_mode;
+      const isDealer = typeof userMetaDms === 'boolean' ? userMetaDms : local.enable_dealership_mode;
       return {
         ...local,
         shop_name: user.user_metadata.shop_name || local.shop_name,
-        enable_dealership_mode:
-          typeof user.user_metadata.enable_dealership_mode === 'boolean'
-            ? user.user_metadata.enable_dealership_mode
-            : local.enable_dealership_mode,
+        enable_dealership_mode: Boolean(isDealer),
       };
     }
     return local;
@@ -84,13 +85,18 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
 
       const res = await query.limit(1);
       const settingData = res.data && res.data[0] ? res.data[0] : null;
+
       if (settingData) {
+        // If user metadata explicitly specifies dealership mode (e.g. from recent signup), respect it
+        let isDealer = Boolean(settingData.enable_dealership_mode);
+        if (typeof user?.user_metadata?.enable_dealership_mode === 'boolean') {
+          isDealer = user.user_metadata.enable_dealership_mode;
+        }
+
         const loaded: ShopSettings = {
           ...DEFAULT_SETTINGS,
           ...settingData,
-          enable_dealership_mode: Boolean(
-            settingData.enable_dealership_mode ?? user?.user_metadata?.enable_dealership_mode
-          ),
+          enable_dealership_mode: isDealer,
         };
         setSettings(loaded);
         saveLocalSettings(loaded);
@@ -100,11 +106,32 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
         const initial: ShopSettings = {
           ...DEFAULT_SETTINGS,
           shop_name: defaultShopName,
+          tagline: isDealer ? 'Sales, Service & Parts DMS' : 'Mobile & Shop Management',
           enable_dealership_mode: isDealer,
           email: user.email || DEFAULT_SETTINGS.email,
         };
         setSettings(initial);
         saveLocalSettings(initial);
+
+        // Auto-create initial row in Supabase
+        try {
+          await sb.from('shop_settings').upsert({
+            id: user.id,
+            user_id: user.id,
+            shop_name: defaultShopName,
+            tagline: isDealer ? 'Sales, Service & Parts DMS' : 'Mobile & Shop Management',
+            email: user.email || '',
+            enable_dealership_mode: isDealer,
+            default_labor_rate: 95.0,
+            default_tax_rate: 0.04,
+            dealership_doc_fee: 199,
+            dealership_prep_fee: 250,
+            dealership_freight_fee: 350,
+            updated_at: new Date().toISOString(),
+          });
+        } catch (e) {
+          console.warn('Initial shop settings upsert failed:', e);
+        }
       }
     } catch (err) {
       console.warn('Could not load remote shop settings:', err);
@@ -147,6 +174,16 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
         dealership_freight_fee: Number(updated.dealership_freight_fee) || 0,
         updated_at: new Date().toISOString(),
       });
+
+      // Synchronize metadata in user auth record so subsequent logins retain the chosen mode
+      if (user) {
+        await sb.auth.updateUser({
+          data: {
+            enable_dealership_mode: Boolean(updated.enable_dealership_mode),
+            shop_name: updated.shop_name,
+          },
+        });
+      }
     } catch (err) {
       console.warn('Could not sync settings to remote database, saved locally:', err);
     }

@@ -13,6 +13,8 @@ import {
   UsersIcon,
   WrenchIcon,
   SparklesIcon,
+  TagIcon,
+  BoxIcon,
 } from '../components/icons';
 import { Card, EmptyState } from '../components/ui';
 import WorkOrderCard from '../components/WorkOrderCard';
@@ -36,6 +38,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { settings } = useShopSettings();
   const sub = getSubscriptionInfo(user, settings);
+  const isDms = Boolean(settings.enable_dealership_mode);
 
   const [recentOrders, setRecentOrders] = useState<WorkOrderFull[]>(() => {
     return getCachedLocal<WorkOrderFull[]>('dashboard_orders') || [];
@@ -149,20 +152,59 @@ export default function Dashboard() {
       {/* Top Banner & Quick Actions Bar */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900">Shop Overview</h1>
-          <p className="text-xs text-slate-500">Live operational status and shop activity.</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black tracking-tight text-slate-900">
+              {isDms ? 'Dealership DMS Portal' : 'Solo Rig Dashboard'}
+            </h1>
+            <span
+              className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase ${
+                isDms
+                  ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+              }`}
+            >
+              {isDms ? '🏢 DMS Mode' : '🚛 Solo Rig'}
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            {isDms
+              ? 'Multi-department powersports, marine & dealership operations.'
+              : 'Live mobile mechanic and repair shop activity.'}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Quick Actions (Adapts to Mode) */}
+        <div className="flex flex-wrap items-center gap-2">
           <Link
             to="/work/new"
-            className="flex items-center gap-1.5 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-bold text-slate-950 shadow transition hover:bg-amber-300"
+            className="flex items-center gap-1.5 rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-bold text-slate-950 shadow transition hover:bg-amber-300 active:scale-95"
           >
             <PlusIcon className="h-4 w-4" />
             <span>New Repair Order</span>
           </Link>
+
+          {isDms && (
+            <>
+              <Link
+                to="/sales"
+                className="flex items-center gap-1.5 rounded-xl bg-purple-900 px-3.5 py-2 text-xs font-bold text-purple-100 shadow transition hover:bg-purple-800 active:scale-95"
+              >
+                <TagIcon className="h-4 w-4 text-purple-300" />
+                <span>Showroom Floor</span>
+              </Link>
+              <Link
+                to="/sales/deal/new"
+                className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow transition hover:bg-slate-800 active:scale-95"
+              >
+                <ReceiptIcon className="h-4 w-4 text-amber-400" />
+                <span>Buyer's Order</span>
+              </Link>
+            </>
+          )}
+
           <Link
             to="/customers/new"
-            className="flex items-center gap-1.5 rounded-xl bg-slate-800 px-3.5 py-2.5 text-xs font-semibold text-white shadow transition hover:bg-slate-700"
+            className="flex items-center gap-1.5 rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-white shadow transition hover:bg-slate-700"
           >
             <UsersIcon className="h-4 w-4" />
             <span>Add Customer</span>
@@ -197,8 +239,8 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Commercial Floorplan Curtailment Alert Banner */}
-      {upcomingCurtailments.length > 0 && (
+      {/* Commercial Floorplan Curtailment Alert Banner (DMS Mode Only) */}
+      {isDms && upcomingCurtailments.length > 0 && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3 animate-in fade-in duration-200">
           <div className="flex items-start gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400 text-slate-950 font-bold">
@@ -244,7 +286,7 @@ export default function Dashboard() {
         <Link to="/work" className="block transition hover:-translate-y-0.5">
           <Card className="flex items-center gap-3 p-4">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-600 font-bold">
-              <WrenchIcon className="h-5 w-5" />
+              <ClockIcon className="h-5 w-5" />
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">In Progress</p>
@@ -253,26 +295,26 @@ export default function Dashboard() {
           </Card>
         </Link>
 
-        <Link to="/work" className="block transition hover:-translate-y-0.5">
-          <Card className="flex items-center gap-3 p-4">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-600 font-bold">
-              <ClockIcon className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Completed</p>
-              <p className="text-xl font-black text-slate-900">{metrics.completedCount}</p>
-            </div>
-          </Card>
-        </Link>
-
         <Link to="/invoices" className="block transition hover:-translate-y-0.5">
           <Card className="flex items-center gap-3 p-4">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-600 font-bold">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-purple-100 text-purple-600 font-bold">
               <ReceiptIcon className="h-5 w-5" />
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Unpaid Invoices</p>
               <p className="text-xl font-black text-slate-900">{money(metrics.unpaidTotal)}</p>
+            </div>
+          </Card>
+        </Link>
+
+        <Link to="/customers" className="block transition hover:-translate-y-0.5">
+          <Card className="flex items-center gap-3 p-4">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-600 font-bold">
+              <UsersIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Total Customers</p>
+              <p className="text-xl font-black text-slate-900">{metrics.totalCustomers}</p>
             </div>
           </Card>
         </Link>
@@ -366,13 +408,15 @@ export default function Dashboard() {
           <Card className="bg-slate-900 text-white p-4 space-y-3 shadow-md">
             <p className="text-xs font-bold uppercase tracking-wide text-amber-400">Outlaw Pro Tip</p>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Generate invoices directly from any repair order or text payment links straight to your customer's phone from the invoice screen.
+              {isDms
+                ? 'Showroom units can be dispatched directly to your service techs for PDI assembly with 1-tap from the Showroom tab.'
+                : 'Generate invoices directly from any repair order or text payment links straight to your customer phone from the invoice screen.'}
             </p>
             <Link
               to="/settings"
               className="inline-block text-xs font-bold text-amber-400 hover:text-amber-300"
             >
-              Configure Shop Info & Rates →
+              Configure Shop Info &amp; Rates →
             </Link>
           </Card>
         </div>

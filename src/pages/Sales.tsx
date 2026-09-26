@@ -75,6 +75,7 @@ export default function Sales() {
   const [activeTab, setActiveTab] = useState<'units' | 'deals'>('units');
   const [filterCondition, setFilterCondition] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
   const [addingUnit, setAddingUnit] = useState(false);
   const [editingUnit, setEditingUnit] = useState<DealershipUnit | null>(null);
   const [printingTagUnit, setPrintingTagUnit] = useState<DealershipUnit | null>(null);
@@ -394,6 +395,91 @@ export default function Sales() {
 
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
+
+  // Feature Gate: If in Solo Rig Mode and not explicitly previewing, display DMS activation screen
+  if (!settings.enable_dealership_mode && !showPreview) {
+    return (
+      <div className="space-y-6 max-w-3xl mx-auto py-4 animate-in fade-in duration-200">
+        <Card className="p-6 md:p-8 space-y-6 text-center border-2 border-purple-500/40 bg-gradient-to-b from-slate-900 to-slate-950 text-white shadow-2xl rounded-3xl">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30">
+            <TagIcon className="h-8 w-8" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="inline-block rounded-full bg-purple-500/20 px-3.5 py-1 text-xs font-black uppercase text-purple-300 border border-purple-500/40">
+              🏢 Dealership DMS Module
+            </span>
+            <h2 className="text-2xl font-black text-white sm:text-3xl">Showroom &amp; Unit Sales Management</h2>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto leading-relaxed">
+              Showroom unit inventory, commercial floorplan lines, window spec stickers, and Buyer’s Orders (Bills of Sale) are part of the <strong>Dealership &amp; Multi-Tech DMS</strong> tier ($99/mo).
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left max-w-xl mx-auto">
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
+              <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-white">Showroom Inventory</p>
+                <p className="text-[11px] text-slate-400">Motorcycles, ATVs, UTVs, Boats &amp; Trailers</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
+              <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-white">1-Page Buyer's Orders</p>
+                <p className="text-[11px] text-slate-400">Trade-ins, lien payoffs &amp; e-signatures</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
+              <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-white">Floorplan Line Financing</p>
+                <p className="text-[11px] text-slate-400">Interest balances &amp; 30-day curtailment alerts</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5 p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
+              <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-white">1-Tap PDI Dispatch</p>
+                <p className="text-[11px] text-slate-400">Send uncrate &amp; prep tickets to service bay</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <Button
+              variant="accent"
+              className="w-full sm:w-auto px-6 py-3 text-xs font-black shadow-lg"
+              onClick={async () => {
+                await updateSettings({ enable_dealership_mode: true });
+                toast('🏢 Switched to Dealership & Multi-Tech DMS Mode!');
+              }}
+            >
+              🏢 Switch to Dealership DMS Mode
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full sm:w-auto text-xs font-bold text-slate-300 border border-slate-700 bg-slate-800 hover:bg-slate-700"
+              onClick={() => setShowPreview(true)}
+            >
+              Preview Showroom Floor
+            </Button>
+
+            <Link
+              to="/"
+              className="text-xs font-semibold text-slate-400 hover:text-white underline sm:no-underline"
+            >
+              Back to Dashboard
+            </Link>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

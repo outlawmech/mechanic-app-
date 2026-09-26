@@ -27,7 +27,7 @@ export default function BuyersOrderDetail() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
-  const { settings } = useShopSettings();
+  const { settings, updateSettings } = useShopSettings();
 
   const isNew = id === 'new' || !id;
   const preselectedUnitId = searchParams.get('unit_id');
@@ -293,6 +293,49 @@ export default function BuyersOrderDetail() {
 
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
+
+  // Feature Gate: Dealership DMS Required for Buyer's Orders
+  if (!settings.enable_dealership_mode) {
+    return (
+      <div className="space-y-6 max-w-3xl mx-auto py-4 animate-in fade-in duration-200">
+        <Card className="p-6 md:p-8 space-y-6 text-center border-2 border-purple-500/40 bg-gradient-to-b from-slate-900 to-slate-950 text-white shadow-2xl rounded-3xl">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-purple-500/20 text-purple-400 border border-purple-500/30">
+            <ReceiptIcon className="h-8 w-8" />
+          </div>
+
+          <div className="space-y-2">
+            <span className="inline-block rounded-full bg-purple-500/20 px-3.5 py-1 text-xs font-black uppercase text-purple-300 border border-purple-500/40">
+              🏢 Dealership DMS Feature
+            </span>
+            <h2 className="text-2xl font-black text-white sm:text-3xl">Buyer's Order &amp; Bill of Sale Builder</h2>
+            <p className="text-xs sm:text-sm text-slate-300 max-w-xl mx-auto leading-relaxed">
+              Writing formal vehicle Buyer’s Orders, desking freight and prep fees, calculating trade-in lien payoffs, and capturing customer e-signatures on glass are exclusive to the <strong>Dealership &amp; Multi-Tech DMS</strong> tier ($99/mo).
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+            <Button
+              variant="accent"
+              className="w-full sm:w-auto px-6 py-3 text-xs font-black shadow-lg"
+              onClick={async () => {
+                await updateSettings({ enable_dealership_mode: true });
+                toast('🏢 Switched to Dealership & Multi-Tech DMS Mode!');
+              }}
+            >
+              🏢 Switch to Dealership DMS Mode
+            </Button>
+
+            <Link
+              to="/"
+              className="text-xs font-semibold text-slate-400 hover:text-white"
+            >
+              Back to Dashboard
+            </Link>
+          </div>
+        </Card>
+      </div>
+    );
+  }
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
   const selectedUnit = units.find((u) => u.id === unitId);

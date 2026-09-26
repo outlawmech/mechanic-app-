@@ -184,9 +184,10 @@ export default function Settings() {
             {/* Solo Rig Option Card */}
             <div
               onClick={async () => {
-                setForm((prev) => ({ ...prev, enable_dealership_mode: false }));
-                await updateSettings({ enable_dealership_mode: false });
-                toast('Switched to Solo Rig Mode');
+                const newTagline = form.tagline === 'Sales, Service & Parts DMS' ? 'Mobile & Shop Management' : form.tagline;
+                setForm((prev) => ({ ...prev, enable_dealership_mode: false, tagline: newTagline }));
+                await updateSettings({ enable_dealership_mode: false, tagline: newTagline });
+                toast('🚛 Switched to Solo Rig Mode');
               }}
               className={`cursor-pointer rounded-2xl p-4 transition border-2 text-left ${
                 !form.enable_dealership_mode
@@ -211,9 +212,10 @@ export default function Settings() {
             {/* Dealership DMS Option Card */}
             <div
               onClick={async () => {
-                setForm((prev) => ({ ...prev, enable_dealership_mode: true }));
-                await updateSettings({ enable_dealership_mode: true });
-                toast('Switched to Dealership & Multi-Tech DMS Mode!');
+                const newTagline = form.tagline === 'Mobile & Shop Management' ? 'Sales, Service & Parts DMS' : form.tagline;
+                setForm((prev) => ({ ...prev, enable_dealership_mode: true, tagline: newTagline }));
+                await updateSettings({ enable_dealership_mode: true, tagline: newTagline });
+                toast('🏢 Switched to Dealership & Multi-Tech DMS Mode!');
               }}
               className={`cursor-pointer rounded-2xl p-4 transition border-2 text-left ${
                 form.enable_dealership_mode

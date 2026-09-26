@@ -23,20 +23,32 @@ import { useToast } from './Toast';
 import TrialBanner from './TrialBanner';
 import NetworkStatusBadge from './NetworkStatusBadge';
 
-// Desktop Sidebar Full Navigation List
-const desktopTabs = [
-  { to: '/', label: 'Home', shortLabel: 'Home', icon: HomeIcon, end: true },
-  { to: '/schedule', label: 'Schedule & Dispatch', shortLabel: 'Schedule', icon: CalendarIcon, end: false },
+// Solo Rig Desktop Navigation List
+const soloDesktopTabs = [
+  { to: '/', label: 'Home (Solo Rig)', shortLabel: 'Home', icon: HomeIcon, end: true },
+  { to: '/schedule', label: 'Schedule & Appointments', shortLabel: 'Schedule', icon: CalendarIcon, end: false },
   { to: '/work', label: 'Repair Orders', shortLabel: 'ROs', icon: ClipboardIcon, end: false },
-  { to: '/sales', label: 'Showroom & Sales', shortLabel: 'Showroom', icon: TagIcon, end: false },
-  { to: '/customers', label: 'Customers', shortLabel: 'Customers', icon: UsersIcon, end: false },
-  { to: '/parts', label: 'Parts & Stock', shortLabel: 'Parts', icon: BoxIcon, end: false },
-  { to: '/invoices', label: 'Invoices', shortLabel: 'Invoices', icon: ReceiptIcon, end: false },
+  { to: '/customers', label: 'Customers & Fleet', shortLabel: 'Customers', icon: UsersIcon, end: false },
+  { to: '/parts', label: 'Parts Inventory', shortLabel: 'Parts', icon: BoxIcon, end: false },
+  { to: '/invoices', label: 'Invoices & Billing', shortLabel: 'Invoices', icon: ReceiptIcon, end: false },
   { to: '/reports', label: 'Financials & Reports', shortLabel: 'Reports', icon: BanknotesIcon, end: false },
   { to: '/settings', label: 'Shop Settings', shortLabel: 'Settings', icon: SettingsIcon, end: false },
 ];
 
-// Solo Rig Mobile Primary Tabs
+// Dealership DMS Desktop Navigation List
+const dealerDesktopTabs = [
+  { to: '/', label: 'Executive Dashboard', shortLabel: 'Home', icon: HomeIcon, end: true },
+  { to: '/schedule', label: 'Schedule & Bay Dispatch', shortLabel: 'Schedule', icon: CalendarIcon, end: false },
+  { to: '/work', label: 'Service & Repair Orders', shortLabel: 'Service', icon: ClipboardIcon, end: false },
+  { to: '/parts', label: 'Parts Department', shortLabel: 'Parts', icon: BoxIcon, end: false },
+  { to: '/sales', label: 'Showroom & Unit Sales', shortLabel: 'Showroom', icon: TagIcon, end: false },
+  { to: '/customers', label: 'Customer Directory', shortLabel: 'Customers', icon: UsersIcon, end: false },
+  { to: '/invoices', label: 'Invoices & Billing', shortLabel: 'Invoices', icon: ReceiptIcon, end: false },
+  { to: '/reports', label: 'Financials & Reports', shortLabel: 'Reports', icon: BanknotesIcon, end: false },
+  { to: '/settings', label: 'Dealership Settings', shortLabel: 'Settings', icon: SettingsIcon, end: false },
+];
+
+// Solo Rig Mobile Primary Tabs (5 items)
 const soloPrimaryTabs = [
   { to: '/', label: 'Home', shortLabel: 'Home', icon: HomeIcon, end: true },
   { to: '/schedule', label: 'Schedule', shortLabel: 'Schedule', icon: CalendarIcon, end: false },
@@ -44,7 +56,7 @@ const soloPrimaryTabs = [
   { to: '/customers', label: 'Customers', shortLabel: 'Customers', icon: UsersIcon, end: false },
 ];
 
-// Dealership Departmental Mobile Primary Tabs
+// Dealership Departmental Mobile Primary Tabs (6 items)
 const dealerPrimaryTabs = [
   { to: '/', label: 'Home', shortLabel: 'Home', icon: HomeIcon, end: true },
   { to: '/work', label: 'Service', shortLabel: 'Service', icon: ClipboardIcon, end: false },
@@ -54,7 +66,7 @@ const dealerPrimaryTabs = [
 ];
 
 export default function Layout() {
-  const { settings } = useShopSettings();
+  const { settings, updateSettings } = useShopSettings();
   const { user } = useAuth();
   const { viewMode, setViewMode } = useViewMode();
   const toast = useToast();
@@ -62,12 +74,7 @@ export default function Layout() {
   const sub = getSubscriptionInfo(user, settings);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
-  // Filter tabs based on active package tier
-  const activeDesktopTabs = desktopTabs.filter((t) => {
-    if (t.to === '/sales' && !settings.enable_dealership_mode) return false;
-    return true;
-  });
-
+  const activeDesktopTabs = settings.enable_dealership_mode ? dealerDesktopTabs : soloDesktopTabs;
   const activeMobileTabs = settings.enable_dealership_mode ? dealerPrimaryTabs : soloPrimaryTabs;
 
   const switchToDesktop = () => {
@@ -116,7 +123,18 @@ export default function Layout() {
                   className="h-9 w-9 rounded-xl object-cover bg-slate-900 ring-1 ring-amber-400/40 shadow-sm"
                 />
                 <div className="min-w-0 flex-1">
-                  <h1 className="truncate text-base font-bold leading-tight">{settings.shop_name}</h1>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <h1 className="truncate text-base font-bold leading-tight">{settings.shop_name}</h1>
+                    <span
+                      className={`shrink-0 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md ${
+                        settings.enable_dealership_mode
+                          ? 'bg-purple-950 text-purple-300 border border-purple-700'
+                          : 'bg-amber-950 text-amber-300 border border-amber-700'
+                      }`}
+                    >
+                      {settings.enable_dealership_mode ? '🏢 DMS' : '🚛 SOLO'}
+                    </span>
+                  </div>
                   <p className="truncate text-[11px] text-slate-400">{settings.tagline}</p>
                 </div>
               </div>
@@ -185,7 +203,7 @@ export default function Layout() {
                     : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                 }`}
               >
-                {settings.enable_dealership_mode ? '🏢 Dealership DMS' : '🚛 Solo Rig Edition'}
+                {settings.enable_dealership_mode ? '🏢 Dealership DMS Active' : '🚛 Solo Rig Active'}
               </span>
             </div>
           </div>
@@ -235,7 +253,7 @@ export default function Layout() {
                   rel="noopener noreferrer"
                   className="block w-full rounded-lg bg-amber-400 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-amber-300"
                 >
-                  Upgrade $29/mo
+                  Upgrade {sub.planPrice}
                 </a>
               </div>
             )}
@@ -306,7 +324,7 @@ export default function Layout() {
                   : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
               }`}
             >
-              {settings.enable_dealership_mode ? '🏢 Dealership DMS' : '🚛 Solo Rig Edition'}
+              {settings.enable_dealership_mode ? '🏢 Dealership DMS Active' : '🚛 Solo Rig Active'}
             </span>
           </div>
         </div>
@@ -356,7 +374,7 @@ export default function Layout() {
                 rel="noopener noreferrer"
                 className="block w-full rounded-lg bg-amber-400 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-amber-300"
               >
-                Upgrade $29/mo
+                Upgrade {sub.planPrice}
               </a>
             </div>
           )}
@@ -375,13 +393,13 @@ export default function Layout() {
             <div className="flex items-center gap-1.5 min-w-0">
               <h1 className="truncate text-sm font-black leading-tight">{settings.shop_name}</h1>
               <span
-                className={`shrink-0 text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${
+                className={`shrink-0 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md ${
                   settings.enable_dealership_mode
                     ? 'bg-purple-950 text-purple-300 border border-purple-700'
                     : 'bg-amber-950 text-amber-300 border border-amber-700'
                 }`}
               >
-                {settings.enable_dealership_mode ? 'DMS' : 'SOLO'}
+                {settings.enable_dealership_mode ? '🏢 DMS' : '🚛 SOLO'}
               </span>
             </div>
             <p className="truncate text-[10px] text-slate-400">{settings.tagline}</p>
@@ -460,7 +478,12 @@ export default function Layout() {
                 <span className="grid h-7 w-7 place-items-center rounded-lg bg-amber-400 text-slate-950 font-bold text-xs">
                   ⚡
                 </span>
-                <p className="text-sm font-bold text-slate-900">More Tools & Navigation</p>
+                <div>
+                  <p className="text-sm font-bold text-slate-900">More Tools &amp; Navigation</p>
+                  <p className="text-[10px] text-slate-500">
+                    {settings.enable_dealership_mode ? '🏢 Dealership DMS Active' : '🚛 Solo Rig Active'}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
@@ -591,7 +614,7 @@ export default function Layout() {
                     </span>
                     <div>
                       <p className="text-xs font-bold text-slate-900">Financials &amp; Reports</p>
-                      <p className="text-[10px] text-slate-500">Income &amp; CSV export</p>
+                      <p className="text-[10px] text-slate-500">QuickBooks &amp; Revenue</p>
                     </div>
                   </button>
 
@@ -608,43 +631,44 @@ export default function Layout() {
                     </span>
                     <div>
                       <p className="text-xs font-bold text-slate-900">Shop Settings</p>
-                      <p className="text-[10px] text-slate-500">Rates, logo, licensing</p>
+                      <p className="text-[10px] text-slate-500">Labor rate &amp; rig profile</p>
                     </div>
                   </button>
                 </>
               )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMoreMenu(false);
-                  switchToDesktop();
-                }}
-                className="col-span-2 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-100 p-3 text-center transition hover:bg-slate-200"
-              >
-                <MonitorIcon className="h-4 w-4 text-slate-700" />
-                <span className="text-xs font-bold text-slate-800">Switch to Desktop Workstation View</span>
-              </button>
             </div>
 
-            {!settings.enable_dealership_mode && (
-              <div className="rounded-2xl border border-purple-200 bg-purple-50/70 p-3 text-xs flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-bold text-purple-950 text-[11px]">Need Dealership Showroom &amp; Flooring?</p>
-                  <p className="text-[10px] text-purple-800 truncate">Enable Dealership DMS Mode in Settings.</p>
+            {/* Quick 1-Tap Tier Switcher Banner inside drawer */}
+            <div className="pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={async () => {
+                  const targetState = !settings.enable_dealership_mode;
+                  await updateSettings({ enable_dealership_mode: targetState });
+                  toast(targetState ? '🏢 Switched to Dealership DMS Mode!' : '🚛 Switched to Solo Rig Mode!');
+                  setShowMoreMenu(false);
+                }}
+                className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left transition ${
+                  settings.enable_dealership_mode
+                    ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                    : 'border-purple-300 bg-purple-50 text-purple-900 hover:bg-purple-100'
+                }`}
+              >
+                <div>
+                  <p className="text-xs font-black">
+                    {settings.enable_dealership_mode ? 'Switch to Solo Rig Mode ($29/mo)' : '🏢 Switch to Dealership DMS ($99/mo)'}
+                  </p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">
+                    {settings.enable_dealership_mode
+                      ? 'Streamlined 5-tab mobile mechanic view'
+                      : 'Showroom units, buyer’s orders & floorplan'}
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowMoreMenu(false);
-                    navigate('/settings');
-                  }}
-                  className="rounded-xl bg-purple-900 px-3 py-1.5 text-[10px] font-bold text-white shrink-0 hover:bg-purple-800"
-                >
-                  Switch Mode →
-                </button>
-              </div>
-            )}
+                <span className="text-xs font-bold px-2 py-1 bg-white rounded-lg border shadow-xs">
+                  Switch →
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}
