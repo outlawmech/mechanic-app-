@@ -205,7 +205,7 @@ export default function NewWorkOrder() {
                 const info = getVehicleTypeInfo(v.type);
                 return (
                   <option key={v.id} value={v.id}>
-                    {info.emoji} {vehicleLabel(v) || 'Vehicle'}
+                    [{info.shortLabel}] {vehicleLabel(v) || 'Vehicle'}
                     {v.plate ? ` (${v.plate})` : ''}
                   </option>
                 );

@@ -1,6 +1,6 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useToast } from '../components/Toast';
-import { WrenchIcon, TrashIcon, CheckIcon, PlusIcon, LockClosedIcon, SparklesIcon } from '../components/icons';
+import { WrenchIcon, TrashIcon, CheckIcon, PlusIcon, LockClosedIcon, SparklesIcon, MonitorIcon, SmartphoneIcon } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Spinner, Textarea } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useShopSettings } from '../lib/settings';
@@ -444,7 +444,7 @@ export default function Settings() {
             }}
             className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-center transition hover:bg-slate-100 active:scale-95"
           >
-            <span className="text-lg">🔄</span>
+            <SparklesIcon className="h-5 w-5 text-slate-700" />
             <span className="text-xs font-bold text-slate-800">Automatic</span>
             <span className="text-[10px] text-slate-400">Device adaptive</span>
           </button>
@@ -456,7 +456,7 @@ export default function Settings() {
             }}
             className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50/60 p-3 text-center transition hover:bg-amber-100/60 active:scale-95"
           >
-            <span className="text-lg">🖥️</span>
+            <MonitorIcon className="h-5 w-5 text-amber-800" />
             <span className="text-xs font-bold text-amber-900">Force Desktop</span>
             <span className="text-[10px] text-amber-700">Widescreen + Nav</span>
           </button>
@@ -468,7 +468,7 @@ export default function Settings() {
             }}
             className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-center transition hover:bg-slate-100 active:scale-95"
           >
-            <span className="text-lg">📱</span>
+            <SmartphoneIcon className="h-5 w-5 text-slate-700" />
             <span className="text-xs font-bold text-slate-800">Force Mobile</span>
             <span className="text-[10px] text-slate-400">Compact phone</span>
           </button>
@@ -479,7 +479,7 @@ export default function Settings() {
       <Card className="space-y-3 p-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2">
           <div className="flex items-center gap-2">
-            <span className="text-xl">📱</span>
+            <SmartphoneIcon className="h-5 w-5 text-slate-800" />
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800">
                 Native Android App (APK)
@@ -496,9 +496,9 @@ export default function Settings() {
         </p>
         {isNativePlatform ? (
           <div className="flex items-center gap-2.5 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-emerald-950 text-xs font-semibold">
-            <span className="text-base">✅</span>
+            <CheckIcon className="h-5 w-5 text-emerald-600 shrink-0" />
             <div>
-              <p className="font-bold text-emerald-900">Installed & Running Native APK</p>
+              <p className="font-bold text-emerald-900">Installed &amp; Running Native APK</p>
               <p className="text-[11px] text-emerald-700 font-normal">Offline database, camera photo storage, and direct Android printer spooler are active.</p>
             </div>
           </div>
@@ -508,7 +508,8 @@ export default function Settings() {
             download="OutlawShopSystems.apk"
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800 shadow-sm active:scale-95"
           >
-            <span>📲 Download Android APK</span>
+            <SmartphoneIcon className="h-4 w-4" />
+            <span>Download Android APK</span>
           </a>
         )}
       </Card>

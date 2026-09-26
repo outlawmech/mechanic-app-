@@ -12,6 +12,9 @@ import {
   WrenchIcon,
   SearchIcon,
   CheckIcon,
+  ClipboardIcon,
+  ChatBubbleIcon,
+  VehicleIcon,
 } from '../components/icons';
 import { Badge, Card, Chip, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
@@ -189,7 +192,8 @@ export default function Schedule() {
               viewType === 'route' ? 'bg-slate-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <span>📋 Dispatch Route</span>
+            <ClipboardIcon className="h-3.5 w-3.5" />
+            <span>Dispatch Route</span>
           </button>
           <button
             type="button"
@@ -199,7 +203,7 @@ export default function Schedule() {
             }`}
           >
             <CalendarIcon className="h-3.5 w-3.5" />
-            <span>📅 Calendar Grid</span>
+            <span>Calendar Grid</span>
           </button>
         </div>
 
@@ -326,7 +330,7 @@ export default function Schedule() {
                       {wo.vehicle && (
                         <div className="rounded-xl bg-slate-50 p-2 text-xs text-slate-700">
                           <div className="flex items-center gap-1.5 font-semibold">
-                            <span>{vInfo?.emoji}</span>
+                            <VehicleIcon type={wo.vehicle.type} className="h-3.5 w-3.5 text-slate-600 shrink-0" />
                             <span>{vehicleLabel(wo.vehicle)}</span>
                           </div>
                           {wo.vehicle.engine_info && (
@@ -368,7 +372,8 @@ export default function Schedule() {
                           className="flex items-center justify-center gap-1 rounded-lg bg-slate-100 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200 disabled:opacity-40"
                           title="Text customer arrival ETA"
                         >
-                          <span>💬 Text ETA</span>
+                          <ChatBubbleIcon className="h-3.5 w-3.5 text-slate-600" />
+                          <span>Text ETA</span>
                         </button>
 
                         {/* Call */}
@@ -420,9 +425,10 @@ export default function Schedule() {
                               setReschedulingId(wo.id);
                               setRescheduleDate((wo.scheduled_at || '').slice(0, 10) || todayStr);
                             }}
-                            className="text-slate-500 hover:text-amber-700 font-medium"
+                            className="text-slate-500 hover:text-amber-700 font-medium inline-flex items-center gap-1"
                           >
-                            📅 {wo.scheduled_at ? longDate(wo.scheduled_at) : 'Reschedule'}
+                            <CalendarIcon className="h-3 w-3" />
+                            <span>{wo.scheduled_at ? longDate(wo.scheduled_at) : 'Reschedule'}</span>
                           </button>
                         )}
 

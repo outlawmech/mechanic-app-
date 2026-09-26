@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon, PlusIcon } from '../components/icons';
+import { ArrowLeftIcon, PlusIcon, VehicleIcon } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Select } from '../components/ui';
 import { getVehicleTypeInfo, VEHICLE_TYPES } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
@@ -193,17 +193,17 @@ export default function NewCustomer() {
         <Card className="space-y-3 p-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
             <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-700">Vehicle / Vessel / Machine</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-700">Vehicle / Equipment / Machine</p>
               <p className="text-[11px] text-slate-500">Optional — you can also add equipment later.</p>
             </div>
-            <span className="text-base">{currentTypeInfo.emoji}</span>
+            <VehicleIcon type={form.type} className="h-5 w-5 text-slate-700" />
           </div>
 
           <Field label="Equipment Category">
             <Select value={form.type} onChange={set('type')}>
               {Object.values(VEHICLE_TYPES).map((opt) => (
                 <option key={opt.type} value={opt.type}>
-                  {opt.emoji} {opt.label}
+                  {opt.label}
                 </option>
               ))}
             </Select>

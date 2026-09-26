@@ -287,3 +287,91 @@ export const SparklesIcon = (p: P) => (
     <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z" />
   </Svg>
 );
+
+export const TruckIcon = (p: P) => (
+  <Svg {...p}>
+    <rect x="1" y="4" width="15" height="13" rx="1" />
+    <polygon points="16 8 20 8 23 11 23 17 16 17 16 8" />
+    <circle cx="5.5" cy="18.5" r="2.5" />
+    <circle cx="18.5" cy="18.5" r="2.5" />
+  </Svg>
+);
+
+export const CreditCardIcon = (p: P) => (
+  <Svg {...p}>
+    <rect x="2" y="5" width="20" height="14" rx="2" />
+    <line x1="2" y1="10" x2="22" y2="10" />
+    <line x1="6" y1="15" x2="10" y2="15" />
+  </Svg>
+);
+
+export const BanknotesIcon = (p: P) => (
+  <Svg {...p}>
+    <rect x="2" y="6" width="20" height="12" rx="2" />
+    <circle cx="12" cy="12" r="2.5" />
+    <path d="M6 12h.01M18 12h.01" />
+  </Svg>
+);
+
+export const BuildingBankIcon = (p: P) => (
+  <Svg {...p}>
+    <line x1="3" y1="21" x2="21" y2="21" />
+    <line x1="4" y1="10" x2="20" y2="10" />
+    <polyline points="12 3 2 10 22 10" />
+    <line x1="6" y1="10" x2="6" y2="21" />
+    <line x1="10" y1="10" x2="10" y2="21" />
+    <line x1="14" y1="10" x2="14" y2="21" />
+    <line x1="18" y1="10" x2="18" y2="21" />
+  </Svg>
+);
+
+export const ChatBubbleIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </Svg>
+);
+
+export const CameraIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+    <circle cx="12" cy="13" r="4" />
+  </Svg>
+);
+
+export const FolderIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+  </Svg>
+);
+
+export const TagIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+    <line x1="7" y1="7" x2="7.01" y2="7" />
+  </Svg>
+);
+
+export function VehicleIcon({
+  type,
+  className = 'h-4 w-4',
+}: {
+  type?: string | null;
+  className?: string;
+}) {
+  switch (type) {
+    case 'auto':
+      return <CarIcon className={className} />;
+    case 'marine':
+      return <BoatIcon className={className} />;
+    case 'atv':
+      return <AtvIcon className={className} />;
+    case 'snowmobile':
+      return <SnowmobileIcon className={className} />;
+    case 'motorcycle':
+      return <MotorcycleIcon className={className} />;
+    case 'equipment':
+      return <TractorIcon className={className} />;
+    default:
+      return <WrenchIcon className={className} />;
+  }
+}

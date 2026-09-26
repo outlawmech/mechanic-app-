@@ -1,7 +1,24 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon, ClockIcon, MailIcon, PrinterIcon, ShareIcon, CheckIcon, TrashIcon } from '../components/icons';
+import {
+  ArrowLeftIcon,
+  ClockIcon,
+  MailIcon,
+  PrinterIcon,
+  ShareIcon,
+  CheckIcon,
+  TrashIcon,
+  BanknotesIcon,
+  CreditCardIcon,
+  BuildingBankIcon,
+  ChatBubbleIcon,
+  TagIcon,
+  SendIcon,
+  SmartphoneIcon,
+  ReceiptIcon,
+  VehicleIcon,
+} from '../components/icons';
 import { Button, Card, EmptyState, ErrorState, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { useShopSettings } from '../lib/settings';
@@ -25,16 +42,19 @@ import { Capacitor } from '@capacitor/core';
 
 const KIND_LABEL: Record<string, string> = { labor: 'Labor', part: 'Part', fee: 'Fee' };
 
-const PAYMENT_METHODS: Record<PaymentMethod, { label: string; icon: string }> = {
-  cash: { label: 'Cash', icon: '💵' },
-  credit_card: { label: 'Credit Card', icon: '💳' },
-  debit_card: { label: 'Debit Card', icon: '💳' },
-  check: { label: 'Check', icon: '📝' },
-  zelle: { label: 'Zelle', icon: '⚡' },
-  venmo: { label: 'Venmo', icon: '📱' },
-  cash_app: { label: 'Cash App', icon: '🟢' },
-  bank_transfer: { label: 'Bank Transfer', icon: '🏦' },
-  other: { label: 'Other', icon: '🔖' },
+const PAYMENT_METHODS: Record<
+  PaymentMethod,
+  { label: string; icon: (p: { className?: string }) => React.ReactNode }
+> = {
+  cash: { label: 'Cash', icon: BanknotesIcon },
+  credit_card: { label: 'Credit Card', icon: CreditCardIcon },
+  debit_card: { label: 'Debit Card', icon: CreditCardIcon },
+  check: { label: 'Check', icon: ReceiptIcon },
+  zelle: { label: 'Zelle', icon: SendIcon },
+  venmo: { label: 'Venmo', icon: SmartphoneIcon },
+  cash_app: { label: 'Cash App', icon: SmartphoneIcon },
+  bank_transfer: { label: 'Bank Transfer', icon: BuildingBankIcon },
+  other: { label: 'Other', icon: TagIcon },
 };
 
 export default function InvoiceDetail() {
@@ -326,13 +346,14 @@ export default function InvoiceDetail() {
             {balanceDue > 0 && !showPaymentForm && (
               <Button
                 variant="accent"
-                className="w-full text-xs font-bold shadow-sm"
+                className="w-full text-xs font-bold shadow-sm flex items-center justify-center gap-2"
                 onClick={() => {
                   setPayAmount(String(balanceDue));
                   setShowPaymentForm(true);
                 }}
               >
-                💳 Record Payment ({money(balanceDue)})
+                <CreditCardIcon className="h-4 w-4" />
+                <span>Record Payment ({money(balanceDue)})</span>
               </Button>
             )}
 
@@ -379,7 +400,7 @@ export default function InvoiceDetail() {
                     >
                       {Object.entries(PAYMENT_METHODS).map(([key, info]) => (
                         <option key={key} value={key}>
-                          {info.icon} {info.label}
+                          {info.label}
                         </option>
                       ))}
                     </select>
@@ -411,13 +432,15 @@ export default function InvoiceDetail() {
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Payment History</p>
                 {paymentsList.map((p) => {
                   const mInfo = PAYMENT_METHODS[p.method] || PAYMENT_METHODS.other;
+                  const Icon = mInfo.icon;
                   return (
                     <div key={p.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-slate-800">
-                          {mInfo.icon} {mInfo.label} — <span className="font-bold text-emerald-700">{money(p.amount)}</span>
-                        </p>
-                        {p.reference_note && <p className="text-[10px] text-slate-500 truncate">{p.reference_note}</p>}
+                      <div className="min-w-0 flex-1 flex items-center gap-1.5">
+                        <Icon className="h-3.5 w-3.5 text-slate-600 shrink-0" />
+                        <span className="font-semibold text-slate-800">
+                          {mInfo.label} — <span className="font-bold text-emerald-700">{money(p.amount)}</span>
+                        </span>
+                        {p.reference_note && <span className="text-[10px] text-slate-500 truncate">({p.reference_note})</span>}
                       </div>
                       <button
                         type="button"
@@ -536,7 +559,7 @@ export default function InvoiceDetail() {
               <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs text-slate-700 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span>{vInfo?.emoji}</span>
+                    <VehicleIcon type={vehicle.type} className="h-4 w-4 text-slate-700 shrink-0" />
                     <span className="font-bold">{vehicleLabel(vehicle)}</span>
                     <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-medium text-slate-700">
                       {vInfo?.shortLabel}

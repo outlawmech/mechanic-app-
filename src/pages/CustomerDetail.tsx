@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon, MailIcon, MapPinIcon, PhoneIcon, ClockIcon, PlusIcon } from '../components/icons';
+import { ArrowLeftIcon, MailIcon, MapPinIcon, PhoneIcon, ClockIcon, PlusIcon, VehicleIcon } from '../components/icons';
 import {
   Badge,
   Button,
@@ -287,8 +287,8 @@ export default function CustomerDetail() {
                   return (
                     <Card key={veh.id} className="p-3.5">
                       <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-base">{info.emoji}</span>
+                        <div className="flex items-center gap-2">
+                          <VehicleIcon type={veh.type} className="h-4 w-4 text-slate-700 shrink-0" />
                           <span className="text-xs font-bold text-slate-900">
                             {vehicleLabel(veh)}
                           </span>
@@ -307,7 +307,7 @@ export default function CustomerDetail() {
                           <div className="mt-2 rounded-lg bg-slate-50 p-2 text-[11px] text-slate-700">
                             <div className="flex items-center justify-between font-semibold text-slate-800">
                               <span>
-                                {veh.type === 'marine' && veh.engine2_info ? '⚓ Main Motor:' : 'Engine / Motor:'}
+                                {veh.type === 'marine' && veh.engine2_info ? 'Main Motor:' : 'Engine / Motor:'}
                               </span>
                               {veh.engine_hours && (
                                 <span className="inline-flex items-center gap-1 text-amber-800">
@@ -329,7 +329,7 @@ export default function CustomerDetail() {
                         {(veh.engine2_info || veh.engine2_serial || veh.engine2_hours) && (
                           <div className="mt-1.5 rounded-lg border border-slate-200 bg-slate-50/80 p-2 text-[11px] text-slate-700">
                             <div className="flex items-center justify-between font-semibold text-slate-800">
-                              <span>⚓ Second Motor / Kicker:</span>
+                              <span>Second Motor / Aux:</span>
                               {veh.engine2_hours && (
                                 <span className="inline-flex items-center gap-1 text-amber-800">
                                   <ClockIcon className="h-3 w-3" />
@@ -355,7 +355,7 @@ export default function CustomerDetail() {
             {addingVehicle && (
               <form onSubmit={addVehicle} className="mt-3 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-900/10">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
-                  Add Vehicle or Vessel
+                  Add Vehicle or Equipment
                 </p>
 
                 <Field label="Category">
@@ -365,7 +365,7 @@ export default function CustomerDetail() {
                   >
                     {Object.values(VEHICLE_TYPES).map((opt) => (
                       <option key={opt.type} value={opt.type}>
-                        {opt.emoji} {opt.label}
+                        {opt.label}
                       </option>
                     ))}
                   </Select>

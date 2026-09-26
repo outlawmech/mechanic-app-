@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { PhotoCategory, WorkOrderPhoto } from '../types';
 import { Button } from './ui';
-import { TrashIcon } from './icons';
+import { TrashIcon, CameraIcon, FolderIcon, CheckIcon } from './icons';
 import { useToast } from './Toast';
 import { generateUUID } from '../lib/offlineSync';
 import {
@@ -14,12 +14,12 @@ interface PhotoGalleryProps {
   workOrderId: string;
 }
 
-const CATEGORY_MAP: Record<PhotoCategory, { label: string; emoji: string; color: string }> = {
-  pre_inspection: { label: 'Pre-Inspection', emoji: '🔍', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  damaged_part: { label: 'Damaged / Worn', emoji: '⚠️', color: 'bg-amber-50 text-amber-700 border-amber-200' },
-  completed_work: { label: 'Completed Work', emoji: '✅', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  diagnostic: { label: 'Diagnostic Scan', emoji: '📊', color: 'bg-purple-50 text-purple-700 border-purple-200' },
-  general: { label: 'General Photo', emoji: '📷', color: 'bg-slate-50 text-slate-700 border-slate-200' },
+const CATEGORY_MAP: Record<PhotoCategory, { label: string; tag: string; color: string }> = {
+  pre_inspection: { label: 'Pre-Inspection', tag: 'INSPECT', color: 'bg-blue-50 text-blue-700 border-blue-200' },
+  damaged_part: { label: 'Damaged / Worn', tag: 'DAMAGE', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  completed_work: { label: 'Completed Work', tag: 'DONE', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  diagnostic: { label: 'Diagnostic Scan', tag: 'DIAG', color: 'bg-purple-50 text-purple-700 border-purple-200' },
+  general: { label: 'General Photo', tag: 'PHOTO', color: 'bg-slate-50 text-slate-700 border-slate-200' },
 };
 
 export default function PhotoGallery({ workOrderId }: PhotoGalleryProps) {
@@ -181,9 +181,10 @@ export default function PhotoGallery({ workOrderId }: PhotoGalleryProps) {
               cameraInputRef.current?.click();
             }}
             disabled={isProcessing}
-            className="text-xs font-bold shadow-sm px-2.5 py-1.5"
+            className="text-xs font-bold shadow-sm px-2.5 py-1.5 flex items-center gap-1.5"
           >
-            {isProcessing ? 'Saving…' : '📷 Snap Camera'}
+            <CameraIcon className="h-4 w-4" />
+            <span>{isProcessing ? 'Saving…' : 'Snap Camera'}</span>
           </Button>
 
           <Button
@@ -195,9 +196,10 @@ export default function PhotoGallery({ workOrderId }: PhotoGalleryProps) {
               fileInputRef.current?.click();
             }}
             disabled={isProcessing}
-            className="text-xs font-semibold px-2.5 py-1.5"
+            className="text-xs font-semibold px-2.5 py-1.5 flex items-center gap-1.5"
           >
-            📁 Upload
+            <FolderIcon className="h-4 w-4" />
+            <span>Upload</span>
           </Button>
         </div>
       </div>
@@ -215,7 +217,7 @@ export default function PhotoGallery({ workOrderId }: PhotoGalleryProps) {
           >
             {Object.entries(CATEGORY_MAP).map(([key, info]) => (
               <option key={key} value={key}>
-                {info.emoji} {info.label}
+                {info.label}
               </option>
             ))}
           </select>
@@ -263,7 +265,6 @@ export default function PhotoGallery({ workOrderId }: PhotoGalleryProps) {
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                <span>{info.emoji}</span>
                 <span>{info.label} ({count})</span>
               </button>
             );
@@ -274,7 +275,7 @@ export default function PhotoGallery({ workOrderId }: PhotoGalleryProps) {
       {/* Photos Grid */}
       {filteredPhotos.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-slate-400">
-          <span className="text-3xl">📷</span>
+          <CameraIcon className="mx-auto h-8 w-8 text-slate-300" />
           <p className="mt-2 text-xs font-semibold text-slate-600">No photos attached yet</p>
           <p className="text-[11px] text-slate-400">
             Tap "Snap Camera" to document vehicle condition or take photos of worn parts.
@@ -298,7 +299,7 @@ export default function PhotoGallery({ workOrderId }: PhotoGalleryProps) {
                 />
                 <div className="absolute top-1.5 left-1.5">
                   <span className={`inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[9px] font-bold shadow-xs backdrop-blur ${cat.color}`}>
-                    {cat.emoji} {cat.label}
+                    {cat.label}
                   </span>
                 </div>
                 {photo.caption && (
@@ -324,9 +325,7 @@ export default function PhotoGallery({ workOrderId }: PhotoGalleryProps) {
           >
             <div className="flex items-center justify-between border-b border-slate-800 p-3">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm">
-                  {CATEGORY_MAP[selectedPhoto.category]?.emoji || '📷'}
-                </span>
+                <CameraIcon className="h-4 w-4 text-amber-400" />
                 <span className="text-xs font-bold text-amber-400">
                   {CATEGORY_MAP[selectedPhoto.category]?.label || 'Photo'}
                 </span>

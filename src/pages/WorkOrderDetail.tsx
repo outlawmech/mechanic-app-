@@ -12,6 +12,8 @@ import {
   ShareIcon,
   TrashIcon,
   CheckIcon,
+  PlusIcon,
+  VehicleIcon,
 } from '../components/icons';
 import {
   Badge,
@@ -580,9 +582,7 @@ export default function WorkOrderDetail() {
               {wo.vehicle ? (
                 <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-2.5">
                   <div className="flex items-start gap-2.5">
-                    <span className="text-lg leading-none" role="img" aria-label="Vehicle type">
-                      {vehicleTypeInfo?.emoji || '🚙'}
-                    </span>
+                    <VehicleIcon type={wo.vehicle.type} className="h-5 w-5 text-slate-700 shrink-0 mt-0.5" />
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold text-slate-800">
                         {vehicleLabel(wo.vehicle)}
@@ -751,13 +751,13 @@ export default function WorkOrderDetail() {
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-2.5">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-base">✍️</span>
+                  <CheckIcon className="h-4 w-4 text-emerald-600" />
                   <span className="text-xs font-bold uppercase tracking-wide text-slate-800">
                     Customer Authorization
                   </span>
                 </div>
                 <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                  ✓ Signed
+                  Signed & Verified
                 </span>
               </div>
               <div className="rounded-xl border border-slate-100 bg-slate-50 p-2 flex items-center justify-center">
@@ -797,7 +797,7 @@ export default function WorkOrderDetail() {
             <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50/50 p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-base">✍️</span>
+                  <CheckIcon className="h-4 w-4 text-amber-700" />
                   <span className="text-xs font-bold text-amber-950">Customer Signature</span>
                 </div>
                 <Button
@@ -806,7 +806,7 @@ export default function WorkOrderDetail() {
                   onClick={() => setShowSignaturePad(true)}
                   className="text-xs font-bold shadow-xs px-2.5 py-1.5"
                 >
-                  ✍️ Get Signature
+                  Get Signature
                 </Button>
               </div>
               <p className="text-[11px] text-amber-800/80">
@@ -883,7 +883,7 @@ export default function WorkOrderDetail() {
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    📦 Inventory Search
+                    Inventory Stock
                   </button>
                   <button
                     type="button"
@@ -899,7 +899,7 @@ export default function WorkOrderDetail() {
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                     }`}
                   >
-                    ✏️ Custom / Misc Part
+                    Custom / Manual Part
                   </button>
                 </div>
               )}
@@ -908,9 +908,9 @@ export default function WorkOrderDetail() {
             <div className="grid grid-cols-2 gap-3">
               <Field label="Item Type">
                 <Select value={kind} onChange={(e) => handleKindChange(e.target.value as WorkItem['kind'])}>
-                  <option value="labor">🔧 Labor</option>
-                  <option value="part">📦 Part / Material</option>
-                  <option value="fee">🧾 Shop Fee / Sublet</option>
+                  <option value="labor">Labor</option>
+                  <option value="part">Part / Material</option>
+                  <option value="fee">Shop Fee / Sublet</option>
                 </Select>
               </Field>
 
@@ -955,7 +955,7 @@ export default function WorkOrderDetail() {
                         >
                           {selectedPart.qty_on_hand} in stock
                         </span>
-                        {selectedPart.location ? ` · 📍 ${selectedPart.location}` : ''}
+                        {selectedPart.location ? ` · Bin: ${selectedPart.location}` : ''}
                       </p>
                     </div>
                     <button
@@ -1021,7 +1021,7 @@ export default function WorkOrderDetail() {
                                 <p className="truncate text-xs font-bold text-slate-800">{p.name}</p>
                               </div>
                               <p className="mt-0.5 text-[10px] text-slate-500">
-                                {p.category} {p.location ? `· 📍 ${p.location}` : ''}
+                                {p.category} {p.location ? `· Bin: ${p.location}` : ''}
                               </p>
                             </div>
                             <div className="text-right shrink-0">
