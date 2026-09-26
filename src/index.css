@@ -23,7 +23,7 @@ input[type="date"] {
    ========================================================= */
 @page {
   size: letter portrait;
-  margin: 10mm 12mm 10mm 12mm;
+  margin: 12mm 15mm 12mm 15mm;
 }
 
 @media print {
@@ -47,8 +47,10 @@ input[type="date"] {
     min-width: 100% !important;
     height: auto !important;
     min-height: auto !important;
-    font-size: 10pt !important;
-    line-height: 1.35 !important;
+    font-size: 11.5pt !important;
+    line-height: 1.4 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   #root,
@@ -73,6 +75,7 @@ input[type="date"] {
     position: relative !important;
     width: 100% !important;
     max-width: 100% !important;
+    min-width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
@@ -89,9 +92,43 @@ input[type="date"] {
     print-color-adjust: exact !important;
   }
 
-  /* Table formatting for standard Letter paper */
+  /* Scale text elements cleanly for print */
+  #print-area .text-2xl {
+    font-size: 22pt !important;
+    line-height: 1.1 !important;
+  }
+  #print-area .text-sm {
+    font-size: 12pt !important;
+  }
+  #print-area .text-xs {
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+  }
+  #print-area .text-\[11px\],
+  #print-area .text-\[10px\] {
+    font-size: 10pt !important;
+  }
+
+  /* Full width table with clear readability */
   #print-area table {
     width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  #print-area table th {
+    padding: 8px 12px !important;
+    font-size: 10.5pt !important;
+    background-color: #f1f5f9 !important;
+  }
+
+  #print-area table td {
+    padding: 10px 12px !important;
+    font-size: 11pt !important;
+  }
+
+  /* Totals block */
+  #print-area .w-64 {
+    width: 320px !important;
   }
 
   #print-area tr {

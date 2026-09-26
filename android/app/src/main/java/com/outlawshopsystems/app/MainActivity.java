@@ -45,7 +45,7 @@ public class MainActivity extends BridgeActivity {
                         PrintAttributes.Builder builder = new PrintAttributes.Builder();
                         builder.setMediaSize(PrintAttributes.MediaSize.NA_LETTER);
                         builder.setResolution(new PrintAttributes.Resolution("doc", "Outlaw Spooler", 300, 300));
-                        builder.setMinMargins(new PrintAttributes.Margins(200, 200, 200, 200)); // standard 0.2 inch padding
+                        builder.setMinMargins(PrintAttributes.Margins.NO_MARGINS);
                         
                         printManager.print(name, printAdapter, builder.build());
                     }
