@@ -41,6 +41,22 @@ export type CustomerWithVehicles = Customer & { vehicles: Vehicle[] };
 
 export type WorkOrderStatus = 'open' | 'in_progress' | 'completed' | 'invoiced';
 
+export type PhotoCategory =
+  | 'pre_inspection'
+  | 'damaged_part'
+  | 'completed_work'
+  | 'diagnostic'
+  | 'general';
+
+export type WorkOrderPhoto = {
+  id: string;
+  work_order_id: string;
+  photo_url: string;
+  category: PhotoCategory;
+  caption?: string;
+  created_at: string;
+};
+
 export type WorkOrder = {
   id: string;
   number: string;
@@ -50,6 +66,9 @@ export type WorkOrder = {
   scheduled_at: string | null;
   mileage_or_hours?: string;
   notes: string;
+  signature_url?: string | null;
+  signed_by_name?: string | null;
+  signed_at?: string | null;
   created_at: string;
   completed_at: string | null;
 };
@@ -70,9 +89,30 @@ export type WorkOrderFull = WorkOrder & {
   customer: Customer;
   vehicle: Vehicle | null;
   items: WorkItem[];
+  photos?: WorkOrderPhoto[];
 };
 
-export type InvoiceStatus = 'unpaid' | 'paid' | 'void';
+export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'void';
+
+export type PaymentMethod =
+  | 'cash'
+  | 'credit_card'
+  | 'debit_card'
+  | 'check'
+  | 'zelle'
+  | 'venmo'
+  | 'cash_app'
+  | 'bank_transfer'
+  | 'other';
+
+export type InvoicePayment = {
+  id: string;
+  invoice_id: string;
+  amount: number | string;
+  method: PaymentMethod;
+  reference_note?: string;
+  created_at: string;
+};
 
 export type Invoice = {
   id: string;
@@ -88,9 +128,14 @@ export type Invoice = {
   issued_at: string;
   paid_at: string | null;
   notes: string;
+  payments?: InvoicePayment[];
 };
 
-export type InvoiceFull = Invoice & { customer: Customer };
+export type InvoiceFull = Invoice & {
+  customer: Customer;
+  work_order?: WorkOrder | null;
+  payments: InvoicePayment[];
+};
 
 export type InvoiceSummary = Pick<Invoice, 'id' | 'number' | 'total' | 'status'>;
 
@@ -124,6 +169,6 @@ export type Part = {
   location: string;
   supplier: string;
   notes: string;
-  created_at: string;
-  updated_at: string;
+  updated_at?: string;
+  created_at?: string;
 };

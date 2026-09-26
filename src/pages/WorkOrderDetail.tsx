@@ -50,6 +50,9 @@ const KIND_CLS: Record<WorkItem['kind'], string> = {
 };
 
 import { cacheLocal, getCachedLocal, enqueueOfflineAction, generateUUID } from '../lib/offlineSync';
+import SignaturePad from '../components/SignaturePad';
+import PhotoGallery from '../components/PhotoGallery';
+import type { WorkOrderPhoto } from '../types';
 
 export default function WorkOrderDetail() {
   const { id } = useParams();
@@ -101,6 +104,7 @@ export default function WorkOrderDetail() {
 
   const [acting, setActing] = useState(false);
   const [showInvoicePanel, setShowInvoicePanel] = useState(false);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [taxPct, setTaxPct] = useState('0');
   const [notesDraft, setNotesDraft] = useState<string | null>(null);
   const [hoursDraft, setHoursDraft] = useState<string | null>(null);
@@ -125,6 +129,91 @@ export default function WorkOrderDetail() {
   const wo = data?.wo;
   const invoice = data?.invoice;
   const inventoryParts = data?.inventoryParts ?? [];
+
+  async function handleSaveSignature(dataUrl: string, signerName: string) {
+    const signedAt = new Date().toISOString();
+    try {
+      if (navigator.onLine) {
+        check(
+          await requireSupabase()
+            .from('work_orders')
+            .update({
+              signature_url: dataUrl,
+              signed_by_name: signerName,
+              signed_at: signedAt,
+            })
+            .eq('id', wo!.id)
+        );
+      } else {
+        enqueueOfflineAction({
+          table: 'work_orders',
+          type: 'update',
+          payload: {
+            signature_url: dataUrl,
+            signed_by_name: signerName,
+            signed_at: signedAt,
+          },
+          matchField: 'id',
+          matchValue: wo!.id,
+          description: `Add customer signature for RO #${wo!.number}`,
+        });
+      }
+      wo!.signature_url = dataUrl;
+      wo!.signed_by_name = signerName;
+      wo!.signed_at = signedAt;
+      cacheLocal(`wo_${id}`, data);
+      setShowSignaturePad(false);
+      toast('Customer signature saved!');
+    } catch {
+      wo!.signature_url = dataUrl;
+      wo!.signed_by_name = signerName;
+      wo!.signed_at = signedAt;
+      cacheLocal(`wo_${id}`, data);
+      setShowSignaturePad(false);
+      toast('Customer signature saved (Saved locally)');
+    }
+  }
+
+  async function handleClearSignature() {
+    if (!window.confirm('Remove saved customer signature?')) return;
+    try {
+      if (navigator.onLine) {
+        check(
+          await requireSupabase()
+            .from('work_orders')
+            .update({
+              signature_url: null,
+              signed_by_name: null,
+              signed_at: null,
+            })
+            .eq('id', wo!.id)
+        );
+      }
+      wo!.signature_url = null;
+      wo!.signed_by_name = null;
+      wo!.signed_at = null;
+      cacheLocal(`wo_${id}`, data);
+      toast('Signature removed');
+    } catch {
+      wo!.signature_url = null;
+      wo!.signed_by_name = null;
+      wo!.signed_at = null;
+      cacheLocal(`wo_${id}`, data);
+      toast('Signature removed');
+    }
+  }
+
+  function handleAddPhoto(newPhoto: WorkOrderPhoto) {
+    const updatedPhotos = [newPhoto, ...(wo!.photos ?? [])];
+    wo!.photos = updatedPhotos;
+    cacheLocal(`wo_${id}`, data);
+  }
+
+  function handleDeletePhoto(photoId: string) {
+    const updatedPhotos = (wo!.photos ?? []).filter((p) => p.id !== photoId);
+    wo!.photos = updatedPhotos;
+    cacheLocal(`wo_${id}`, data);
+  }
 
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
@@ -676,6 +765,83 @@ export default function WorkOrderDetail() {
               </Button>
             )}
           </Card>
+
+          {/* Customer Signature & Authorization Card */}
+          {wo.signature_url ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-2.5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-base">✍️</span>
+                  <span className="text-xs font-bold uppercase tracking-wide text-slate-800">
+                    Customer Authorization
+                  </span>
+                </div>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                  ✓ Signed
+                </span>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-2 flex items-center justify-center">
+                <img src={wo.signature_url} alt="Customer Signature" className="max-h-20 object-contain" />
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-slate-500">
+                <p>
+                  Signed by <strong className="text-slate-800">{wo.signed_by_name || 'Customer'}</strong>
+                </p>
+                <p>{wo.signed_at ? new Date(wo.signed_at).toLocaleDateString() : ''}</p>
+              </div>
+              <div className="flex gap-2 pt-1 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowSignaturePad(true)}
+                  className="text-[11px] font-semibold text-amber-600 hover:text-amber-700"
+                >
+                  Re-sign / Update
+                </button>
+                <span className="text-slate-300">·</span>
+                <button
+                  type="button"
+                  onClick={handleClearSignature}
+                  className="text-[11px] font-semibold text-slate-400 hover:text-red-500"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          ) : showSignaturePad ? (
+            <SignaturePad
+              onSave={handleSaveSignature}
+              onCancel={() => setShowSignaturePad(false)}
+              defaultName={fullName(wo.customer)}
+            />
+          ) : (
+            <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50/50 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-base">✍️</span>
+                  <span className="text-xs font-bold text-amber-950">Customer Signature</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="accent"
+                  onClick={() => setShowSignaturePad(true)}
+                  className="text-xs font-bold shadow-xs px-2.5 py-1.5"
+                >
+                  ✍️ Get Signature
+                </Button>
+              </div>
+              <p className="text-[11px] text-amber-800/80">
+                Capture customer finger signature & authorization directly on your phone screen.
+              </p>
+            </div>
+          )}
+
+          {/* Job Site Photos & Pre-Inspection Gallery */}
+          <PhotoGallery
+            workOrderId={wo.id}
+            photos={wo.photos ?? []}
+            onAddPhoto={handleAddPhoto}
+            onDeletePhoto={handleDeletePhoto}
+          />
         </div>
 
         {/* Right Column (7 Cols on desktop): Line Items & Fast Part Number Search */}

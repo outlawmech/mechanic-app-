@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon, ClockIcon, MailIcon, PrinterIcon, ShareIcon, CheckIcon } from '../components/icons';
+import { ArrowLeftIcon, ClockIcon, MailIcon, PrinterIcon, ShareIcon, CheckIcon, TrashIcon } from '../components/icons';
 import { Button, Card, EmptyState, ErrorState, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { useShopSettings } from '../lib/settings';
@@ -12,20 +12,38 @@ import {
   longDate,
   money,
   num,
+  round2,
   vehicleLabel,
 } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
-import type { InvoiceFull, Vehicle, WorkItem, WorkOrder } from '../types';
-
-import { safeFetchWithCache, enqueueOfflineAction } from '../lib/offlineSync';
+import type { InvoiceFull, InvoicePayment, PaymentMethod, Vehicle, WorkItem, WorkOrder } from '../types';
+import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
 
 const KIND_LABEL: Record<string, string> = { labor: 'Labor', part: 'Part', fee: 'Fee' };
+
+const PAYMENT_METHODS: Record<PaymentMethod, { label: string; icon: string }> = {
+  cash: { label: 'Cash', icon: '💵' },
+  credit_card: { label: 'Credit Card', icon: '💳' },
+  debit_card: { label: 'Debit Card', icon: '💳' },
+  check: { label: 'Check', icon: '📝' },
+  zelle: { label: 'Zelle', icon: '⚡' },
+  venmo: { label: 'Venmo', icon: '📱' },
+  cash_app: { label: 'Cash App', icon: '🟢' },
+  bank_transfer: { label: 'Bank Transfer', icon: '🏦' },
+  other: { label: 'Other', icon: '🔖' },
+};
 
 export default function InvoiceDetail() {
   const { id } = useParams();
   const toast = useToast();
   const { settings } = useShopSettings();
   const [acting, setActing] = useState(false);
+
+  // Split payment form state
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [payAmount, setPayAmount] = useState('');
+  const [payMethod, setPayMethod] = useState<PaymentMethod>('cash');
+  const [payRef, setPayRef] = useState('');
 
   const { data, error, loading, reload } = useAsync(async () => {
     return safeFetchWithCache(
@@ -55,6 +73,12 @@ export default function InvoiceDetail() {
           vehicle = woData?.vehicle ?? null;
           items = (itemsRes.data ?? []) as WorkItem[];
         }
+
+        // Initialize payments array if undefined
+        if (invoice && !invoice.payments) {
+          invoice.payments = [];
+        }
+
         return { invoice, items, vehicle, workOrder };
       },
       { invoice: null, items: [], vehicle: null, workOrder: null }
@@ -79,22 +103,113 @@ export default function InvoiceDetail() {
   }
 
   const vInfo = vehicle ? getVehicleTypeInfo(vehicle.type) : null;
+  const paymentsList = invoice.payments ?? [];
 
-  async function markPaid() {
+  // Calculate payments and remaining balance
+  const totalPaid = round2(
+    paymentsList.reduce((sum, p) => sum + num(p.amount), 0) +
+      (paymentsList.length === 0 && invoice.status === 'paid' ? num(invoice.total) : 0)
+  );
+  const balanceDue = Math.max(0, round2(num(invoice.total) - totalPaid));
+  const isFullyPaid = balanceDue <= 0 || invoice.status === 'paid';
+
+  async function handleAddPayment(e: React.FormEvent) {
+    e.preventDefault();
+    const amountNum = Number(payAmount);
+    if (!amountNum || amountNum <= 0) {
+      toast('Please enter a valid payment amount', 'error');
+      return;
+    }
+
     setActing(true);
+    const newPayment: InvoicePayment = {
+      id: generateUUID(),
+      invoice_id: invoice!.id,
+      amount: amountNum,
+      method: payMethod,
+      reference_note: payRef.trim(),
+      created_at: new Date().toISOString(),
+    };
+
+    const nextPayments = [...paymentsList, newPayment];
+    const newTotalPaid = round2(nextPayments.reduce((s, p) => s + num(p.amount), 0));
+    const nextStatus = newTotalPaid >= num(invoice!.total) ? 'paid' : 'partial';
+
     try {
-      check(
-        await requireSupabase()
-          .from('invoices')
-          .update({ status: 'paid', paid_at: new Date().toISOString() })
-          .eq('id', invoice!.id)
-      );
-      toast('Payment recorded');
-      await reload();
-    } catch (e) {
-      toast(errMsg(e), 'error');
+      if (navigator.onLine) {
+        check(
+          await requireSupabase()
+            .from('invoices')
+            .update({
+              status: nextStatus,
+              paid_at: nextStatus === 'paid' ? new Date().toISOString() : null,
+            })
+            .eq('id', invoice!.id)
+        );
+      } else {
+        enqueueOfflineAction({
+          table: 'invoices',
+          type: 'update',
+          payload: {
+            status: nextStatus,
+            paid_at: nextStatus === 'paid' ? new Date().toISOString() : null,
+          },
+          matchField: 'id',
+          matchValue: invoice!.id,
+          description: `Record payment on invoice #${invoice!.number}`,
+        });
+      }
+
+      invoice!.payments = nextPayments;
+      invoice!.status = nextStatus;
+      if (nextStatus === 'paid') {
+        invoice!.paid_at = new Date().toISOString();
+      }
+      cacheLocal(`inv_${id}`, data);
+      setShowPaymentForm(false);
+      setPayAmount('');
+      setPayRef('');
+      toast(`Payment of ${money(amountNum)} recorded!`);
+    } catch {
+      invoice!.payments = nextPayments;
+      invoice!.status = nextStatus;
+      cacheLocal(`inv_${id}`, data);
+      setShowPaymentForm(false);
+      setPayAmount('');
+      setPayRef('');
+      toast(`Payment of ${money(amountNum)} recorded (Saved offline)`);
     } finally {
       setActing(false);
+    }
+  }
+
+  async function handleDeletePayment(paymentId: string) {
+    if (!window.confirm('Delete this payment entry?')) return;
+    const nextPayments = paymentsList.filter((p) => p.id !== paymentId);
+    const newTotalPaid = round2(nextPayments.reduce((s, p) => s + num(p.amount), 0));
+    const nextStatus = newTotalPaid >= num(invoice!.total) ? 'paid' : newTotalPaid > 0 ? 'partial' : 'unpaid';
+
+    try {
+      if (navigator.onLine) {
+        check(
+          await requireSupabase()
+            .from('invoices')
+            .update({
+              status: nextStatus,
+              paid_at: nextStatus === 'paid' ? new Date().toISOString() : null,
+            })
+            .eq('id', invoice!.id)
+        );
+      }
+      invoice!.payments = nextPayments;
+      invoice!.status = nextStatus;
+      cacheLocal(`inv_${id}`, data);
+      toast('Payment removed');
+    } catch {
+      invoice!.payments = nextPayments;
+      invoice!.status = nextStatus;
+      cacheLocal(`inv_${id}`, data);
+      toast('Payment removed');
     }
   }
 
@@ -115,9 +230,7 @@ export default function InvoiceDetail() {
           text: body,
         });
         return;
-      } catch {
-        // Fallback to clipboard
-      }
+      } catch {}
     }
 
     try {
@@ -143,24 +256,166 @@ export default function InvoiceDetail() {
 
       {/* Responsive 2-Column Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left Column on Desktop (Actions & Info) */}
+        {/* Left Column on Desktop (Actions, Payment Recording & Info) */}
         <div className="no-print space-y-4 lg:col-span-4">
-          <PageTitle title={invoice.number} right={<StatusPill status={invoice.status} />} />
+          <PageTitle
+            title={invoice.number}
+            right={
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${
+                  isFullyPaid
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : invoice.status === 'partial'
+                      ? 'bg-amber-100 text-amber-900'
+                      : 'bg-red-100 text-red-800'
+                }`}
+              >
+                {isFullyPaid ? 'Paid' : invoice.status === 'partial' ? 'Partial' : 'Unpaid'}
+              </span>
+            }
+          />
 
+          {/* Payment Summary Box */}
           <Card className="space-y-3 p-4">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Invoice Actions</h3>
-            
-            {invoice.status === 'unpaid' && (
-              <Button variant="success" className="w-full text-xs font-bold" disabled={acting} onClick={markPaid}>
-                <CheckIcon className="h-4 w-4" /> Mark as Paid (${money(invoice.total)})
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Balance & Payments</h3>
+              <span className="text-xs font-black text-slate-900">Total: {money(invoice.total)}</span>
+            </div>
+
+            <div className="rounded-xl bg-slate-50 p-3 space-y-1.5">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-500">Total Invoiced:</span>
+                <span className="font-bold text-slate-900">{money(invoice.total)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-emerald-700">Amount Paid:</span>
+                <span className="font-bold text-emerald-700">-{money(totalPaid)}</span>
+              </div>
+              <div className="border-t border-slate-200/80 pt-1.5 flex justify-between text-sm">
+                <span className="font-bold text-slate-800">Balance Due:</span>
+                <span className={`font-black ${balanceDue <= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {balanceDue <= 0 ? '$0.00 (PAID)' : money(balanceDue)}
+                </span>
+              </div>
+            </div>
+
+            {/* Record Payment Button / Form */}
+            {balanceDue > 0 && !showPaymentForm && (
+              <Button
+                variant="accent"
+                className="w-full text-xs font-bold shadow-sm"
+                onClick={() => {
+                  setPayAmount(String(balanceDue));
+                  setShowPaymentForm(true);
+                }}
+              >
+                💳 Record Payment ({money(balanceDue)})
               </Button>
             )}
 
-            <Button
-              variant="ghost"
-              className="w-full text-xs"
-              onClick={() => window.print()}
-            >
+            {/* Split Payment Form */}
+            {showPaymentForm && (
+              <form onSubmit={handleAddPayment} className="space-y-3 rounded-xl border border-amber-300 bg-amber-50/50 p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-amber-950 uppercase tracking-wide">Record Payment</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowPaymentForm(false)}
+                    className="text-[11px] font-semibold text-slate-500 hover:text-slate-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Amount ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      max={num(invoice.total)}
+                      value={payAmount}
+                      onChange={(e) => setPayAmount(e.target.value)}
+                      placeholder="0.00"
+                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Payment Method
+                    </label>
+                    <select
+                      value={payMethod}
+                      onChange={(e) => setPayMethod(e.target.value as PaymentMethod)}
+                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-900"
+                    >
+                      {Object.entries(PAYMENT_METHODS).map(([key, info]) => (
+                        <option key={key} value={key}>
+                          {info.icon} {info.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Check # / Transaction Ref / Note
+                  </label>
+                  <input
+                    type="text"
+                    value={payRef}
+                    onChange={(e) => setPayRef(e.target.value)}
+                    placeholder="e.g. Check #4102 / Zelle ref #9823 / Cash on tail"
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                <Button type="submit" variant="success" disabled={acting} className="w-full text-xs font-bold">
+                  <CheckIcon className="h-4 w-4" /> Save Payment
+                </Button>
+              </form>
+            )}
+
+            {/* List of Recorded Payments */}
+            {paymentsList.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Payment History</p>
+                {paymentsList.map((p) => {
+                  const mInfo = PAYMENT_METHODS[p.method] || PAYMENT_METHODS.other;
+                  return (
+                    <div key={p.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-slate-800">
+                          {mInfo.icon} {mInfo.label} — <span className="font-bold text-emerald-700">{money(p.amount)}</span>
+                        </p>
+                        {p.reference_note && <p className="text-[10px] text-slate-500 truncate">{p.reference_note}</p>}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePayment(p.id)}
+                        className="p-1 text-slate-400 hover:text-red-500"
+                        title="Delete Payment"
+                      >
+                        <TrashIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Card>
+
+          {/* Quick Actions (Print, Email, Text) */}
+          <Card className="space-y-2.5 p-4">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Share & Print</h3>
+            
+            <Button variant="ghost" className="w-full text-xs font-semibold" onClick={() => window.print()}>
               <PrinterIcon className="h-4 w-4 text-slate-600" /> Print / Save PDF
             </Button>
 
@@ -240,9 +495,9 @@ export default function InvoiceDetail() {
                 <p className="mt-1 text-slate-500">
                   Due: <span className="font-semibold text-slate-800">{longDate(invoice.due_date)}</span>
                 </p>
-                {invoice.paid_at && (
+                {isFullyPaid && (
                   <p className="mt-1 font-bold text-emerald-600">
-                    Paid {longDate(invoice.paid_at)}
+                    Paid in Full {invoice.paid_at ? `(${longDate(invoice.paid_at)})` : ''}
                   </p>
                 )}
               </div>
@@ -267,122 +522,116 @@ export default function InvoiceDetail() {
                 </div>
 
                 <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-[11px] text-slate-500">
-                  {vehicle.plate && (
-                    <span>
-                      {vInfo?.regLabel}: <strong className="text-slate-700">{vehicle.plate}</strong>
-                    </span>
-                  )}
-                  {vehicle.vin && (
-                    <span>
-                      {vInfo?.idLabel}: <strong className="text-slate-700">{vehicle.vin}</strong>
-                    </span>
-                  )}
+                  {vehicle.vin && <span>{vInfo?.idLabel}: <strong className="font-mono text-slate-700">{vehicle.vin}</strong></span>}
+                  {vehicle.plate && <span>{vInfo?.regLabel}: <strong className="font-mono text-slate-700">{vehicle.plate}</strong></span>}
+                  {vehicle.engine_info && <span>Engine: <strong className="text-slate-700">{vehicle.engine_info}</strong></span>}
                 </div>
-
-                {/* Engine 1 & 2 details */}
-                {(vehicle.engine_info || vehicle.engine2_info) && (
-                  <div className="border-t border-slate-200/60 pt-1 text-[11px] text-slate-600 space-y-0.5">
-                    {vehicle.engine_info && (
-                      <p>
-                        <strong className="text-slate-700">
-                          {vehicle.engine2_info ? 'Main Engine:' : 'Engine:'}
-                        </strong>{' '}
-                        {vehicle.engine_info}
-                        {vehicle.engine_serial ? ` (S/N: ${vehicle.engine_serial})` : ''}
-                        {vehicle.engine_hours ? ` · ${vehicle.engine_hours} hrs` : ''}
-                      </p>
-                    )}
-                    {vehicle.engine2_info && (
-                      <p>
-                        <strong className="text-slate-700">Second Engine / Kicker:</strong>{' '}
-                        {vehicle.engine2_info}
-                        {vehicle.engine2_serial ? ` (S/N: ${vehicle.engine2_serial})` : ''}
-                        {vehicle.engine2_hours ? ` · ${vehicle.engine2_hours} hrs` : ''}
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
             )}
 
-            <table className="mt-4 w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-wide text-slate-400">
-                  <th className="pb-2 font-bold">Description</th>
-                  <th className="pb-2 text-right font-bold">Qty</th>
-                  <th className="pb-2 text-right font-bold">Rate</th>
-                  <th className="pb-2 text-right font-bold">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedItems.length === 0 ? (
+            {/* Line items table */}
+            <div className="mt-6 overflow-hidden rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs">
+                <thead className="border-b border-slate-200 bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   <tr>
-                    <td colSpan={4} className="py-4 text-center text-xs text-slate-400">
-                      No line items
-                    </td>
+                    <th className="px-3 py-2">Item</th>
+                    <th className="px-3 py-2 text-right">Qty</th>
+                    <th className="px-3 py-2 text-right">Rate</th>
+                    <th className="px-3 py-2 text-right">Amount</th>
                   </tr>
-                ) : (
-                  sortedItems.map((it) => (
-                    <tr key={it.id} className="border-b border-slate-100 align-top">
-                      <td className="py-2.5 pr-2">
-                        <p className="font-medium text-slate-800">{it.description}</p>
-                        {KIND_LABEL[it.kind] && (
-                          <p className="text-[10px] uppercase tracking-wide text-slate-400 font-bold">
-                            {KIND_LABEL[it.kind]}
-                          </p>
-                        )}
-                      </td>
-                      <td className="py-2.5 text-right text-slate-600">{num(it.quantity)}</td>
-                      <td className="py-2.5 text-right text-slate-600">{money(it.unit_price)}</td>
-                      <td className="py-2.5 text-right font-bold text-slate-900">
-                        {money(num(it.quantity) * num(it.unit_price))}
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {sortedItems.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-4 text-center text-slate-400 italic">
+                        No line items on this invoice.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    sortedItems.map((it) => (
+                      <tr key={it.id}>
+                        <td className="px-3 py-2.5">
+                          <p className="font-medium text-slate-800">{it.description}</p>
+                          <span className="text-[10px] uppercase font-semibold text-slate-400">
+                            {KIND_LABEL[it.kind] || it.kind}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono text-slate-600">{it.quantity}</td>
+                        <td className="px-3 py-2.5 text-right font-mono text-slate-600">{money(it.unit_price)}</td>
+                        <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-800">
+                          {money(num(it.quantity) * num(it.unit_price))}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-            <div className="mt-4 ml-auto w-56 space-y-1 text-sm">
-              <div className="flex justify-between text-slate-500">
-                <span>Subtotal</span>
-                <span>{money(invoice.subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-slate-500">
-                <span>Tax ({(num(invoice.tax_rate) * 100).toFixed(2).replace(/\.?0+$/, '')}%)</span>
-                <span>{money(invoice.tax)}</span>
-              </div>
-              <div className="flex justify-between border-t border-slate-200 pt-1.5 text-base font-black text-slate-900">
-                <span>Total</span>
-                <span>{money(invoice.total)}</span>
+            {/* Subtotal, Tax, Total, and Payment Breakdown */}
+            <div className="mt-4 flex justify-end text-xs">
+              <div className="w-64 space-y-1.5">
+                <div className="flex justify-between text-slate-500">
+                  <span>Subtotal</span>
+                  <span className="font-mono">{money(invoice.subtotal)}</span>
+                </div>
+                {num(invoice.tax) > 0 && (
+                  <div className="flex justify-between text-slate-500">
+                    <span>Tax ({(num(invoice.tax_rate) * 100).toFixed(1)}%)</span>
+                    <span className="font-mono">{money(invoice.tax)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t border-slate-200 pt-1.5 text-sm font-bold text-slate-900">
+                  <span>Total</span>
+                  <span className="font-mono text-base">{money(invoice.total)}</span>
+                </div>
+
+                {/* Paid amount & Balance Due */}
+                {totalPaid > 0 && (
+                  <div className="flex justify-between text-xs text-emerald-700 border-t border-slate-100 pt-1">
+                    <span>Total Payments:</span>
+                    <span className="font-mono font-bold">-{money(totalPaid)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t border-slate-300 pt-1.5 text-xs font-bold">
+                  <span className={balanceDue <= 0 ? 'text-emerald-700' : 'text-slate-800'}>
+                    {balanceDue <= 0 ? 'Paid in Full' : 'Balance Due:'}
+                  </span>
+                  <span className={`font-mono text-sm ${balanceDue <= 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+                    {balanceDue <= 0 ? '$0.00' : money(balanceDue)}
+                  </span>
+                </div>
               </div>
             </div>
 
-            {invoice.notes && <p className="mt-4 text-xs text-slate-500">{invoice.notes}</p>}
+            {/* Customer Finger Signature Preview on Receipt (if signed) */}
+            {workOrder?.signature_url && (
+              <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-3 flex items-center justify-between text-xs">
+                <div>
+                  <p className="font-bold text-slate-800">Customer Authorization & Acceptance</p>
+                  <p className="text-[10px] text-slate-500">
+                    Signed by {workOrder.signed_by_name || fullName(invoice.customer)}{' '}
+                    {workOrder.signed_at ? `on ${new Date(workOrder.signed_at).toLocaleDateString()}` : ''}
+                  </p>
+                </div>
+                <img
+                  src={workOrder.signature_url}
+                  alt="Customer Signature"
+                  className="max-h-12 object-contain"
+                />
+              </div>
+            )}
 
-            <p className="mt-6 border-t border-slate-100 pt-4 text-center text-[11px] text-slate-400">
-              {settings.invoice_notes ||
-                `${settings.shop_name} · Payments due on or before the due date.`}
-            </p>
+            {/* Shop Notes on printable invoice */}
+            {(invoice.notes || settings.invoice_notes) && (
+              <div className="mt-6 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
+                <p className="font-bold text-slate-700">Notes / Payment Terms:</p>
+                <p className="mt-0.5">{invoice.notes || settings.invoice_notes}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-function StatusPill({ status }: { status: string }) {
-  const cls =
-    status === 'paid'
-      ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
-      : status === 'void'
-        ? 'bg-red-50 text-red-600 ring-red-600/20'
-        : 'bg-amber-50 text-amber-700 ring-amber-600/20';
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold capitalize ring-1 ring-inset ${cls}`}
-    >
-      {status}
-    </span>
   );
 }
