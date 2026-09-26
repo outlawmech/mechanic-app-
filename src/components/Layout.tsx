@@ -178,6 +178,15 @@ export default function Layout() {
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-sm font-bold text-slate-100">{settings.shop_name}</h1>
               <p className="truncate text-[11px] text-slate-400">{settings.tagline}</p>
+              <span
+                className={`inline-block mt-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                  settings.enable_dealership_mode
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                }`}
+              >
+                {settings.enable_dealership_mode ? '🏢 Dealership DMS' : '🚛 Solo Rig Edition'}
+              </span>
             </div>
           </div>
 
@@ -290,6 +299,15 @@ export default function Layout() {
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-sm font-bold text-slate-100">{settings.shop_name}</h1>
             <p className="truncate text-[11px] text-slate-400">{settings.tagline}</p>
+            <span
+              className={`inline-block mt-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
+                settings.enable_dealership_mode
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              }`}
+            >
+              {settings.enable_dealership_mode ? '🏢 Dealership DMS' : '🚛 Solo Rig Edition'}
+            </span>
           </div>
         </div>
 
@@ -351,11 +369,22 @@ export default function Layout() {
           <img
             src={settings.logo_url || '/icon-192.png'}
             alt={settings.shop_name}
-            className="h-9 w-9 rounded-xl object-cover bg-slate-900 ring-1 ring-amber-400/40 shadow-sm"
+            className="h-9 w-9 rounded-xl object-cover bg-slate-900 ring-1 ring-amber-400/40 shadow-sm shrink-0"
           />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-bold leading-tight">{settings.shop_name}</h1>
-            <p className="truncate text-[11px] text-slate-400">{settings.tagline}</p>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h1 className="truncate text-sm font-black leading-tight">{settings.shop_name}</h1>
+              <span
+                className={`shrink-0 text-[8px] font-black uppercase px-1.5 py-0.5 rounded ${
+                  settings.enable_dealership_mode
+                    ? 'bg-purple-950 text-purple-300 border border-purple-700'
+                    : 'bg-amber-950 text-amber-300 border border-amber-700'
+                }`}
+              >
+                {settings.enable_dealership_mode ? 'DMS' : 'SOLO'}
+              </span>
+            </div>
+            <p className="truncate text-[10px] text-slate-400">{settings.tagline}</p>
           </div>
         </div>
 
@@ -443,107 +472,147 @@ export default function Layout() {
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMoreMenu(false);
-                  navigate('/sales');
-                }}
-                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
-              >
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-purple-100 text-purple-800">
-                  <TagIcon className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Showroom &amp; Sales</p>
-                  <p className="text-[10px] text-slate-500">Units &amp; Buyer’s Orders</p>
-                </div>
-              </button>
+              {settings.enable_dealership_mode ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      navigate('/parts/counter');
+                    }}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-800">
+                      <BoxIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">⚡ Parts Counter POS</p>
+                      <p className="text-[10px] text-slate-500">Fast walk-in tickets</p>
+                    </div>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMoreMenu(false);
-                  navigate('/parts/counter');
-                }}
-                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
-              >
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-800">
-                  <BoxIcon className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">⚡ Parts Counter POS</p>
-                  <p className="text-[10px] text-slate-500">Fast walk-in tickets</p>
-                </div>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      navigate('/invoices');
+                    }}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-800">
+                      <ReceiptIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Invoices &amp; Billing</p>
+                      <p className="text-[10px] text-slate-500">Payments &amp; receipts</p>
+                    </div>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMoreMenu(false);
-                  navigate('/reports');
-                }}
-                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
-              >
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-100 text-blue-800">
-                  <BanknotesIcon className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Financials &amp; Reports</p>
-                  <p className="text-[10px] text-slate-500">QuickBooks &amp; Revenue</p>
-                </div>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      navigate('/reports');
+                    }}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-100 text-blue-800">
+                      <BanknotesIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Financials &amp; Reports</p>
+                      <p className="text-[10px] text-slate-500">QuickBooks &amp; Revenue</p>
+                    </div>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMoreMenu(false);
-                  navigate('/invoices');
-                }}
-                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
-              >
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-800">
-                  <ReceiptIcon className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Invoices</p>
-                  <p className="text-[10px] text-slate-500">Payments &amp; billing</p>
-                </div>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      navigate('/settings');
+                    }}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-200 text-slate-800">
+                      <SettingsIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Shop Settings</p>
+                      <p className="text-[10px] text-slate-500">DMS rates &amp; profile</p>
+                    </div>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      navigate('/invoices');
+                    }}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-800">
+                      <ReceiptIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Invoices &amp; Billing</p>
+                      <p className="text-[10px] text-slate-500">Payments &amp; receipts</p>
+                    </div>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMoreMenu(false);
-                  navigate('/parts');
-                }}
-                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
-              >
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-200 text-slate-800">
-                  <BoxIcon className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Parts Inventory</p>
-                  <p className="text-[10px] text-slate-500">SKU stock lookup</p>
-                </div>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      navigate('/parts');
+                    }}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-800">
+                      <BoxIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Parts Inventory</p>
+                      <p className="text-[10px] text-slate-500">Truck stock lookup</p>
+                    </div>
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setShowMoreMenu(false);
-                  navigate('/settings');
-                }}
-                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
-              >
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-200 text-slate-800">
-                  <SettingsIcon className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Shop Settings</p>
-                  <p className="text-[10px] text-slate-500">Rates, logo, licensing</p>
-                </div>
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      navigate('/reports');
+                    }}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-100 text-blue-800">
+                      <BanknotesIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Financials &amp; Reports</p>
+                      <p className="text-[10px] text-slate-500">Income &amp; CSV export</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      navigate('/settings');
+                    }}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-200 text-slate-800">
+                      <SettingsIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Shop Settings</p>
+                      <p className="text-[10px] text-slate-500">Rates, logo, licensing</p>
+                    </div>
+                  </button>
+                </>
+              )}
 
               <button
                 type="button"
@@ -551,17 +620,31 @@ export default function Layout() {
                   setShowMoreMenu(false);
                   switchToDesktop();
                 }}
-                className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                className="col-span-2 flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-100 p-3 text-center transition hover:bg-slate-200"
               >
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-100 text-blue-800">
-                  <MonitorIcon className="h-5 w-5" />
-                </span>
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Desktop View</p>
-                  <p className="text-[10px] text-slate-500">Full workstation layout</p>
-                </div>
+                <MonitorIcon className="h-4 w-4 text-slate-700" />
+                <span className="text-xs font-bold text-slate-800">Switch to Desktop Workstation View</span>
               </button>
             </div>
+
+            {!settings.enable_dealership_mode && (
+              <div className="rounded-2xl border border-purple-200 bg-purple-50/70 p-3 text-xs flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-bold text-purple-950 text-[11px]">Need Dealership Showroom &amp; Flooring?</p>
+                  <p className="text-[10px] text-purple-800 truncate">Enable Dealership DMS Mode in Settings.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMoreMenu(false);
+                    navigate('/settings');
+                  }}
+                  className="rounded-xl bg-purple-900 px-3 py-1.5 text-[10px] font-bold text-white shrink-0 hover:bg-purple-800"
+                >
+                  Switch Mode →
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

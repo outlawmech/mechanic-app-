@@ -50,18 +50,18 @@ export default function Auth() {
     setLoading(true);
     try {
       if (mode === 'signup') {
-        const res = await signUp(email, password, shopName);
+        const isDealer = selectedPackage === 'dealer';
+        const res = await signUp(email, password, shopName, isDealer);
         if (res.error) {
           setErrorMsg(res.error.message);
         } else {
-          // If dealer package chosen, set dealership mode enabled
-          if (selectedPackage === 'dealer') {
-            saveLocalSettings({
-              ...DEFAULT_SETTINGS,
-              shop_name: shopName || DEFAULT_SETTINGS.shop_name,
-              enable_dealership_mode: true,
-            });
-          }
+          // Immediately sync local settings
+          saveLocalSettings({
+            ...DEFAULT_SETTINGS,
+            shop_name: shopName || DEFAULT_SETTINGS.shop_name,
+            tagline: isDealer ? 'Sales, Service & Parts DMS' : 'Mobile & Shop Management',
+            enable_dealership_mode: isDealer,
+          });
 
           // If beta code provided, attempt redemption
           if (betaCode.trim()) {

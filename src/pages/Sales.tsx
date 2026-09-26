@@ -70,7 +70,7 @@ const emptyUnit = {
 export default function Sales() {
   const toast = useToast();
   const navigate = useNavigate();
-  const { settings } = useShopSettings();
+  const { settings, updateSettings } = useShopSettings();
 
   const [activeTab, setActiveTab] = useState<'units' | 'deals'>('units');
   const [filterCondition, setFilterCondition] = useState<string>('all');
@@ -431,6 +431,33 @@ export default function Sales() {
           )}
         </div>
       </div>
+
+      {/* Solo Rig Warning Banner if viewing Sales in Solo Mode */}
+      {!settings.enable_dealership_mode && (
+        <div className="rounded-2xl border border-purple-300 bg-gradient-to-r from-purple-950 via-slate-900 to-slate-900 p-4 text-white shadow-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 animate-in fade-in duration-200">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="rounded-md bg-purple-500/30 px-2 py-0.5 text-[10px] font-black uppercase text-purple-200 border border-purple-400/40">
+                Dealership DMS Module
+              </span>
+              <h3 className="text-sm font-bold text-white">You are viewing Sales in Solo Rig Mode</h3>
+            </div>
+            <p className="text-xs text-slate-300">
+              Turn on Dealership DMS mode to enable your 6-department bottom bar, floorplan lines, and showroom units.
+            </p>
+          </div>
+          <Button
+            variant="accent"
+            onClick={async () => {
+              await updateSettings({ enable_dealership_mode: true });
+              toast('Switched to Dealership & Multi-Tech DMS Mode!');
+            }}
+            className="text-xs font-bold text-slate-950 shrink-0"
+          >
+            🏢 Enable Dealership DMS
+          </Button>
+        </div>
+      )}
 
       {/* Top 4 Metrics Grid (Showroom, Cost, Commercial Floorplan, Sales) */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

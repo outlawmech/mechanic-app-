@@ -44,8 +44,15 @@ export function useShopSettings() {
   const { user } = useAuth();
   const [settings, setSettings] = useState<ShopSettings>(() => {
     const local = getLocalSettings();
-    if (user?.user_metadata?.shop_name) {
-      return { ...local, shop_name: user.user_metadata.shop_name };
+    if (user?.user_metadata) {
+      return {
+        ...local,
+        shop_name: user.user_metadata.shop_name || local.shop_name,
+        enable_dealership_mode:
+          typeof user.user_metadata.enable_dealership_mode === 'boolean'
+            ? user.user_metadata.enable_dealership_mode
+            : local.enable_dealership_mode,
+      };
     }
     return local;
   });
@@ -66,13 +73,24 @@ export function useShopSettings() {
         const res = await query.limit(1);
         const settingData = res.data && res.data[0] ? res.data[0] : null;
         if (!cancelled && settingData) {
-          const loaded = { ...DEFAULT_SETTINGS, ...settingData };
+          const loaded: ShopSettings = {
+            ...DEFAULT_SETTINGS,
+            ...settingData,
+            enable_dealership_mode: Boolean(
+              settingData.enable_dealership_mode ?? user?.user_metadata?.enable_dealership_mode
+            ),
+          };
           setSettings(loaded);
           saveLocalSettings(loaded);
         } else if (!cancelled && user) {
-          // If user has metadata shop_name
           const defaultShopName = user.user_metadata?.shop_name || DEFAULT_SETTINGS.shop_name;
-          setSettings((prev) => ({ ...prev, shop_name: defaultShopName, email: user.email || prev.email }));
+          const isDealer = Boolean(user.user_metadata?.enable_dealership_mode);
+          setSettings((prev) => ({
+            ...prev,
+            shop_name: defaultShopName,
+            enable_dealership_mode: isDealer,
+            email: user.email || prev.email,
+          }));
         }
       } catch (err) {
         console.warn('Could not load remote shop settings:', err);

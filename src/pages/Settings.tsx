@@ -154,6 +154,81 @@ export default function Settings() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Operation Mode & Package Selector */}
+        <Card className="space-y-4 p-5 bg-gradient-to-br from-slate-900 to-slate-950 text-white shadow-xl border border-slate-800">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+                Active System Edition
+              </span>
+              <h3 className="text-base font-black text-white mt-0.5">
+                {form.enable_dealership_mode ? 'Dealership & Multi-Tech DMS' : 'Solo Rig Edition'}
+              </h3>
+            </div>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-black uppercase ${
+                form.enable_dealership_mode
+                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+              }`}
+            >
+              {form.enable_dealership_mode ? '🏢 DMS Active' : '🚛 Solo Rig Active'}
+            </span>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Choose your operating mode. Switching updates your navigation bar and departmental toolset instantly.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            {/* Solo Rig Option Card */}
+            <div
+              onClick={() => setForm({ ...form, enable_dealership_mode: false })}
+              className={`cursor-pointer rounded-2xl p-4 transition border-2 text-left ${
+                !form.enable_dealership_mode
+                  ? 'border-amber-400 bg-slate-800/90 ring-1 ring-amber-400/50 shadow-lg'
+                  : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-black text-white flex items-center gap-2">
+                  🚛 Solo Rig Edition
+                </span>
+                {!form.enable_dealership_mode && (
+                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400 animate-pulse" />
+                )}
+              </div>
+              <p className="text-[11px] text-amber-400 font-bold mt-1">$29 / month</p>
+              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                Streamlined for mobile mechanics and solo vans. Dispatch schedule, repair orders, on-site invoicing, and parts catalog.
+              </p>
+            </div>
+
+            {/* Dealership DMS Option Card */}
+            <div
+              onClick={() => setForm({ ...form, enable_dealership_mode: true })}
+              className={`cursor-pointer rounded-2xl p-4 transition border-2 text-left ${
+                form.enable_dealership_mode
+                  ? 'border-purple-400 bg-purple-950/40 ring-1 ring-purple-400/50 shadow-lg'
+                  : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-black text-white flex items-center gap-2">
+                  🏢 Dealership &amp; Shop DMS
+                </span>
+                {form.enable_dealership_mode && (
+                  <span className="h-2.5 w-2.5 rounded-full bg-purple-400 animate-pulse" />
+                )}
+              </div>
+              <p className="text-[11px] text-purple-300 font-bold mt-1">$99 / month</p>
+              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                Full dealership operations. Showroom unit inventory, commercial floorplan financing, Buyer's Orders &amp; bills of sale, and parts counter POS.
+              </p>
+            </div>
+          </div>
+        </Card>
+
         {/* Shop Logo Section */}
         <Card className="space-y-3 p-4">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-2">

@@ -7,7 +7,12 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signIn: (email: string, pass: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, pass: string, shopName?: string) => Promise<{ error: Error | null; needsEmailConfirmation?: boolean }>;
+  signUp: (
+    email: string,
+    pass: string,
+    shopName?: string,
+    enableDealershipMode?: boolean
+  ) => Promise<{ error: Error | null; needsEmailConfirmation?: boolean }>;
   signOut: () => Promise<void>;
 }
 
@@ -56,7 +61,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ? new Error(error.message) : null };
   }
 
-  async function signUp(email: string, pass: string, shopName?: string) {
+  async function signUp(
+    email: string,
+    pass: string,
+    shopName?: string,
+    enableDealershipMode: boolean = false
+  ) {
     const sb = requireSupabase();
     const { data, error } = await sb.auth.signUp({
       email: email.trim(),
@@ -64,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: {
         data: {
           shop_name: shopName?.trim() || 'Outlaw Shop Systems',
+          enable_dealership_mode: Boolean(enableDealershipMode),
         },
       },
     });
@@ -79,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           id: data.user.id,
           user_id: data.user.id,
           shop_name: shopName?.trim() || 'Outlaw Shop Systems',
-          tagline: 'Mobile & Shop Management',
+          tagline: enableDealershipMode ? 'Sales, Service & Parts DMS' : 'Mobile & Shop Management',
           phone: '',
           email: data.user.email || '',
           address: '',
@@ -87,6 +98,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           default_tax_rate: 0.04,
           invoice_notes: 'Thank you for your business! Payments due on or before the due date.',
           logo_url: '',
+          enable_dealership_mode: Boolean(enableDealershipMode),
+          dealership_doc_fee: 199,
+          dealership_prep_fee: 250,
+          dealership_freight_fee: 350,
           updated_at: new Date().toISOString(),
         });
       } catch (e) {
