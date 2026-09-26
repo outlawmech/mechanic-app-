@@ -20,6 +20,7 @@ import type { InvoiceFull, InvoicePayment, PaymentMethod, Vehicle, WorkItem, Wor
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
 import { getWorkOrderSignature } from '../lib/photoStorage';
 import { printInvoiceDocument } from '../lib/printer';
+import { downloadInvoicePDF, shareInvoicePDFWithEmail } from '../lib/invoicePdf';
 
 const KIND_LABEL: Record<string, string> = { labor: 'Labor', part: 'Part', fee: 'Fee' };
 
@@ -223,12 +224,30 @@ export default function InvoiceDetail() {
     }
   }
 
-  function handleEmailInvoice() {
-    const { subject, body } = formatInvoiceText(invoice!, items, vehicle, settings);
-    const mailto = `mailto:${encodeURIComponent(invoice!.customer.email || '')}?subject=${encodeURIComponent(
-      subject
-    )}&body=${encodeURIComponent(body)}`;
-    window.location.href = mailto;
+  async function handleEmailInvoice() {
+    try {
+      toast('Generating PDF attachment…');
+      await shareInvoicePDFWithEmail('print-area', invoice!, invoice!.customer.email);
+    } catch (e) {
+      console.error(e);
+      toast('Opening email client…');
+      const { subject, body } = formatInvoiceText(invoice!, items, vehicle, settings);
+      const mailto = `mailto:${encodeURIComponent(invoice!.customer.email || '')}?subject=${encodeURIComponent(
+        subject
+      )}&body=${encodeURIComponent(body)}`;
+      window.location.href = mailto;
+    }
+  }
+
+  async function handleDownloadPDF() {
+    try {
+      toast('Generating PDF…');
+      await downloadInvoicePDF('print-area', invoice!.number);
+      toast('PDF saved successfully!', 'success');
+    } catch (e) {
+      console.error(e);
+      toast('Could not generate PDF file', 'error');
+    }
   }
 
   async function handleShareInvoice() {
@@ -425,22 +444,33 @@ export default function InvoiceDetail() {
           <Card className="space-y-2.5 p-4">
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Share & Print</h3>
             
-            <Button
-              variant="ghost"
-              className="w-full text-xs font-semibold"
-              onClick={() => printInvoiceDocument(`Invoice_${invoice.number}`)}
-            >
-              <PrinterIcon className="h-4 w-4 text-slate-600" /> Print / Save PDF
-            </Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="ghost"
+                className="text-xs font-semibold"
+                onClick={() => printInvoiceDocument(`Invoice_${invoice.number}`)}
+                title="Open native printer spooler"
+              >
+                <PrinterIcon className="h-4 w-4 text-slate-600" /> Print
+              </Button>
+              <Button
+                variant="ghost"
+                className="text-xs font-semibold"
+                onClick={handleDownloadPDF}
+                title="Download full US Letter PDF file to device"
+              >
+                <span>📄</span> Save PDF
+              </Button>
+            </div>
 
             <div className="grid grid-cols-2 gap-2 pt-1">
               <Button
-                variant="ghost"
+                variant="accent"
                 onClick={handleEmailInvoice}
-                className="text-xs"
-                title="Open email draft with full invoice breakdown"
+                className="text-xs font-bold shadow-sm"
+                title="Open email with PDF invoice attached"
               >
-                <MailIcon className="h-4 w-4 text-slate-600" /> Email
+                <MailIcon className="h-4 w-4 text-slate-900" /> Email PDF
               </Button>
               <Button
                 variant="ghost"

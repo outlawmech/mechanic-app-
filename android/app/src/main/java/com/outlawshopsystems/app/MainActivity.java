@@ -7,6 +7,7 @@ import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
@@ -26,11 +27,11 @@ public class MainActivity extends BridgeActivity {
 
     public static class OutlawPrintInterface {
         private final MainActivity activity;
-        private final WebView webView;
+        private final WebView currentWebView;
 
         public OutlawPrintInterface(MainActivity activity, WebView webView) {
             this.activity = activity;
-            this.webView = webView;
+            this.currentWebView = webView;
         }
 
         @JavascriptInterface
@@ -40,7 +41,7 @@ public class MainActivity extends BridgeActivity {
                     PrintManager printManager = (PrintManager) activity.getSystemService(Context.PRINT_SERVICE);
                     if (printManager != null) {
                         String name = (jobName != null && !jobName.trim().isEmpty()) ? jobName : "Outlaw_Invoice";
-                        PrintDocumentAdapter printAdapter = webView.createPrintDocumentAdapter(name);
+                        PrintDocumentAdapter printAdapter = currentWebView.createPrintDocumentAdapter(name);
                         
                         PrintAttributes.Builder builder = new PrintAttributes.Builder();
                         builder.setMediaSize(PrintAttributes.MediaSize.NA_LETTER);
@@ -49,6 +50,40 @@ public class MainActivity extends BridgeActivity {
                         
                         printManager.print(name, printAdapter, builder.build());
                     }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void printInvoiceHtml(String htmlContent, String jobName) {
+            activity.runOnUiThread(() -> {
+                try {
+                    WebView printWebView = new WebView(activity);
+                    printWebView.getSettings().setJavaScriptEnabled(false);
+                    printWebView.setWebViewClient(new WebViewClient() {
+                        @Override
+                        public void onPageFinished(WebView view, String url) {
+                            try {
+                                PrintManager printManager = (PrintManager) activity.getSystemService(Context.PRINT_SERVICE);
+                                if (printManager != null) {
+                                    String name = (jobName != null && !jobName.trim().isEmpty()) ? jobName : "Outlaw_Invoice";
+                                    PrintDocumentAdapter printAdapter = printWebView.createPrintDocumentAdapter(name);
+                                    
+                                    PrintAttributes.Builder builder = new PrintAttributes.Builder();
+                                    builder.setMediaSize(PrintAttributes.MediaSize.NA_LETTER);
+                                    builder.setResolution(new PrintAttributes.Resolution("doc", "Outlaw Spooler", 300, 300));
+                                    builder.setMinMargins(PrintAttributes.Margins.NO_MARGINS);
+                                    
+                                    printManager.print(name, printAdapter, builder.build());
+                                }
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+                    printWebView.loadDataWithBaseURL("https://localhost", htmlContent, "text/html", "UTF-8", null);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
