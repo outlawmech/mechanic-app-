@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useToast } from '../components/Toast';
 import { WrenchIcon, TrashIcon, CheckIcon, PlusIcon, LockClosedIcon, SparklesIcon, MonitorIcon, SmartphoneIcon } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Spinner, Textarea } from '../components/ui';
@@ -25,12 +25,9 @@ export default function Settings() {
   const [showCodeBox, setShowCodeBox] = useState(false);
   const [validatingKey, setValidatingKey] = useState(false);
 
-  // Sync state if initial fetch completes
-  const [synced, setSynced] = useState(false);
-  if (!loading && !synced) {
+  useEffect(() => {
     setForm(settings);
-    setSynced(true);
-  }
+  }, [settings]);
 
   if (loading) return <Spinner />;
 
@@ -186,7 +183,11 @@ export default function Settings() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
             {/* Solo Rig Option Card */}
             <div
-              onClick={() => setForm({ ...form, enable_dealership_mode: false })}
+              onClick={async () => {
+                setForm((prev) => ({ ...prev, enable_dealership_mode: false }));
+                await updateSettings({ enable_dealership_mode: false });
+                toast('Switched to Solo Rig Mode');
+              }}
               className={`cursor-pointer rounded-2xl p-4 transition border-2 text-left ${
                 !form.enable_dealership_mode
                   ? 'border-amber-400 bg-slate-800/90 ring-1 ring-amber-400/50 shadow-lg'
@@ -209,7 +210,11 @@ export default function Settings() {
 
             {/* Dealership DMS Option Card */}
             <div
-              onClick={() => setForm({ ...form, enable_dealership_mode: true })}
+              onClick={async () => {
+                setForm((prev) => ({ ...prev, enable_dealership_mode: true }));
+                await updateSettings({ enable_dealership_mode: true });
+                toast('Switched to Dealership & Multi-Tech DMS Mode!');
+              }}
               className={`cursor-pointer rounded-2xl p-4 transition border-2 text-left ${
                 form.enable_dealership_mode
                   ? 'border-purple-400 bg-purple-950/40 ring-1 ring-purple-400/50 shadow-lg'

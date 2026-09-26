@@ -3,7 +3,7 @@ import Layout from './components/Layout';
 import { ToastProvider } from './components/Toast';
 import { Spinner } from './components/ui';
 import { AuthProvider, useAuth } from './lib/auth';
-import { useShopSettings } from './lib/settings';
+import { ShopSettingsProvider, useShopSettings } from './lib/settings';
 import { getSubscriptionInfo } from './lib/subscription';
 import SubscriptionLockout from './components/SubscriptionLockout';
 import Auth from './pages/Auth';
@@ -77,7 +77,9 @@ export default function App() {
   return (
     <ToastProvider>
       <AuthProvider>
-        <AppRoutes />
+        <ShopSettingsProvider>
+          <AppRoutes />
+        </ShopSettingsProvider>
       </AuthProvider>
     </ToastProvider>
   );
