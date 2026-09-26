@@ -67,12 +67,23 @@ jobs:
 
       - name: Upload APK to Supabase Public Storage
         run: |
-          curl -f -X POST "https://wlacgguhevtygqvckoen.supabase.co/storage/v1/object/apks/OutlawShopSystems.apk" \
+          echo "Uploading OutlawShopSystems-v1.0.apk to Supabase Storage..."
+          HTTP_STATUS=$(curl -s -o /tmp/supabase_res.json -w "%{http_code}" -X POST "https://wlacgguhevtygqvckoen.supabase.co/storage/v1/object/apks/OutlawShopSystems.apk" \
             -H "apikey: sb_publishable_3Bh_pQwFwpSOvCbYyZjxyw_EstlwMfw" \
             -H "Authorization: Bearer sb_publishable_3Bh_pQwFwpSOvCbYyZjxyw_EstlwMfw" \
             -H "Content-Type: application/vnd.android.package-archive" \
             -H "x-upsert: true" \
-            --data-binary "@output/OutlawShopSystems-v1.0.apk" || echo "Supabase storage upload completed"
+            --data-binary "@output/OutlawShopSystems-v1.0.apk")
+          echo "Supabase HTTP response status: $HTTP_STATUS"
+          cat /tmp/supabase_res.json || true
+          if [ "$HTTP_STATUS" -ne 200 ] && [ "$HTTP_STATUS" -ne 201 ]; then
+            echo "Retrying via PUT upsert..."
+            curl -s -X PUT "https://wlacgguhevtygqvckoen.supabase.co/storage/v1/object/apks/OutlawShopSystems.apk" \
+              -H "apikey: sb_publishable_3Bh_pQwFwpSOvCbYyZjxyw_EstlwMfw" \
+              -H "Authorization: Bearer sb_publishable_3Bh_pQwFwpSOvCbYyZjxyw_EstlwMfw" \
+              -H "Content-Type: application/vnd.android.package-archive" \
+              --data-binary "@output/OutlawShopSystems-v1.0.apk"
+          fi
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
