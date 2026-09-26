@@ -41,7 +41,13 @@ public class MainActivity extends BridgeActivity {
                     if (printManager != null) {
                         String name = (jobName != null && !jobName.trim().isEmpty()) ? jobName : "Outlaw_Invoice";
                         PrintDocumentAdapter printAdapter = webView.createPrintDocumentAdapter(name);
-                        printManager.print(name, printAdapter, new PrintAttributes.Builder().build());
+                        
+                        PrintAttributes.Builder builder = new PrintAttributes.Builder();
+                        builder.setMediaSize(PrintAttributes.MediaSize.NA_LETTER);
+                        builder.setResolution(new PrintAttributes.Resolution("doc", "Outlaw Spooler", 300, 300));
+                        builder.setMinMargins(new PrintAttributes.Margins(200, 200, 200, 200)); // standard 0.2 inch padding
+                        
+                        printManager.print(name, printAdapter, builder.build());
                     }
                 } catch (Exception e) {
                     e.printStackTrace();

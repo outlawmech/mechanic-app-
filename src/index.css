@@ -19,10 +19,15 @@ input[type="date"] {
 
 /* =========================================================
    Print & PDF Styling
-   Clean, full-width printout on iOS Safari, Chrome & Desktop
+   Clean, full-width printout on Android APK, iOS & Desktop
    ========================================================= */
+@page {
+  size: letter portrait;
+  margin: 10mm 12mm 10mm 12mm;
+}
+
 @media print {
-  /* Hide non-printable app chrome */
+  /* Hide non-printable app navigation and buttons */
   .no-print,
   header,
   nav,
@@ -39,35 +44,42 @@ input[type="date"] {
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
+    min-width: 100% !important;
     height: auto !important;
     min-height: auto !important;
-    font-size: 11pt !important;
+    font-size: 10pt !important;
+    line-height: 1.35 !important;
   }
 
   #root,
+  main,
   .mx-auto,
-  main {
-    max-width: 100% !important;
+  .grid,
+  .space-y-4,
+  .lg\:col-span-8 {
+    display: block !important;
     width: 100% !important;
+    max-width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
-    min-height: auto !important;
     background: transparent !important;
-    display: block !important;
+    border: none !important;
+    box-shadow: none !important;
   }
 
   #print-area {
     display: block !important;
     visibility: visible !important;
-    position: static !important;
+    position: relative !important;
     width: 100% !important;
     max-width: 100% !important;
-    margin: 0 auto !important;
-    padding: 16px !important;
+    margin: 0 !important;
+    padding: 0 !important;
     background: #ffffff !important;
     box-shadow: none !important;
     border: none !important;
-    page-break-inside: avoid;
+    border-radius: 0 !important;
+    page-break-inside: auto !important;
   }
 
   #print-area * {
@@ -75,5 +87,14 @@ input[type="date"] {
     color-adjust: exact !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* Table formatting for standard Letter paper */
+  #print-area table {
+    width: 100% !important;
+  }
+
+  #print-area tr {
+    page-break-inside: avoid !important;
   }
 }
