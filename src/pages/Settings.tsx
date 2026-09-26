@@ -472,6 +472,34 @@ export default function Settings() {
         </div>
       </Card>
 
+      {/* Native Android APK Card */}
+      <Card className="space-y-3 p-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">📱</span>
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800">
+                Native Android App (APK)
+              </h3>
+              <p className="text-[11px] text-slate-500">Standalone offline app for Android phones &amp; tablets</p>
+            </div>
+          </div>
+          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+            v1.2 Native
+          </span>
+        </div>
+        <p className="text-xs text-slate-600">
+          Install the native APK on your service truck phone or tablet for 100% offline field operation, camera photo inspection, and finger signature capture.
+        </p>
+        <a
+          href="/OutlawShopSystems.apk"
+          download="OutlawShopSystems.apk"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800 shadow-sm active:scale-95"
+        >
+          <span>📲 Download Android APK</span>
+        </a>
+      </Card>
+
       {/* Data Management Card */}
       <Card className="space-y-3 border-amber-200 bg-amber-50/50 p-4">
         <h3 className="text-xs font-bold uppercase tracking-wide text-amber-900">
