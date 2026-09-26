@@ -9,6 +9,9 @@ const url =
 const anonKey =
   (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) || SUPABASE_ANON_KEY;
 
+export const ANDROID_APK_DOWNLOAD_URL =
+  'https://wlacgguhevtygqvckoen.supabase.co/storage/v1/object/public/apks/OutlawShopSystems.apk';
+
 export const isSupabaseConfigured = true;
 
 export const supabase: SupabaseClient = createClient(url, anonKey);

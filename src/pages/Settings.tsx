@@ -8,8 +8,8 @@ import { processLogoImage } from '../lib/image';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { getSubscriptionInfo, STRIPE_PAYMENT_URL, redeemActivationCode } from '../lib/subscription';
 
-export const ANDROID_APK_DOWNLOAD_URL =
-  'https://wlacgguhevtygqvckoen.supabase.co/storage/v1/object/public/apks/OutlawShopSystems.apk';
+import { ANDROID_APK_DOWNLOAD_URL } from '../lib/supabase';
+import { isNativePlatform } from '../lib/printer';
 
 export default function Settings() {
   const toast = useToast();
@@ -492,15 +492,25 @@ export default function Settings() {
           </span>
         </div>
         <p className="text-xs text-slate-600">
-          Install the native APK on your service truck phone or tablet for 100% offline field operation, camera photo inspection, and finger signature capture.
+          Standalone offline app for service truck phones and tablets with camera inspections, customer signatures, and native PDF printing.
         </p>
-        <a
-          href={ANDROID_APK_DOWNLOAD_URL}
-          download="OutlawShopSystems.apk"
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800 shadow-sm active:scale-95"
-        >
-          <span>📲 Download Android APK</span>
-        </a>
+        {isNativePlatform ? (
+          <div className="flex items-center gap-2.5 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-emerald-950 text-xs font-semibold">
+            <span className="text-base">✅</span>
+            <div>
+              <p className="font-bold text-emerald-900">Installed & Running Native APK</p>
+              <p className="text-[11px] text-emerald-700 font-normal">Offline database, camera photo storage, and direct Android printer spooler are active.</p>
+            </div>
+          </div>
+        ) : (
+          <a
+            href={ANDROID_APK_DOWNLOAD_URL}
+            download="OutlawShopSystems.apk"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800 shadow-sm active:scale-95"
+          >
+            <span>📲 Download Android APK</span>
+          </a>
+        )}
       </Card>
 
       {/* Data Management Card */}

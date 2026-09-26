@@ -19,6 +19,7 @@ import { check, errMsg, requireSupabase } from '../lib/supabase';
 import type { InvoiceFull, InvoicePayment, PaymentMethod, Vehicle, WorkItem, WorkOrder } from '../types';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
 import { getWorkOrderSignature } from '../lib/photoStorage';
+import { printInvoiceDocument } from '../lib/printer';
 
 const KIND_LABEL: Record<string, string> = { labor: 'Labor', part: 'Part', fee: 'Fee' };
 
@@ -424,7 +425,11 @@ export default function InvoiceDetail() {
           <Card className="space-y-2.5 p-4">
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">Share & Print</h3>
             
-            <Button variant="ghost" className="w-full text-xs font-semibold" onClick={() => window.print()}>
+            <Button
+              variant="ghost"
+              className="w-full text-xs font-semibold"
+              onClick={() => printInvoiceDocument(`Invoice_${invoice.number}`)}
+            >
               <PrinterIcon className="h-4 w-4 text-slate-600" /> Print / Save PDF
             </Button>
 
