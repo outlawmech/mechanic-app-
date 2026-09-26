@@ -179,10 +179,10 @@ export default function Dashboard() {
             </span>
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
-                14-Day Free Trial Active ({sub.daysLeft} days remaining)
+                14-Day Free Trial Active · {sub.planName} ({sub.daysLeft} days remaining)
               </p>
               <p className="text-xs text-slate-600">
-                Lock in early founder pricing at $29/mo before beta testing concludes.
+                Lock in early founder pricing at {sub.planPrice} before beta testing concludes.
               </p>
             </div>
           </div>
@@ -192,7 +192,7 @@ export default function Dashboard() {
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 shadow hover:bg-amber-300"
           >
-            Upgrade to Solo Rig Pro ($29/mo)
+            Upgrade {sub.planName} ({sub.planPrice})
           </a>
         </div>
       )}

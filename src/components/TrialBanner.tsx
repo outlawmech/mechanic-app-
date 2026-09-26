@@ -29,7 +29,7 @@ export default function TrialBanner() {
           rel="noopener noreferrer"
           className="shrink-0 rounded-md bg-slate-950 px-2.5 py-1 text-[11px] font-bold text-amber-300 shadow-sm transition hover:bg-slate-900 active:scale-95 ml-2"
         >
-          Upgrade $29/mo
+          Upgrade {sub.planPrice}
         </a>
       </div>
     </div>

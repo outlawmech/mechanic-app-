@@ -45,7 +45,10 @@ export default function Settings() {
     try {
       const res = await redeemActivationCode(licenseCode, user);
       if (res.success) {
-        toast(res.message || 'Pro Plan unlocked successfully!');
+        if (res.tier === 'dealer') {
+          await updateSettings({ enable_dealership_mode: true });
+        }
+        toast(res.message || 'License key activated successfully!');
         window.location.reload();
       } else {
         toast(res.error || 'Invalid or expired code.', 'error');
@@ -501,41 +504,65 @@ export default function Settings() {
             >
               {sub.isPro ? (
                 <>
-                  <SparklesIcon className="h-3 w-3" /> Solo Rig • Pro Active
+                  <SparklesIcon className="h-3 w-3" /> {sub.planBadge} Active
                 </>
               ) : (
-                `Solo Rig • 14-Day Trial (${sub.daysLeft} days left)`
+                `${sub.planName} • 14-Day Trial (${sub.daysLeft} days left)`
               )}
             </span>
-            <h3 className="text-base font-bold text-white">Outlaw Shop Systems Pro</h3>
+            <h3 className="text-base font-bold text-white">{sub.planName}</h3>
           </div>
           <div className="text-right">
-            <span className="text-xl font-black text-amber-400">$29</span>
-            <span className="text-xs text-slate-400"> / month</span>
+            <span className="text-xl font-black text-amber-400">{sub.planPrice}</span>
           </div>
         </div>
 
         <p className="text-xs text-slate-300 leading-relaxed">
-          Unlock unlimited work orders, cloud multi-tenant database sync, parts &amp; inventory tracking, offline PDF invoicing, and customer SMS dispatches.
+          {form.enable_dealership_mode
+            ? 'Complete dealership management suite: Showroom inventory, floorplan line financing, Buyer’s Orders & bills of sale, parts counter POS register, and multi-tech service bay scheduling.'
+            : 'Unlock unlimited repair orders, cloud multi-tenant database sync, parts & inventory tracking, offline PDF invoicing, and customer SMS dispatches.'}
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
-          <div className="flex items-center gap-2">
-            <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
-            <span>Unlimited Invoices &amp; Work Orders</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
-            <span>Full Inventory &amp; Stock Management</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
-            <span>Multi-Tenant Cloud Sync (Supabase)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
-            <span>Instant PDF &amp; Custom Branding</span>
-          </div>
+          {form.enable_dealership_mode ? (
+            <>
+              <div className="flex items-center gap-2">
+                <CheckIcon className="h-4 w-4 text-purple-400 shrink-0" />
+                <span>Showroom Floor &amp; Crated Units</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckIcon className="h-4 w-4 text-purple-400 shrink-0" />
+                <span>Commercial Floorplan Tracking</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckIcon className="h-4 w-4 text-purple-400 shrink-0" />
+                <span>Buyer’s Orders &amp; Bills of Sale</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckIcon className="h-4 w-4 text-purple-400 shrink-0" />
+                <span>Parts Counter POS Cash Register</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+                <span>Unlimited Invoices &amp; Work Orders</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+                <span>Full Inventory &amp; Stock Management</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+                <span>Multi-Tenant Cloud Sync (Supabase)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+                <span>Instant PDF &amp; Custom Branding</span>
+              </div>
+            </>
+          )}
         </div>
 
         {!sub.isPro ? (
@@ -547,7 +574,7 @@ export default function Settings() {
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-400 shadow-md active:scale-[0.99]"
             >
               Start 14-Day Free Trial
-              <span className="text-xs font-normal text-slate-900">(Then $29/mo)</span>
+              <span className="text-xs font-normal text-slate-900">(Then {sub.planPrice})</span>
             </a>
             <p className="text-center text-[11px] text-slate-400">
               Secure 256-bit Stripe checkout. Lockout applies after Day 14 without active subscription.
@@ -555,7 +582,7 @@ export default function Settings() {
           </div>
         ) : (
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-center text-xs font-semibold text-emerald-400">
-            ✓ Your Outlaw Shop Systems Pro Plan is fully active!
+            ✓ Your Outlaw Shop Systems {sub.planName} is fully active!
           </div>
         )}
 

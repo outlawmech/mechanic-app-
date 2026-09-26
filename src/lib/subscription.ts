@@ -1,12 +1,17 @@
 import type { User } from '@supabase/supabase-js';
 import type { ShopSettings } from '../types';
 import { requireSupabase } from './supabase';
+import { saveLocalSettings, DEFAULT_SETTINGS } from './settings';
 
 export const STRIPE_PAYMENT_URL = 'https://buy.stripe.com/5kQ6oHgEX8G781ceZ62go00';
 export const TRIAL_DAYS = 14;
+
 export const MASTER_UNLOCK_KEYS = ['OUTLAW-OWNER-KEY', 'OUTLAW-BOSS-77', 'OUTLAW-ADMIN-99'];
+export const DMS_BETA_KEYS = ['VIP-DMS', 'DEALER-VIP', 'OUTLAW-DMS-77', 'DMS-PRO', 'VIP-DEALER'];
+export const SOLO_BETA_KEYS = ['VIP-RIG', 'SOLO-VIP', 'OUTLAW-SOLO-77', 'SOLO-PRO', 'VIP-SOLO'];
 
 const LOCAL_LICENSE_KEY = 'outlaw_pro_unlocked';
+const LOCAL_TIER_KEY = 'outlaw_active_tier'; // 'solo' | 'dealer'
 
 export interface SubscriptionInfo {
   status: 'trialing' | 'active' | 'expired';
@@ -15,6 +20,10 @@ export interface SubscriptionInfo {
   daysLeft: number;
   trialEndsAt: Date;
   userCreatedDate: Date;
+  planName: string;
+  planPrice: string;
+  planBadge: string;
+  isDealershipTier: boolean;
 }
 
 export function isLocalUnlocked(): boolean {
@@ -25,12 +34,14 @@ export function isLocalUnlocked(): boolean {
   }
 }
 
-export function setLocalUnlocked(unlocked: boolean): void {
+export function setLocalUnlocked(unlocked: boolean, tier: 'solo' | 'dealer' = 'solo'): void {
   try {
     if (unlocked) {
       localStorage.setItem(LOCAL_LICENSE_KEY, 'true');
+      localStorage.setItem(LOCAL_TIER_KEY, tier);
     } else {
       localStorage.removeItem(LOCAL_LICENSE_KEY);
+      localStorage.removeItem(LOCAL_TIER_KEY);
     }
   } catch {}
 }
@@ -38,28 +49,85 @@ export function setLocalUnlocked(unlocked: boolean): void {
 export async function redeemActivationCode(
   code: string,
   user: User | null
-): Promise<{ success: boolean; message?: string; error?: string }> {
+): Promise<{ success: boolean; message?: string; error?: string; tier?: 'solo' | 'dealer' }> {
   const cleanCode = code.trim().toUpperCase();
   if (!cleanCode) {
     return { success: false, error: 'Please enter an activation code.' };
   }
 
+  const isDmsKey = DMS_BETA_KEYS.includes(cleanCode) || MASTER_UNLOCK_KEYS.includes(cleanCode);
+  const isMasterKey = MASTER_UNLOCK_KEYS.includes(cleanCode);
+  const targetTier: 'solo' | 'dealer' = isDmsKey ? 'dealer' : 'solo';
+
   // 1. Check Master Owner Keys (Unlimited Owner Bypass)
-  if (MASTER_UNLOCK_KEYS.includes(cleanCode)) {
-    setLocalUnlocked(true);
+  if (isMasterKey) {
+    setLocalUnlocked(true, 'dealer');
     try {
       if (user) {
         const sb = requireSupabase();
         await sb
           .from('shop_settings')
-          .update({ subscription_status: 'active', updated_at: new Date().toISOString() })
+          .update({
+            subscription_status: 'active',
+            enable_dealership_mode: true,
+            updated_at: new Date().toISOString(),
+          })
           .or(`user_id.eq.${user.id},id.eq.${user.id}`);
       }
     } catch {}
-    return { success: true, message: 'Master license key verified! Pro access permanently unlocked.' };
+    return {
+      success: true,
+      tier: 'dealer',
+      message: 'Master Owner License verified! Full Dealership DMS Suite permanently unlocked.',
+    };
   }
 
-  // 2. Call Supabase Limited Redemptions RPC
+  // 2. Check DMS Beta Keys
+  if (DMS_BETA_KEYS.includes(cleanCode)) {
+    setLocalUnlocked(true, 'dealer');
+    try {
+      if (user) {
+        const sb = requireSupabase();
+        await sb
+          .from('shop_settings')
+          .update({
+            subscription_status: 'active',
+            enable_dealership_mode: true,
+            updated_at: new Date().toISOString(),
+          })
+          .or(`user_id.eq.${user.id},id.eq.${user.id}`);
+      }
+    } catch {}
+    return {
+      success: true,
+      tier: 'dealer',
+      message: 'Dealership DMS VIP Code activated! All 6 departments & floorplan tracking unlocked.',
+    };
+  }
+
+  // 3. Check Solo Rig Beta Keys
+  if (SOLO_BETA_KEYS.includes(cleanCode)) {
+    setLocalUnlocked(true, 'solo');
+    try {
+      if (user) {
+        const sb = requireSupabase();
+        await sb
+          .from('shop_settings')
+          .update({
+            subscription_status: 'active',
+            updated_at: new Date().toISOString(),
+          })
+          .or(`user_id.eq.${user.id},id.eq.${user.id}`);
+      }
+    } catch {}
+    return {
+      success: true,
+      tier: 'solo',
+      message: 'Solo Rig VIP Code activated! Mobile mechanic suite unlocked.',
+    };
+  }
+
+  // 4. Call Supabase Limited Redemptions RPC (if custom database code)
   try {
     const sb = requireSupabase();
     const { data, error } = await sb.rpc('redeem_activation_code', { p_code: cleanCode });
@@ -70,17 +138,13 @@ export async function redeemActivationCode(
       return { success: false, error: data.error || 'Could not redeem code.' };
     }
 
-    setLocalUnlocked(true);
+    setLocalUnlocked(true, targetTier);
     return {
       success: true,
-      message: data?.message || 'VIP Beta Code redeemed successfully! Pro access unlocked.',
+      tier: targetTier,
+      message: data?.message || 'VIP Code redeemed successfully! Pro access unlocked.',
     };
   } catch (err: any) {
-    // Fallback if RPC is not yet created in Supabase
-    if (cleanCode === 'VIP-RIG') {
-      setLocalUnlocked(true);
-      return { success: true, message: 'VIP code activated successfully!' };
-    }
     return { success: false, error: err.message || 'Error validating activation code.' };
   }
 }
@@ -89,6 +153,11 @@ export function getSubscriptionInfo(
   user: User | null,
   settings?: Partial<ShopSettings> | null
 ): SubscriptionInfo {
+  const isDealershipTier = Boolean(settings?.enable_dealership_mode);
+  const planName = isDealershipTier ? 'Dealership & Multi-Tech DMS' : 'Solo Rig Edition';
+  const planPrice = isDealershipTier ? '$99/mo' : '$29/mo';
+  const planBadge = isDealershipTier ? '🏢 DMS Pro' : '🚛 Solo Pro';
+
   // Check if explicitly marked active/lifetime in database or local license
   const isExplicitPro =
     settings?.subscription_status === 'active' ||
@@ -119,6 +188,10 @@ export function getSubscriptionInfo(
       daysLeft: 999,
       trialEndsAt: new Date(trialEndsTime),
       userCreatedDate: new Date(createdTime),
+      planName,
+      planPrice,
+      planBadge,
+      isDealershipTier,
     };
   }
 
@@ -130,6 +203,10 @@ export function getSubscriptionInfo(
       daysLeft: 0,
       trialEndsAt: new Date(trialEndsTime),
       userCreatedDate: new Date(createdTime),
+      planName,
+      planPrice,
+      planBadge,
+      isDealershipTier,
     };
   }
 
@@ -140,5 +217,9 @@ export function getSubscriptionInfo(
     daysLeft,
     trialEndsAt: new Date(trialEndsTime),
     userCreatedDate: new Date(createdTime),
+    planName,
+    planPrice,
+    planBadge,
+    isDealershipTier,
   };
 }
