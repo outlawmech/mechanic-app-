@@ -8,6 +8,9 @@ import { processLogoImage } from '../lib/image';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { getSubscriptionInfo, STRIPE_PAYMENT_URL, redeemActivationCode } from '../lib/subscription';
 
+export const ANDROID_APK_DOWNLOAD_URL =
+  'https://wlacgguhevtygqvckoen.supabase.co/storage/v1/object/public/apks/OutlawShopSystems.apk';
+
 export default function Settings() {
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -492,7 +495,7 @@ export default function Settings() {
           Install the native APK on your service truck phone or tablet for 100% offline field operation, camera photo inspection, and finger signature capture.
         </p>
         <a
-          href="/OutlawShopSystems.apk"
+          href={ANDROID_APK_DOWNLOAD_URL}
           download="OutlawShopSystems.apk"
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-slate-800 shadow-sm active:scale-95"
         >
