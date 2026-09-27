@@ -3,6 +3,9 @@ package com.outlawshopsystems.app;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
@@ -23,7 +26,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         
-        // Request Camera Permission on Android startup if needed
+        // Request Camera & Flashlight Permission on Android startup if needed
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST);
         }
@@ -32,6 +35,7 @@ public class MainActivity extends BridgeActivity {
             WebView webView = this.getBridge().getWebView();
             if (webView != null) {
                 webView.addJavascriptInterface(new OutlawPrintInterface(this, webView), "AndroidNativePrinter");
+                webView.addJavascriptInterface(new OutlawFlashlightInterface(this), "AndroidNativeFlashlight");
                 
                 // Ensure WebView grants camera / audio WebRTC permission requests
                 webView.setWebChromeClient(new WebChromeClient() {
@@ -50,6 +54,38 @@ public class MainActivity extends BridgeActivity {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    public static class OutlawFlashlightInterface {
+        private final Context context;
+
+        public OutlawFlashlightInterface(Context context) {
+            this.context = context;
+        }
+
+        @JavascriptInterface
+        public boolean setTorch(boolean enabled) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    CameraManager cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
+                    if (cameraManager != null) {
+                        for (String id : cameraManager.getCameraIdList()) {
+                            CameraCharacteristics chars = cameraManager.getCameraCharacteristics(id);
+                            Boolean flashAvailable = chars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
+                            Integer lensFacing = chars.get(CameraCharacteristics.LENS_FACING);
+                            if (flashAvailable != null && flashAvailable &&
+                                lensFacing != null && lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
+                                cameraManager.setTorchMode(id, enabled);
+                                return true;
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return false;
         }
     }
 
@@ -118,4 +154,5 @@ public class MainActivity extends BridgeActivity {
             });
         }
     }
+}
 }

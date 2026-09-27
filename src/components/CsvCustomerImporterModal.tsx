@@ -358,6 +358,7 @@ export default function CsvCustomerImporterModal({
           </div>
           <button
             type="button"
+            data-modal-close="true"
             onClick={onClose}
             className="rounded-full bg-slate-800 p-1.5 text-xs font-bold text-slate-400 hover:bg-slate-700 hover:text-white transition"
           >

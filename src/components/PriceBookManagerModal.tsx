@@ -321,6 +321,7 @@ PU-3807-0014,Spectro Heavy Duty Platinum 20W50 1qt,7.50,15.99,Parts Unlimited,Fl
           </div>
           <button
             type="button"
+            data-modal-close="true"
             onClick={onClose}
             className="rounded-full bg-slate-800 p-2 text-slate-400 hover:text-white"
           >

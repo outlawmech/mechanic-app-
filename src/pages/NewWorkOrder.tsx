@@ -382,6 +382,7 @@ export default function NewWorkOrder() {
               </div>
               <button
                 type="button"
+                data-modal-close="true"
                 onClick={() => setQuickCustOpen(false)}
                 className="rounded-full bg-slate-800 p-1.5 text-slate-400 hover:text-white"
               >

@@ -106,6 +106,7 @@ export default function SpecialOrderNotifyModal({
           </div>
           <button
             type="button"
+            data-modal-close="true"
             onClick={onClose}
             className="rounded-full bg-slate-800 p-2 text-slate-400 hover:text-white hover:bg-slate-700 transition"
           >

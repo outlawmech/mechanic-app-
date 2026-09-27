@@ -1,13 +1,14 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import WorkOrderCard from '../components/WorkOrderCard';
-import { ClipboardIcon, PlusIcon, SearchIcon } from '../components/icons';
+import { ClipboardIcon, PlusIcon, SearchIcon, CalendarIcon } from '../components/icons';
 import { Chip, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache } from '../lib/offlineSync';
+import { useShopSettings } from '../lib/settings';
 import type { WorkOrderFull } from '../types';
-import { Link } from 'react-router-dom';
 
 const FILTERS = [
   { id: 'active', label: 'Active ROs' },
@@ -20,6 +21,8 @@ const FILTERS = [
 type FilterId = (typeof FILTERS)[number]['id'];
 
 export default function WorkOrders() {
+  const { settings } = useShopSettings();
+  const isDms = settings?.enable_dealership_mode ?? true;
   const [filter, setFilter] = useState<FilterId>('active');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -77,14 +80,26 @@ export default function WorkOrders() {
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <PageTitle title="Repair Orders (RO)" sub={`${data?.length ?? 0} total repair orders`} />
-        <Link
-          to="/work/new"
-          className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-orange-400 px-4 py-2 text-xs font-bold text-slate-950 shadow transition hover:bg-orange-300"
-        >
-          <PlusIcon className="h-4 w-4" />
-          <span>New Repair Order</span>
-        </Link>
+        <PageTitle
+          title={isDms ? 'Service Department (RO)' : 'Repair Orders (RO)'}
+          sub={`${data?.length ?? 0} total repair orders`}
+        />
+        <div className="flex items-center gap-2">
+          <Link
+            to="/schedule"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 shadow-xs hover:bg-slate-50 transition"
+          >
+            <CalendarIcon className="h-4 w-4 text-orange-600" />
+            <span>Shop Schedule</span>
+          </Link>
+          <Link
+            to="/work/new"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3.5 py-2 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 transition hover:bg-orange-400"
+          >
+            <PlusIcon className="h-4 w-4" />
+            <span>+ New RO</span>
+          </Link>
+        </div>
       </div>
 
       {/* Search & Filter Bar */}

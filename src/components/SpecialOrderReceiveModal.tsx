@@ -66,6 +66,7 @@ export default function SpecialOrderReceiveModal({
           </div>
           <button
             type="button"
+            data-modal-close="true"
             onClick={onClose}
             className="rounded-full bg-slate-800 p-1.5 text-slate-400 hover:text-white"
           >

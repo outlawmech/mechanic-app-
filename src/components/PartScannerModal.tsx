@@ -113,6 +113,11 @@ export default function PartScannerModal({
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
+      if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
+        try {
+          (window as any).AndroidNativeFlashlight.setTorch(false);
+        } catch {}
+      }
       setCameraActive(false);
       setTorchOn(false);
     };
@@ -219,18 +224,41 @@ export default function PartScannerModal({
 
   // Toggle Torch/Flashlight
   async function toggleTorch() {
-    if (!videoRef.current || !videoRef.current.srcObject) return;
-    const stream = videoRef.current.srcObject as MediaStream;
-    const track = stream.getVideoTracks()[0];
-    if (track && (track.getCapabilities as any)?.()?.torch) {
+    const nextState = !torchOn;
+
+    // 1. Try WebRTC track applyConstraints (works on Chrome, Edge, Safari, Android WebView)
+    if (videoRef.current && videoRef.current.srcObject) {
       try {
-        const nextState = !torchOn;
-        await track.applyConstraints({
-          advanced: [{ torch: nextState } as any],
-        });
-        setTorchOn(nextState);
-      } catch {}
+        const stream = videoRef.current.srcObject as MediaStream;
+        const tracks = stream.getVideoTracks();
+        for (const track of tracks) {
+          try {
+            await (track as any).applyConstraints({
+              advanced: [{ torch: nextState, fillLightMode: nextState ? 'flash' : 'off' }],
+            });
+          } catch {
+            try {
+              await (track as any).applyConstraints({
+                advanced: [{ torch: nextState }],
+              });
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.warn('WebRTC applyConstraints error:', err);
+      }
     }
+
+    // 2. Try native Android Flashlight Interface if available in APK
+    if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
+      try {
+        (window as any).AndroidNativeFlashlight.setTorch(nextState);
+      } catch (nativeErr) {
+        console.warn('Native Android torch error:', nativeErr);
+      }
+    }
+
+    setTorchOn(nextState);
   }
 
   if (!isOpen) return null;
@@ -257,6 +285,7 @@ export default function PartScannerModal({
           </div>
           <button
             type="button"
+            data-modal-close="true"
             onClick={onClose}
             className="rounded-full bg-slate-800 p-1.5 text-xs font-bold text-slate-400 hover:bg-slate-700 hover:text-white transition"
           >
