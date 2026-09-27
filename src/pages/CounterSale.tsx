@@ -435,21 +435,56 @@ export default function CounterSale() {
             </div>
 
             {isWalkIn ? (
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Customer / Business Name">
-                  <Input
-                    value={walkInName}
-                    onChange={(e) => setWalkInName(e.target.value)}
-                    placeholder="Walk-In Customer"
-                  />
-                </Field>
-                <Field label="Phone # (Optional for text receipt)">
-                  <Input
-                    value={walkInPhone}
-                    onChange={(e) => setWalkInPhone(e.target.value)}
-                    placeholder="406-555-0199"
-                  />
-                </Field>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="relative">
+                    <Field label="Customer / Business Name">
+                      <Input
+                        value={walkInName}
+                        onChange={(e) => setWalkInName(e.target.value)}
+                        placeholder="Walk-In Customer"
+                      />
+                    </Field>
+                    {/* Auto customer match suggestion */}
+                    {walkInName.trim().length >= 2 && walkInName !== 'Walk-In Customer' && (
+                      (() => {
+                        const q = walkInName.toLowerCase();
+                        const matches = customers.filter(
+                          (c) => fullName(c).toLowerCase().includes(q) || (c.phone || '').includes(q)
+                        ).slice(0, 3);
+                        if (matches.length === 0) return null;
+                        return (
+                          <div className="absolute left-0 top-[60px] z-20 w-full rounded-xl border border-orange-400 bg-white p-1.5 shadow-xl text-xs space-y-1">
+                            <span className="text-[10px] text-slate-400 font-bold px-1 block uppercase">Existing Account:</span>
+                            {matches.map((m) => (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => {
+                                  setIsWalkIn(false);
+                                  setCustomerId(m.id);
+                                  setWalkInName(fullName(m));
+                                  if (m.phone) setWalkInPhone(m.phone);
+                                }}
+                                className="w-full text-left p-1.5 rounded-lg hover:bg-orange-50 transition flex items-center justify-between font-bold text-slate-800"
+                              >
+                                <span>{fullName(m)}</span>
+                                <span className="font-mono text-[10px] text-orange-600 font-semibold">{m.phone || m.email}</span>
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })()
+                    )}
+                  </div>
+                  <Field label="Phone # (Optional for text receipt)">
+                    <Input
+                      value={walkInPhone}
+                      onChange={(e) => setWalkInPhone(e.target.value)}
+                      placeholder="406-555-0199"
+                    />
+                  </Field>
+                </div>
               </div>
             ) : (
               <Field label="Select Customer Account">
@@ -731,6 +766,24 @@ export default function CounterSale() {
             </Button>
           </Card>
         </div>
+
+        {/* Sticky Mobile Checkout Bar */}
+        {items.length > 0 && (
+          <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-800 bg-slate-900/95 px-4 py-3 backdrop-blur lg:hidden flex items-center justify-between shadow-2xl pb-[max(env(safe-area-inset-bottom,0px),12px)]">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400 block">Total ({items.length} {items.length === 1 ? 'item' : 'items'})</span>
+              <span className="font-mono text-base font-black text-orange-400">{money(totals.total)}</span>
+            </div>
+            <Button
+              type="submit"
+              variant="accent"
+              disabled={saving}
+              className="py-2.5 px-5 font-black text-xs text-slate-950 shadow-md shadow-orange-500/20 active:scale-95 transition"
+            >
+              {saving ? 'Processing…' : 'Complete Sale →'}
+            </Button>
+          </div>
+        )}
       </form>
 
       {/* Barcode & OCR Scanner Modal for Direct Part Invoicing */}

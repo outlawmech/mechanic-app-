@@ -1,6 +1,14 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { UsersIcon, PlusIcon, SearchIcon, FileSpreadsheetIcon } from '../components/icons';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  UsersIcon,
+  PlusIcon,
+  SearchIcon,
+  FileSpreadsheetIcon,
+  PhoneCallIcon,
+  ChatBubbleIcon,
+  ClipboardIcon,
+} from '../components/icons';
 import { Card, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, vehicleLabel } from '../lib/format';
@@ -98,24 +106,64 @@ export default function Customers() {
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           {list.map((c) => (
-            <Link key={c.id} to={`/customers/${c.id}`} className="block transition hover:-translate-y-0.5">
-              <Card className="p-4 hover:border-orange-400/50">
-                <div className="flex items-start justify-between">
-                  <p className="text-sm font-bold text-slate-900">{fullName(c)}</p>
-                  <span className="text-[10px] rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
-                    {(c.vehicles ?? []).length} {c.vehicles?.length === 1 ? 'vehicle' : 'vehicles'}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  {c.phone || c.email || 'No contact info'}
-                </p>
-                {c.vehicles && c.vehicles.length > 0 && (
-                  <p className="mt-2 text-[11px] font-medium text-slate-700 truncate border-t border-slate-100 pt-2">
-                    🚗 {vehicleLabel(c.vehicles[0])}
+            <div key={c.id} className="relative group">
+              <Link to={`/customers/${c.id}`} className="block transition hover:-translate-y-0.5">
+                <Card className="p-4 hover:border-orange-400/50 space-y-2">
+                  <div className="flex items-start justify-between">
+                    <p className="text-sm font-bold text-slate-900">{fullName(c)}</p>
+                    <span className="text-[10px] rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+                      {(c.vehicles ?? []).length} {c.vehicles?.length === 1 ? 'vehicle' : 'vehicles'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {c.phone || c.email || 'No contact info'}
                   </p>
-                )}
-              </Card>
-            </Link>
+                  {c.vehicles && c.vehicles.length > 0 && (
+                    <p className="text-[11px] font-medium text-slate-700 truncate border-t border-slate-100 pt-1.5">
+                      🚗 {vehicleLabel(c.vehicles[0])}
+                    </p>
+                  )}
+
+                  {/* 1-Tap Quick Action Bar */}
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      {c.phone && (
+                        <>
+                          <a
+                            href={`tel:${c.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-emerald-100 hover:text-emerald-800 transition"
+                            title="Call customer"
+                          >
+                            <PhoneCallIcon className="h-3 w-3 text-emerald-600" />
+                            <span>Call</span>
+                          </a>
+                          <a
+                            href={`sms:${c.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-orange-100 hover:text-orange-800 transition"
+                            title="Text customer"
+                          >
+                            <ChatBubbleIcon className="h-3 w-3 text-orange-600" />
+                            <span>SMS</span>
+                          </a>
+                        </>
+                      )}
+                    </div>
+
+                    <Link
+                      to={`/work/new?customer=${c.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 rounded-lg bg-orange-500/10 px-2 py-1 text-[11px] font-bold text-orange-700 hover:bg-orange-500 hover:text-slate-950 transition"
+                      title="Start New Repair Order"
+                    >
+                      <ClipboardIcon className="h-3 w-3" />
+                      <span>+ New RO</span>
+                    </Link>
+                  </div>
+                </Card>
+              </Link>
+            </div>
           ))}
         </div>
       )}

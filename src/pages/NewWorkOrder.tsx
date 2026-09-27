@@ -1,13 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon, UsersIcon } from '../components/icons';
+import { ArrowLeftIcon, PlusIcon, UsersIcon, WrenchIcon } from '../components/icons';
 import { Button, Card, EmptyState, ErrorState, Field, Input, PageTitle, Select, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, getVehicleTypeInfo, todayISO, vehicleLabel } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
-import type { CustomerWithVehicles, WorkOrderFull } from '../types';
+import type { CustomerWithVehicles, VehicleType, WorkOrderFull } from '../types';
 
 export default function NewWorkOrder() {
   const navigate = useNavigate();
@@ -37,9 +37,112 @@ export default function NewWorkOrder() {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Quick Customer & Vehicle Intake Modal state
+  const [quickCustOpen, setQuickCustOpen] = useState(false);
+  const [qFirstName, setQFirstName] = useState('');
+  const [qLastName, setQLastName] = useState('');
+  const [qPhone, setQPhone] = useState('');
+  const [qEmail, setQEmail] = useState('');
+  const [qType, setQType] = useState<VehicleType>('auto');
+  const [qYear, setQYear] = useState('');
+  const [qMake, setQMake] = useState('');
+  const [qModel, setQModel] = useState('');
+  const [qPlate, setQPlate] = useState('');
+  const [savingQuick, setSavingQuick] = useState(false);
+
   const customer = customers?.find((c) => c.id === customerId);
   const selectedVehicle = customer?.vehicles?.find((v) => v.id === vehicleId);
   const vehicleTypeInfo = selectedVehicle ? getVehicleTypeInfo(selectedVehicle.type) : null;
+
+  async function handleCreateQuickCustomer(e: FormEvent) {
+    e.preventDefault();
+    if (!qFirstName.trim() && !qLastName.trim()) {
+      toast('Customer name is required', 'error');
+      return;
+    }
+    setSavingQuick(true);
+
+    try {
+      const newCustId = generateUUID();
+      const newVehId = generateUUID();
+      const sb = requireSupabase();
+
+      const custPayload = {
+        id: newCustId,
+        first_name: qFirstName.trim(),
+        last_name: qLastName.trim(),
+        phone: qPhone.trim(),
+        email: qEmail.trim(),
+        address: '',
+        notes: 'Created via quick RO intake',
+        created_at: new Date().toISOString(),
+      };
+
+      const vehPayload = (qMake.trim() || qModel.trim()) ? {
+        id: newVehId,
+        customer_id: newCustId,
+        type: qType,
+        year: qYear.trim() || null,
+        make: qMake.trim(),
+        model: qModel.trim(),
+        trim: '',
+        vin: '',
+        plate: qPlate.trim(),
+        created_at: new Date().toISOString(),
+      } : null;
+
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        await sb.from('customers').insert(custPayload);
+        if (vehPayload) {
+          await sb.from('vehicles').insert(vehPayload);
+        }
+      } else {
+        enqueueOfflineAction({
+          table: 'customers',
+          type: 'insert',
+          payload: custPayload,
+          description: `Add customer ${custPayload.first_name} ${custPayload.last_name}`,
+        });
+        if (vehPayload) {
+          enqueueOfflineAction({
+            table: 'vehicles',
+            type: 'insert',
+            payload: vehPayload,
+            description: `Add vehicle ${vehPayload.year || ''} ${vehPayload.make} ${vehPayload.model}`,
+          });
+        }
+      }
+
+      const fullNewCust: CustomerWithVehicles = {
+        ...custPayload,
+        vehicles: vehPayload ? [vehPayload] : [],
+      };
+
+      const currentList = customers || [];
+      const updatedList = [fullNewCust, ...currentList];
+      cacheLocal('customers', updatedList);
+
+      setCustomerId(newCustId);
+      if (vehPayload) {
+        setVehicleId(newVehId);
+      }
+
+      toast(`Customer ${fullName(custPayload)} created & selected!`);
+      setQuickCustOpen(false);
+      setQFirstName('');
+      setQLastName('');
+      setQPhone('');
+      setQEmail('');
+      setQYear('');
+      setQMake('');
+      setQModel('');
+      setQPlate('');
+    } catch (err: any) {
+      toast(err?.message || 'Failed to create customer', 'error');
+    } finally {
+      setSavingQuick(false);
+    }
+  }
 
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
@@ -175,7 +278,19 @@ export default function NewWorkOrder() {
 
       <form onSubmit={save} className="space-y-4">
         <Card className="space-y-4 p-4">
-          <Field label="Customer *">
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Customer *
+              </span>
+              <button
+                type="button"
+                onClick={() => setQuickCustOpen(true)}
+                className="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700"
+              >
+                <PlusIcon className="h-3.5 w-3.5" /> + New Customer &amp; Vehicle
+              </button>
+            </div>
             <Select
               value={customerId}
               onChange={(e) => {
@@ -192,7 +307,7 @@ export default function NewWorkOrder() {
                 </option>
               ))}
             </Select>
-          </Field>
+          </div>
 
           <Field label="Vehicle / Vessel / Equipment">
             <Select
@@ -244,6 +359,159 @@ export default function NewWorkOrder() {
           {saving ? 'Creating…' : 'Create Repair Order'}
         </Button>
       </form>
+
+      {/* Inline Quick Customer & Vehicle Modal */}
+      {quickCustOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto"
+          onClick={() => setQuickCustOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-lg rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-2xl text-slate-100 space-y-4 animate-in fade-in zoom-in-95 duration-150 my-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-500 text-slate-950 font-black">
+                  <UsersIcon className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-white">Quick Customer Intake</h3>
+                  <p className="text-xs text-slate-400">Add contact info and vehicle without leaving RO intake</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setQuickCustOpen(false)}
+                className="rounded-full bg-slate-800 p-1.5 text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateQuickCustomer} className="space-y-4">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
+                  Customer Contact
+                </span>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Field label="First Name *">
+                    <Input
+                      value={qFirstName}
+                      onChange={(e) => setQFirstName(e.target.value)}
+                      placeholder="e.g. Dale"
+                      className="bg-slate-900 text-white"
+                      required
+                    />
+                  </Field>
+                  <Field label="Last Name *">
+                    <Input
+                      value={qLastName}
+                      onChange={(e) => setQLastName(e.target.value)}
+                      placeholder="e.g. Miller"
+                      className="bg-slate-900 text-white"
+                      required
+                    />
+                  </Field>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Field label="Phone #">
+                    <Input
+                      value={qPhone}
+                      onChange={(e) => setQPhone(e.target.value)}
+                      placeholder="406-555-0199"
+                      className="bg-slate-900 text-white font-mono"
+                    />
+                  </Field>
+                  <Field label="Email">
+                    <Input
+                      value={qEmail}
+                      onChange={(e) => setQEmail(e.target.value)}
+                      placeholder="dale@example.com"
+                      className="bg-slate-900 text-white"
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
+                  Vehicle / Machine (Optional)
+                </span>
+                <div className="grid grid-cols-3 gap-2">
+                  <Field label="Type">
+                    <Select
+                      value={qType}
+                      onChange={(e) => setQType(e.target.value as VehicleType)}
+                      className="bg-slate-900 text-white text-xs"
+                    >
+                      <option value="auto">🚗 Auto / Truck</option>
+                      <option value="motorcycle">🏍️ Motorcycle / Dirt</option>
+                      <option value="atv">🛞 ATV / UTV</option>
+                      <option value="snowmobile">❄️ Snowmobile</option>
+                      <option value="marine">🚤 Marine / Boat</option>
+                      <option value="equipment">🚜 Equipment</option>
+                    </Select>
+                  </Field>
+                  <Field label="Year">
+                    <Input
+                      value={qYear}
+                      onChange={(e) => setQYear(e.target.value)}
+                      placeholder="2024"
+                      className="bg-slate-900 text-white font-mono"
+                    />
+                  </Field>
+                  <Field label="Make">
+                    <Input
+                      value={qMake}
+                      onChange={(e) => setQMake(e.target.value)}
+                      placeholder="e.g. Suzuki / Polaris"
+                      className="bg-slate-900 text-white"
+                    />
+                  </Field>
+                </div>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Field label="Model / Spec">
+                    <Input
+                      value={qModel}
+                      onChange={(e) => setQModel(e.target.value)}
+                      placeholder="e.g. KingQuad 750 / RZR XP"
+                      className="bg-slate-900 text-white"
+                    />
+                  </Field>
+                  <Field label="Plate / Tag / Reg">
+                    <Input
+                      value={qPlate}
+                      onChange={(e) => setQPlate(e.target.value)}
+                      placeholder="Optional plate #"
+                      className="bg-slate-900 text-white font-mono uppercase"
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setQuickCustOpen(false)}
+                  className="text-xs text-slate-400"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="accent"
+                  disabled={savingQuick}
+                  className="text-xs font-bold"
+                >
+                  {savingQuick ? 'Saving…' : 'Save & Attach to RO'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

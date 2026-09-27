@@ -145,6 +145,7 @@ export default function WorkOrderDetail() {
   const [partSearchQuery, setPartSearchQuery] = useState('');
   const [partEntryMode, setPartEntryMode] = useState<'inventory' | 'manual'>('inventory');
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'items' | 'details' | 'signature'>('items');
   const [adding, setAdding] = useState(false);
 
   // Sync default tax % from shop settings
@@ -569,262 +570,304 @@ export default function WorkOrderDetail() {
         right={<Badge status={wo.status} />}
       />
 
+      {/* Mobile Ergonomic Segmented Tabs (Visible on mobile only) */}
+      <div className="flex rounded-2xl bg-slate-200 p-1 text-xs font-black lg:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileTab('items')}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 transition ${
+            mobileTab === 'items' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-600'
+          }`}
+        >
+          <span>📋 Items &amp; Rates</span>
+          <span className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] text-slate-700">
+            {items.length}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('details')}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 transition ${
+            mobileTab === 'details' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-600'
+          }`}
+        >
+          <span>🔍 Vehicle &amp; Notes</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('signature')}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2 transition ${
+            mobileTab === 'signature' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-600'
+          }`}
+        >
+          <span>✍️ Signature</span>
+          {wo.signature_url && (
+            <span className="text-[10px] text-emerald-600 font-black">✓</span>
+          )}
+        </button>
+      </div>
+
       {/* 2-Column Responsive Desktop Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left Column (5 Cols on desktop): Customer, Vehicle, Status Actions & Notes */}
+        {/* Left Column (5 Cols on desktop): Customer, Vehicle, Status Actions, Notes, Photos, & Signature */}
         <div className="space-y-4 lg:col-span-5">
-          <Card className="p-4">
-            <Link to={`/customers/${wo.customer_id}`} className="block">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-bold text-slate-900">{fullName(wo.customer)}</p>
-                  {wo.customer.phone && <p className="text-xs text-slate-500">{wo.customer.phone}</p>}
-                </div>
-                <ChevronRightIcon className="h-4 w-4 text-slate-400" />
-              </div>
-
-              {wo.vehicle ? (
-                <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-2.5">
-                  <div className="flex items-start gap-2.5">
-                    <VehicleIcon type={wo.vehicle.type} className="h-5 w-5 text-slate-700 shrink-0 mt-0.5" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-slate-800">
-                        {vehicleLabel(wo.vehicle)}
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        {[
-                          wo.vehicle.plate ? `${vehicleTypeInfo?.regLabel}: ${wo.vehicle.plate}` : null,
-                          wo.vehicle.vin ? `${vehicleTypeInfo?.idLabel}: ${wo.vehicle.vin}` : null,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </p>
-                    </div>
+          {/* Details Tab Content (Mobile 'details' tab or Desktop always) */}
+          <div className={mobileTab === 'details' ? 'space-y-4' : 'hidden lg:block lg:space-y-4'}>
+            <Card className="p-4">
+              <Link to={`/customers/${wo.customer_id}`} className="block">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{fullName(wo.customer)}</p>
+                    {wo.customer.phone && <p className="text-xs text-slate-500">{wo.customer.phone}</p>}
                   </div>
+                  <ChevronRightIcon className="h-4 w-4 text-slate-400" />
+                </div>
 
-                  {/* Engine Spec Details */}
-                  {(wo.vehicle.engine_info || wo.vehicle.engine2_info) && (
-                    <div className="border-t border-slate-200/60 pt-1.5 text-[11px] text-slate-600">
-                      {wo.vehicle.engine_info && (
-                        <p>
-                          <strong className="text-slate-700">
-                            {wo.vehicle.engine2_info ? 'Main Motor:' : 'Motor:'}
-                          </strong>{' '}
-                          {wo.vehicle.engine_info}
-                          {wo.vehicle.engine_serial ? ` (S/N: ${wo.vehicle.engine_serial})` : ''}
-                          {wo.vehicle.engine_hours ? ` · ${wo.vehicle.engine_hours} hrs` : ''}
+                {wo.vehicle ? (
+                  <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-2.5">
+                    <div className="flex items-start gap-2.5">
+                      <VehicleIcon type={wo.vehicle.type} className="h-5 w-5 text-slate-700 shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-slate-800">
+                          {vehicleLabel(wo.vehicle)}
                         </p>
-                      )}
-                      {wo.vehicle.engine2_info && (
-                        <p className="mt-0.5">
-                          <strong className="text-slate-700">Kicker / 2nd Motor:</strong>{' '}
-                          {wo.vehicle.engine2_info}
-                          {wo.vehicle.engine2_serial ? ` (S/N: ${wo.vehicle.engine2_serial})` : ''}
-                          {wo.vehicle.engine2_hours ? ` · ${wo.vehicle.engine2_hours} hrs` : ''}
+                        <p className="text-[11px] text-slate-500">
+                          {[
+                            wo.vehicle.plate ? `${vehicleTypeInfo?.regLabel}: ${wo.vehicle.plate}` : null,
+                            wo.vehicle.vin ? `${vehicleTypeInfo?.idLabel}: ${wo.vehicle.vin}` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </p>
-                      )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              ) : (
-                <p className="mt-2 text-xs text-slate-400">No vehicle on file</p>
-              )}
-            </Link>
-          </Card>
 
-          {/* Action bar for Emailing & Sharing Estimate */}
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              variant="ghost"
-              className="text-xs"
-              onClick={handleEmailEstimate}
-              title="Open email draft with formatted estimate"
-            >
-              <MailIcon className="h-4 w-4 text-slate-600" /> Email Estimate
-            </Button>
-            <Button
-              variant="ghost"
-              className="text-xs"
-              onClick={handleShareEstimate}
-              title="Share via text/SMS or copy text"
-            >
-              <ShareIcon className="h-4 w-4 text-slate-600" /> Share / Text
-            </Button>
-          </div>
-
-          {/* Status Buttons & Invoice Generator */}
-          <div className="space-y-2">
-            {wo.status === 'open' && (
-              <Button variant="accent" className="w-full text-xs font-bold" disabled={acting} onClick={() => updateStatus('in_progress')}>
-                ▶ Start Repair Order
-              </Button>
-            )}
-            {wo.status === 'in_progress' && (
-              <Button variant="success" className="w-full text-xs font-bold" disabled={acting} onClick={() => updateStatus('completed')}>
-                ✓ Mark RO Completed
-              </Button>
-            )}
-            {wo.status === 'completed' && !showInvoicePanel && (
-              <Button
-                variant="accent"
-                className="w-full text-xs font-bold"
-                onClick={() => setShowInvoicePanel(true)}
-              >
-                <SendIcon className="h-4 w-4" /> Create &amp; Send Invoice
-              </Button>
-            )}
-
-            {showInvoicePanel && (
-              <Card className="space-y-3 border-orange-300 bg-orange-50/50 p-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
-                  Generate Customer Invoice
-                </p>
-                <Field label="Sales Tax Rate (%)">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={taxPct}
-                    onChange={(e) => setTaxPct(e.target.value)}
-                    placeholder="e.g. 7.5"
-                  />
-                </Field>
-                <div className="flex gap-2">
-                  <Button
-                    variant="accent"
-                    className="flex-1 text-xs font-bold"
-                    disabled={acting || items.length === 0}
-                    onClick={createInvoice}
-                  >
-                    Invoice {money(invoiceTotal)}
-                  </Button>
-                  <Button variant="ghost" className="text-xs" onClick={() => setShowInvoicePanel(false)}>
-                    Cancel
-                  </Button>
-                </div>
-                {items.length === 0 && (
-                  <p className="text-xs text-orange-600">Add at least one line item first.</p>
+                    {/* Engine Spec Details */}
+                    {(wo.vehicle.engine_info || wo.vehicle.engine2_info) && (
+                      <div className="border-t border-slate-200/60 pt-1.5 text-[11px] text-slate-600">
+                        {wo.vehicle.engine_info && (
+                          <p>
+                            <strong className="text-slate-700">
+                              {wo.vehicle.engine2_info ? 'Main Motor:' : 'Motor:'}
+                            </strong>{' '}
+                            {wo.vehicle.engine_info}
+                            {wo.vehicle.engine_serial ? ` (S/N: ${wo.vehicle.engine_serial})` : ''}
+                            {wo.vehicle.engine_hours ? ` · ${wo.vehicle.engine_hours} hrs` : ''}
+                          </p>
+                        )}
+                        {wo.vehicle.engine2_info && (
+                          <p className="mt-0.5">
+                            <strong className="text-slate-700">Kicker / 2nd Motor:</strong>{' '}
+                            {wo.vehicle.engine2_info}
+                            {wo.vehicle.engine2_serial ? ` (S/N: ${wo.vehicle.engine2_serial})` : ''}
+                            {wo.vehicle.engine2_hours ? ` · ${wo.vehicle.engine2_hours} hrs` : ''}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-slate-400">No vehicle on file</p>
                 )}
-              </Card>
-            )}
-
-            {wo.status === 'invoiced' && invoice && (
-              <Link
-                to={`/invoices/${invoice.id}`}
-                className="flex items-center justify-between rounded-2xl bg-slate-900 px-4 py-3.5 text-white transition hover:bg-slate-800"
-              >
-                <div>
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
-                    Invoice {invoice.number}
-                  </p>
-                  <p className="text-sm font-bold">
-                    {money(invoice.total)} · <span className="capitalize">{invoice.status}</span>
-                  </p>
-                </div>
-                <ChevronRightIcon className="h-5 w-5 text-slate-400" />
               </Link>
-            )}
+            </Card>
+
+            {/* Action bar for Emailing & Sharing Estimate */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                variant="ghost"
+                className="text-xs"
+                onClick={handleEmailEstimate}
+                title="Open email draft with formatted estimate"
+              >
+                <MailIcon className="h-4 w-4 text-slate-600" /> Email Estimate
+              </Button>
+              <Button
+                variant="ghost"
+                className="text-xs"
+                onClick={handleShareEstimate}
+                title="Share via text/SMS or copy text"
+              >
+                <ShareIcon className="h-4 w-4 text-slate-600" /> Share / Text
+              </Button>
+            </div>
+
+            {/* Status Buttons & Invoice Generator */}
+            <div className="space-y-2">
+              {wo.status === 'open' && (
+                <Button variant="accent" className="w-full text-xs font-bold" disabled={acting} onClick={() => updateStatus('in_progress')}>
+                  ▶ Start Repair Order
+                </Button>
+              )}
+              {wo.status === 'in_progress' && (
+                <Button variant="success" className="w-full text-xs font-bold" disabled={acting} onClick={() => updateStatus('completed')}>
+                  ✓ Mark RO Completed
+                </Button>
+              )}
+              {wo.status === 'completed' && !showInvoicePanel && (
+                <Button
+                  variant="accent"
+                  className="w-full text-xs font-bold"
+                  onClick={() => setShowInvoicePanel(true)}
+                >
+                  <SendIcon className="h-4 w-4" /> Create &amp; Send Invoice
+                </Button>
+              )}
+
+              {showInvoicePanel && (
+                <Card className="space-y-3 border-orange-300 bg-orange-50/50 p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
+                    Generate Customer Invoice
+                  </p>
+                  <Field label="Sales Tax Rate (%)">
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={taxPct}
+                      onChange={(e) => setTaxPct(e.target.value)}
+                      placeholder="e.g. 7.5"
+                    />
+                  </Field>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="accent"
+                      className="flex-1 text-xs font-bold"
+                      disabled={acting || items.length === 0}
+                      onClick={createInvoice}
+                    >
+                      Invoice {money(invoiceTotal)}
+                    </Button>
+                    <Button variant="ghost" className="text-xs" onClick={() => setShowInvoicePanel(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                  {items.length === 0 && (
+                    <p className="text-xs text-orange-600">Add at least one line item first.</p>
+                  )}
+                </Card>
+              )}
+
+              {wo.status === 'invoiced' && invoice && (
+                <Link
+                  to={`/invoices/${invoice.id}`}
+                  className="flex items-center justify-between rounded-2xl bg-slate-900 px-4 py-3.5 text-white transition hover:bg-slate-800"
+                >
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
+                      Invoice {invoice.number}
+                    </p>
+                    <p className="text-sm font-bold">
+                      {money(invoice.total)} · <span className="capitalize">{invoice.status}</span>
+                    </p>
+                  </div>
+                  <ChevronRightIcon className="h-5 w-5 text-slate-400" />
+                </Link>
+              )}
+            </div>
+
+            {/* Job Notes & Hour Tracking */}
+            <Card className="space-y-3 p-4">
+              <Field label={vehicleTypeInfo ? `${vehicleTypeInfo.hoursLabel} at service` : 'Service Hours / Miles'}>
+                <Input
+                  value={hoursValue}
+                  onChange={(e) => setHoursDraft(e.target.value)}
+                  placeholder="e.g. 145.2 hrs / 102,400 mi"
+                />
+              </Field>
+
+              <Field label="Job Notes & Diagnoses">
+                <Textarea
+                  value={notesValue}
+                  onChange={(e) => setNotesDraft(e.target.value)}
+                  placeholder="Customer requests, diagnoses, gate codes, part numbers, etc."
+                />
+              </Field>
+
+              {(notesDraft !== null || hoursDraft !== null) && (
+                <Button variant="ghost" className="w-full text-xs font-semibold" onClick={saveDetails}>
+                  Save Updates
+                </Button>
+              )}
+            </Card>
+
+            {/* Job Site Photos & Pre-Inspection Gallery */}
+            <PhotoGallery workOrderId={wo.id} />
           </div>
 
-          {/* Job Notes & Hour Tracking */}
-          <Card className="space-y-3 p-4">
-            <Field label={vehicleTypeInfo ? `${vehicleTypeInfo.hoursLabel} at service` : 'Service Hours / Miles'}>
-              <Input
-                value={hoursValue}
-                onChange={(e) => setHoursDraft(e.target.value)}
-                placeholder="e.g. 145.2 hrs / 102,400 mi"
-              />
-            </Field>
-
-            <Field label="Job Notes & Diagnoses">
-              <Textarea
-                value={notesValue}
-                onChange={(e) => setNotesDraft(e.target.value)}
-                placeholder="Customer requests, diagnoses, gate codes, part numbers, etc."
-              />
-            </Field>
-
-            {(notesDraft !== null || hoursDraft !== null) && (
-              <Button variant="ghost" className="w-full text-xs font-semibold" onClick={saveDetails}>
-                Save Updates
-              </Button>
-            )}
-          </Card>
-
-          {/* Customer Signature & Authorization Card */}
-          {wo.signature_url ? (
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-2.5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <div className="flex items-center gap-1.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-600" />
-                  <span className="text-xs font-bold uppercase tracking-wide text-slate-800">
-                    Customer Authorization
+          {/* Signature Tab Content (Mobile 'signature' tab or Desktop always) */}
+          <div className={mobileTab === 'signature' ? 'space-y-2' : 'hidden lg:block lg:space-y-2'}>
+            {wo.signature_url ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-2.5">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <CheckIcon className="h-4 w-4 text-emerald-600" />
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-800">
+                      Customer Authorization
+                    </span>
+                  </div>
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                    Signed &amp; Verified
                   </span>
                 </div>
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                  Signed & Verified
-                </span>
-              </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-2 flex items-center justify-center">
-                <img src={wo.signature_url} alt="Customer Signature" className="max-h-20 object-contain" />
-              </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-500">
-                <p>
-                  Signed by <strong className="text-slate-800">{wo.signed_by_name || 'Customer'}</strong>
-                </p>
-                <p>{wo.signed_at ? new Date(wo.signed_at).toLocaleDateString() : ''}</p>
-              </div>
-              <div className="flex gap-2 pt-1 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowSignaturePad(true)}
-                  className="text-[11px] font-semibold text-orange-600 hover:text-orange-700"
-                >
-                  Re-sign / Update
-                </button>
-                <span className="text-slate-300">·</span>
-                <button
-                  type="button"
-                  onClick={handleClearSignature}
-                  className="text-[11px] font-semibold text-slate-400 hover:text-red-500"
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          ) : showSignaturePad ? (
-            <SignaturePad
-              onSave={handleSaveSignature}
-              onCancel={() => setShowSignaturePad(false)}
-              defaultName={fullName(wo.customer)}
-            />
-          ) : (
-            <div className="rounded-2xl border border-dashed border-orange-300 bg-orange-50/50 p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <CheckIcon className="h-4 w-4 text-orange-700" />
-                  <span className="text-xs font-bold text-orange-950">Customer Signature</span>
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-2 flex items-center justify-center">
+                  <img src={wo.signature_url} alt="Customer Signature" className="max-h-20 object-contain" />
                 </div>
-                <Button
-                  type="button"
-                  variant="accent"
-                  onClick={() => setShowSignaturePad(true)}
-                  className="text-xs font-bold shadow-xs px-2.5 py-1.5"
-                >
-                  Get Signature
-                </Button>
+                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                  <p>
+                    Signed by <strong className="text-slate-800">{wo.signed_by_name || 'Customer'}</strong>
+                  </p>
+                  <p>{wo.signed_at ? new Date(wo.signed_at).toLocaleDateString() : ''}</p>
+                </div>
+                <div className="flex gap-2 pt-1 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowSignaturePad(true)}
+                    className="text-[11px] font-semibold text-orange-600 hover:text-orange-700"
+                  >
+                    Re-sign / Update
+                  </button>
+                  <span className="text-slate-300">·</span>
+                  <button
+                    type="button"
+                    onClick={handleClearSignature}
+                    className="text-[11px] font-semibold text-slate-400 hover:text-red-500"
+                  >
+                    Remove
+                  </button>
+                </div>
               </div>
-              <p className="text-[11px] text-orange-800/80">
-                Capture customer finger signature & authorization directly on your phone screen.
-              </p>
-            </div>
-          )}
-
-          {/* Job Site Photos & Pre-Inspection Gallery */}
-          <PhotoGallery workOrderId={wo.id} />
+            ) : showSignaturePad ? (
+              <SignaturePad
+                onSave={handleSaveSignature}
+                onCancel={() => setShowSignaturePad(false)}
+                defaultName={fullName(wo.customer)}
+              />
+            ) : (
+              <div className="rounded-2xl border border-dashed border-orange-300 bg-orange-50/50 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <CheckIcon className="h-4 w-4 text-orange-700" />
+                    <span className="text-xs font-bold text-orange-950">Customer Signature</span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="accent"
+                    onClick={() => setShowSignaturePad(true)}
+                    className="text-xs font-bold shadow-xs px-2.5 py-1.5"
+                  >
+                    Get Signature
+                  </Button>
+                </div>
+                <p className="text-[11px] text-orange-800/80">
+                  Capture customer finger signature &amp; authorization directly on your phone screen.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right Column (7 Cols on desktop): Line Items & Fast Part Number Search */}
-        <div className="space-y-4 lg:col-span-7">
+        <div className={`space-y-4 lg:col-span-7 ${mobileTab === 'items' ? 'block' : 'hidden lg:block'}`}>
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-600">
               Line Items ({items.length})

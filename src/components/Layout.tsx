@@ -514,7 +514,24 @@ export default function Layout() {
                     </span>
                     <div>
                       <p className="text-xs font-bold text-slate-900">⚡ New Part Invoice</p>
-                      <p className="text-[10px] text-slate-500">Direct parts invoice</p>
+                      <p className="text-[10px] text-slate-500">Direct parts checkout</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      navigate('/schedule');
+                    }}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-800">
+                      <CalendarIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Bay Dispatch</p>
+                      <p className="text-[10px] text-slate-500">Shop calendar</p>
                     </div>
                   </button>
 
@@ -531,7 +548,7 @@ export default function Layout() {
                     </span>
                     <div>
                       <p className="text-xs font-bold text-slate-900">Invoices &amp; Billing</p>
-                      <p className="text-[10px] text-slate-500">Payments &amp; receipts</p>
+                      <p className="text-[10px] text-slate-500">Receivables &amp; payments</p>
                     </div>
                   </button>
 
@@ -592,16 +609,16 @@ export default function Layout() {
                     type="button"
                     onClick={() => {
                       setShowMoreMenu(false);
-                      navigate('/invoices');
+                      navigate('/parts/counter');
                     }}
                     className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
                   >
-                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-800">
-                      <ReceiptIcon className="h-5 w-5" />
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-100 text-orange-800">
+                      <BoxIcon className="h-5 w-5" />
                     </span>
                     <div>
-                      <p className="text-xs font-bold text-slate-900">Invoices &amp; Billing</p>
-                      <p className="text-[10px] text-slate-500">Payments &amp; receipts</p>
+                      <p className="text-xs font-bold text-slate-900">⚡ New Part Invoice</p>
+                      <p className="text-[10px] text-slate-500">Direct parts checkout</p>
                     </div>
                   </button>
 
@@ -613,12 +630,29 @@ export default function Layout() {
                     }}
                     className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
                   >
-                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-100 text-orange-800">
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-800">
                       <BoxIcon className="h-5 w-5" />
                     </span>
                     <div>
-                      <p className="text-xs font-bold text-slate-900">Parts Inventory</p>
-                      <p className="text-[10px] text-slate-500">Truck stock lookup</p>
+                      <p className="text-xs font-bold text-slate-900">Parts &amp; Inventory</p>
+                      <p className="text-[10px] text-slate-500">Truck stock &amp; orders</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      navigate('/invoices');
+                    }}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-800">
+                      <ReceiptIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Invoices &amp; Billing</p>
+                      <p className="text-[10px] text-slate-500">Payments &amp; receipts</p>
                     </div>
                   </button>
 

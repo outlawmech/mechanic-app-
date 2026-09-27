@@ -599,15 +599,7 @@ export default function Parts() {
                 className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition active:scale-95"
               >
                 <ScanIcon className="h-4 w-4 text-orange-400" />
-                <span>📷 Scan Barcode / OCR</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCsvOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
-              >
-                <FileSpreadsheetIcon className="h-4 w-4 text-orange-600" />
-                <span>📂 Import CSV</span>
+                <span>📷 Scan</span>
               </button>
               <button
                 type="button"
@@ -615,7 +607,16 @@ export default function Parts() {
                 className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-xs font-bold text-purple-300 shadow-xs hover:bg-purple-500/20 transition"
               >
                 <BookOpenIcon className="h-4 w-4 text-purple-400" />
-                <span>📖 OEM Price Books {pbStats.totalSkus > 0 ? `(${pbStats.totalSkus.toLocaleString()})` : ''}</span>
+                <span>Price Books {pbStats.totalSkus > 0 ? `(${pbStats.totalSkus.toLocaleString()})` : ''}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCsvOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
+                title="Bulk CSV Inventory Importer"
+              >
+                <FileSpreadsheetIcon className="h-4 w-4 text-orange-600" />
+                <span className="hidden sm:inline">Import CSV</span>
               </button>
             </>
           )}
