@@ -18,13 +18,14 @@ import {
   UsersIcon,
 } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Select, Spinner, ErrorState } from '../components/ui';
+import CustomerSearchPicker from '../components/CustomerSearchPicker';
 import { useShopSettings } from '../lib/settings';
 import { useAsync } from '../lib/hooks';
 import { money, num, fullName } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID, getCachedLocal } from '../lib/offlineSync';
 import { searchPriceBooks, lookupPriceBookSku, type PriceBookEntry } from '../lib/priceBooks';
-import type { Customer, Part, PaymentMethod, SpecialOrder } from '../types';
+import type { Customer, CustomerWithVehicles, Part, PaymentMethod, SpecialOrder } from '../types';
 import PartScannerModal from '../components/PartScannerModal';
 
 interface CounterItem {
@@ -99,23 +100,26 @@ export default function CounterSale() {
 
   // Load Customers & Parts
   const { data, error, loading } = useAsync(async () => {
-    return safeFetchWithCache(
-      'counter_sale_inventory',
+    const sb = requireSupabase();
+    const customers = await safeFetchWithCache<CustomerWithVehicles[]>(
+      'customers',
       async () => {
-        const sb = requireSupabase();
-        const [custRes, partsRes] = await Promise.all([
-          sb.from('customers').select('*').order('first_name'),
-          sb.from('parts').select('*').order('name'),
-        ]);
-        check(custRes);
-        check(partsRes);
-        return {
-          customers: (custRes.data ?? []) as Customer[],
-          parts: (partsRes.data ?? []) as Part[],
-        };
+        const custRes = check(await sb.from('customers').select('*, vehicles:vehicles(*)').order('first_name'));
+        return (custRes.data ?? []) as CustomerWithVehicles[];
       },
-      { customers: [], parts: [] }
+      []
     );
+
+    const parts = await safeFetchWithCache<Part[]>(
+      'counter_parts_cache',
+      async () => {
+        const partsRes = check(await sb.from('parts').select('*').order('name'));
+        return (partsRes.data ?? []) as Part[];
+      },
+      []
+    );
+
+    return { customers, parts };
   }, []);
 
   const customers = data?.customers ?? [];
@@ -487,16 +491,21 @@ export default function CounterSale() {
                 </div>
               </div>
             ) : (
-              <Field label="Select Customer Account">
-                <Select value={customerId} onChange={(e) => setCustomerId(e.target.value)} required={!isWalkIn}>
-                  <option value="">-- Choose Customer --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {fullName(c)} ({c.phone || c.email})
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+              <CustomerSearchPicker
+                customers={customers}
+                selectedCustomerId={customerId}
+                onSelectCustomer={(c) => {
+                  setCustomerId(c?.id || '');
+                  if (c) {
+                    setWalkInName(fullName(c));
+                    if (c.phone) setWalkInPhone(c.phone);
+                  }
+                }}
+                placeholder="🔍 Search customer account by name, phone #, email…"
+                label="Registered Customer Account"
+                helperText="Search by customer name, phone number, or fleet vehicle to attach this invoice to their account."
+                required={!isWalkIn}
+              />
             )}
           </Card>
 

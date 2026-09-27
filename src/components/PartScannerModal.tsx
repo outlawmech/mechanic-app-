@@ -228,6 +228,7 @@ export default function PartScannerModal({
   // Toggle Torch/Flashlight
   async function toggleTorch() {
     const nextState = !torchOn;
+    let success = false;
 
     // 1. Direct WebRTC track applyConstraints (Supported on Chrome, Edge, Safari, Android WebView)
     const currentStream = activeStreamRef.current || (videoRef.current?.srcObject as MediaStream | null);
@@ -235,14 +236,17 @@ export default function PartScannerModal({
       const tracks = currentStream.getVideoTracks();
       for (const track of tracks) {
         try {
+          const caps = (track.getCapabilities ? track.getCapabilities() : {}) as any;
           await track.applyConstraints({
             advanced: [{ torch: nextState } as any],
           });
+          success = true;
         } catch {
           try {
             await (track as any).applyConstraints({
               torch: nextState,
             });
+            success = true;
           } catch (err) {
             console.warn('WebRTC torch constraint error:', err);
           }
@@ -251,13 +255,14 @@ export default function PartScannerModal({
     }
 
     // 2. Try ImageCapture API if available
-    if (typeof (window as any).ImageCapture !== 'undefined' && currentStream) {
+    if (!success && typeof (window as any).ImageCapture !== 'undefined' && currentStream) {
       try {
         const track = currentStream.getVideoTracks()[0];
         if (track) {
           const imageCapture = new (window as any).ImageCapture(track);
           if (typeof imageCapture.setOptions === 'function') {
-            await imageCapture.setOptions({ torch: nextState });
+            await imageCapture.setOptions({ fillLightMode: nextState ? 'torch' : 'off', torch: nextState });
+            success = true;
           }
         }
       } catch (icErr) {
@@ -268,7 +273,8 @@ export default function PartScannerModal({
     // 3. Try native Android Flashlight Interface if available
     if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
       try {
-        (window as any).AndroidNativeFlashlight.setTorch(nextState);
+        const res = (window as any).AndroidNativeFlashlight.setTorch(nextState);
+        if (res) success = true;
       } catch (nativeErr) {
         console.warn('Native Android torch error:', nativeErr);
       }

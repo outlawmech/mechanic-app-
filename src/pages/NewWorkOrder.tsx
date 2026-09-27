@@ -1,12 +1,17 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon, PlusIcon, UsersIcon, WrenchIcon } from '../components/icons';
+import { ArrowLeftIcon, PlusIcon, UsersIcon, WrenchIcon, VehicleIcon, ScanIcon } from '../components/icons';
 import { Button, Card, EmptyState, ErrorState, Field, Input, Textarea, PageTitle, Select, Spinner } from '../components/ui';
+import CustomerSearchPicker from '../components/CustomerSearchPicker';
+import VinScannerModal from '../components/VinScannerModal';
+import IdCardScannerModal from '../components/IdCardScannerModal';
 import { useAsync } from '../lib/hooks';
 import { fullName, getVehicleTypeInfo, todayISO, vehicleLabel } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
+import { type DecodedVehicleInfo } from '../lib/vinDecoder';
+import { type ParsedDriverLicense } from '../lib/aamvaParser';
 import type { CustomerWithVehicles, VehicleType, WorkOrderFull } from '../types';
 
 export default function NewWorkOrder() {
@@ -49,6 +54,22 @@ export default function NewWorkOrder() {
   const [qModel, setQModel] = useState('');
   const [qPlate, setQPlate] = useState('');
   const [savingQuick, setSavingQuick] = useState(false);
+  const [idScannerOpen, setIdScannerOpen] = useState(false);
+  const [vinScannerOpen, setVinScannerOpen] = useState(false);
+
+  function handleIdDetected(idData: ParsedDriverLicense) {
+    setQFirstName(idData.firstName || qFirstName);
+    setQLastName(idData.lastName || qLastName);
+    toast(`✓ Extracted ${idData.fullName}`);
+  }
+
+  function handleVinDetected(vin: string, decoded?: DecodedVehicleInfo) {
+    if (decoded?.year) setQYear(decoded.year);
+    if (decoded?.make) setQMake(decoded.make);
+    if (decoded?.model) setQModel(decoded.model);
+    if (decoded?.vehicle_type) setQType(decoded.vehicle_type);
+    toast(`✓ Scanned VIN: ${vin} ${decoded?.make ? `(${decoded.make} ${decoded.model})` : ''}`);
+  }
 
   const customer = customers?.find((c) => c.id === customerId);
   const selectedVehicle = customer?.vehicles?.find((v) => v.id === vehicleId);
@@ -278,44 +299,49 @@ export default function NewWorkOrder() {
 
       <form onSubmit={save} className="space-y-4">
         <Card className="space-y-4 p-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Customer *
-              </span>
-              <button
-                type="button"
-                onClick={() => setQuickCustOpen(true)}
-                className="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700"
-              >
-                <PlusIcon className="h-3.5 w-3.5" /> + New Customer &amp; Vehicle
-              </button>
-            </div>
-            <Select
-              value={customerId}
-              onChange={(e) => {
-                setCustomerId(e.target.value);
+          <CustomerSearchPicker
+            customers={customers ?? []}
+            selectedCustomerId={customerId}
+            onSelectCustomer={(c) => {
+              setCustomerId(c?.id || '');
+              const vehs = (c as CustomerWithVehicles)?.vehicles || [];
+              if (vehs.length === 1) {
+                setVehicleId(vehs[0].id);
+              } else if (!vehs.some((v) => v.id === vehicleId)) {
                 setVehicleId('');
-              }}
-              required
-            >
-              <option value="">Select a customer…</option>
-              {(customers ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {fullName(c)}
-                  {c.phone ? ` · ${c.phone}` : ''}
-                </option>
-              ))}
-            </Select>
-          </div>
+              }
+            }}
+            onCustomerCreated={(newCust) => {
+              setCustomerId(newCust.id);
+            }}
+            placeholder="🔍 Search customer by name, phone #, email, or vehicle…"
+            label="Customer Account"
+            helperText="Search by name, phone, or vehicle. Type to search or tap '+ Quick New Customer' to register walk-ins."
+            required
+          />
 
-          <Field label="Vehicle / Vessel / Equipment">
+          <div className="space-y-1.5 pt-1">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Vehicle / Equipment Serviced
+              </label>
+              {customer && (
+                <button
+                  type="button"
+                  onClick={() => setQuickCustOpen(true)}
+                  className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 hover:text-orange-700"
+                >
+                  <PlusIcon className="h-3 w-3" /> + Add Vehicle to Customer
+                </button>
+              )}
+            </div>
+
             <Select
               value={vehicleId}
               onChange={(e) => setVehicleId(e.target.value)}
               disabled={!customer}
             >
-              <option value="">{customer ? 'No vehicle specified / Shop equipment' : 'Pick a customer first'}</option>
+              <option value="">{customer ? 'No vehicle specified / Shop equipment / General Service' : 'Pick a customer first'}</option>
               {(customer?.vehicles ?? []).map((v) => {
                 const info = getVehicleTypeInfo(v.type);
                 return (
@@ -326,7 +352,7 @@ export default function NewWorkOrder() {
                 );
               })}
             </Select>
-          </Field>
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Scheduled Date">
@@ -394,9 +420,19 @@ export default function NewWorkOrder() {
 
             <form onSubmit={handleCreateQuickCustomer} className="space-y-4">
               <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
-                  Customer Contact
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
+                    Customer Contact
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIdScannerOpen(true)}
+                    className="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-2 py-1 text-[11px] font-bold text-orange-400 hover:bg-slate-700 transition"
+                  >
+                    <ScanIcon className="h-3 w-3" />
+                    <span>🪪 Scan ID</span>
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-2.5">
                   <Field label="First Name *">
                     <Input
@@ -438,9 +474,19 @@ export default function NewWorkOrder() {
               </div>
 
               <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
-                  Vehicle / Machine (Optional)
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
+                    Vehicle / Machine (Optional)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setVinScannerOpen(true)}
+                    className="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-2 py-1 text-[11px] font-bold text-orange-400 hover:bg-slate-700 transition"
+                  >
+                    <ScanIcon className="h-3 w-3" />
+                    <span>📷 Scan VIN</span>
+                  </button>
+                </div>
                 <div className="grid grid-cols-3 gap-2">
                   <Field label="Type">
                     <Select
@@ -515,6 +561,20 @@ export default function NewWorkOrder() {
           </div>
         </div>
       )}
+
+      {/* Driver's License Scanner Modal */}
+      <IdCardScannerModal
+        isOpen={idScannerOpen}
+        onClose={() => setIdScannerOpen(false)}
+        onIdDetected={handleIdDetected}
+      />
+
+      {/* Vehicle VIN / HIN Barcode Scanner Modal */}
+      <VinScannerModal
+        isOpen={vinScannerOpen}
+        onClose={() => setVinScannerOpen(false)}
+        onVinDetected={handleVinDetected}
+      />
     </div>
   );
 }

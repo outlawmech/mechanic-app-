@@ -132,8 +132,12 @@ public class MainActivity extends BridgeActivity {
                         String[] ids = cameraManager.getCameraIdList();
                         for (String id : ids) {
                             try {
-                                cameraManager.setTorchMode(id, enabled);
-                                return true;
+                                android.hardware.camera2.CameraCharacteristics characteristics = cameraManager.getCameraCharacteristics(id);
+                                Boolean hasFlash = characteristics.get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE);
+                                if (hasFlash != null && hasFlash) {
+                                    cameraManager.setTorchMode(id, enabled);
+                                    return true;
+                                }
                             } catch (Exception ignored) {
                             }
                         }

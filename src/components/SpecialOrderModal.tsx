@@ -11,12 +11,13 @@ import {
   WrenchIcon,
 } from './icons';
 import { Button, Card, Field, Input, Select, Textarea } from './ui';
+import CustomerSearchPicker from './CustomerSearchPicker';
 import { useToast } from './Toast';
 import { money, num, fullName } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
 import { generateUUID } from '../lib/offlineSync';
 import { searchPriceBooks, type PriceBookEntry } from '../lib/priceBooks';
-import type { Customer, SpecialOrder, SpecialOrderStatus, SpecialOrderPaymentStatus } from '../types';
+import type { Customer, CustomerWithVehicles, SpecialOrder, SpecialOrderStatus, SpecialOrderPaymentStatus } from '../types';
 
 const DISTRIBUTOR_PRESETS = [
   'Western Power Sports (WPS)',
@@ -346,20 +347,21 @@ export default function SpecialOrderModal({
             </div>
 
             {!isWalkIn && (
-              <Field label="Select Existing Customer Account">
-                <Select
-                  value={selectedCustomerId}
-                  onChange={(e) => handleSelectCustomer(e.target.value)}
-                  className="bg-slate-900 text-white"
-                >
-                  <option value="">-- Choose Customer --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {fullName(c)} ({c.phone || c.email})
-                    </option>
-                  ))}
-                </Select>
-              </Field>
+              <CustomerSearchPicker
+                customers={customers}
+                selectedCustomerId={selectedCustomerId}
+                onSelectCustomer={(c) => {
+                  if (c) {
+                    handleSelectCustomer(c.id);
+                  } else {
+                    setSelectedCustomerId('');
+                  }
+                }}
+                placeholder="🔍 Search customer database by name, phone #, email…"
+                label="Registered Customer Account"
+                helperText="Search by name, phone, or vehicle. Selecting a customer auto-fills their contact details."
+                dark
+              />
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

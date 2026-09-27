@@ -16,16 +16,19 @@ import {
   PhoneIcon,
   MailIcon,
   MapPinIcon,
+  ScanIcon,
 } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Select, Spinner, ErrorState } from '../components/ui';
+import CustomerSearchPicker from '../components/CustomerSearchPicker';
 import SignaturePad from '../components/SignaturePad';
+import VinScannerModal from '../components/VinScannerModal';
 import { useShopSettings } from '../lib/settings';
 import { useAsync } from '../lib/hooks';
 import { money, num, fullName, shortDate, longDate } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
-import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
-import { decodeVehicleVIN } from '../lib/vinDecoder';
-import type { BuyersOrderFull, Customer, DealershipUnit, PaymentMethod, UnitCondition, BuyersOrderStatus } from '../types';
+import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
+import { decodeVehicleVIN, type DecodedVehicleInfo } from '../lib/vinDecoder';
+import type { BuyersOrderFull, Customer, CustomerWithVehicles, DealershipUnit, PaymentMethod, UnitCondition, BuyersOrderStatus } from '../types';
 
 export default function BuyersOrderDetail() {
   const { id } = useParams();
@@ -42,15 +45,6 @@ export default function BuyersOrderDetail() {
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [signerName, setSignerName] = useState('');
 
-  // Inline Quick Customer Intake Modal State
-  const [quickCustOpen, setQuickCustOpen] = useState(false);
-  const [quickFirstName, setQuickFirstName] = useState('');
-  const [quickLastName, setQuickLastName] = useState('');
-  const [quickPhone, setQuickPhone] = useState('');
-  const [quickEmail, setQuickEmail] = useState('');
-  const [quickAddress, setQuickAddress] = useState('');
-  const [quickSaving, setQuickSaving] = useState(false);
-
   // Form State
   const [customerId, setCustomerId] = useState('');
   const [unitId, setUnitId] = useState(preselectedUnitId || '');
@@ -65,6 +59,15 @@ export default function BuyersOrderDetail() {
   const [unitVin, setUnitVin] = useState('');
   const [unitColor, setUnitColor] = useState('');
   const [unitCondition, setUnitCondition] = useState<UnitCondition>('new');
+  const [vinScannerOpen, setVinScannerOpen] = useState(false);
+
+  function handleVinDetected(scannedVin: string, decoded?: DecodedVehicleInfo) {
+    setUnitVin(scannedVin);
+    if (decoded?.year) setUnitYear(decoded.year);
+    if (decoded?.make) setUnitMake(decoded.make);
+    if (decoded?.model) setUnitModel(decoded.model);
+    toast(`✓ Scanned VIN: ${scannedVin} ${decoded?.make ? `(${decoded.make} ${decoded.model})` : ''}`);
+  }
 
   // Financial Breakdown
   const [unitPrice, setUnitPrice] = useState('');
@@ -82,32 +85,35 @@ export default function BuyersOrderDetail() {
   const [notes, setNotes] = useState('');
   const [markFloorplanPaidOff, setMarkFloorplanPaidOff] = useState(true);
 
-  // Load Customers, Showroom Units, and Existing Order (if editing)
+  // Load Universal Customers from shared database, Showroom Units, and Existing Order (if editing)
   const { data, error, loading, reload } = useAsync(async () => {
-    return safeFetchWithCache(
-      `buyers_order_data_${id || 'new'}`,
+    const sb = requireSupabase();
+
+    // 1. Fetch from shared universal customers cache
+    const customers = await safeFetchWithCache<CustomerWithVehicles[]>(
+      'customers',
       async () => {
-        const sb = requireSupabase();
-        const [custRes, unitsRes, orderRes] = await Promise.all([
-          sb.from('customers').select('*').order('first_name'),
-          sb.from('dealership_units').select('*').order('created_at', { ascending: false }),
-          !isNew
-            ? sb.from('buyers_orders').select('*, customer:customers(*)').eq('id', id!).limit(1)
-            : Promise.resolve({ data: [], error: null }),
-        ]);
-
-        check(custRes);
-        check(unitsRes);
-        if (!isNew && orderRes.error) check(orderRes);
-
-        const customers = (custRes.data ?? []) as Customer[];
-        const units = (unitsRes.data ?? []) as DealershipUnit[];
-        const existingOrder = (orderRes.data?.[0] ?? null) as BuyersOrderFull | null;
-
-        return { customers, units, existingOrder };
+        const custRes = check(await sb.from('customers').select('*, vehicles:vehicles(*)').order('first_name'));
+        return (custRes.data ?? []) as CustomerWithVehicles[];
       },
-      { customers: [], units: [], existingOrder: null }
+      []
     );
+
+    // 2. Fetch showroom units and existing order
+    const [unitsRes, orderRes] = await Promise.all([
+      sb.from('dealership_units').select('*').order('created_at', { ascending: false }),
+      !isNew
+        ? sb.from('buyers_orders').select('*, customer:customers(*)').eq('id', id!).limit(1)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    check(unitsRes);
+    if (!isNew && orderRes.error) check(orderRes);
+
+    const units = (unitsRes.data ?? []) as DealershipUnit[];
+    const existingOrder = (orderRes.data?.[0] ?? null) as BuyersOrderFull | null;
+
+    return { customers, units, existingOrder };
   }, [id, isNew]);
 
   const customers = data?.customers ?? [];
@@ -327,42 +333,6 @@ export default function BuyersOrderDetail() {
     }
   }
 
-  // Quick Inline Customer Creation (Shared with Service & Parts)
-  async function handleSaveQuickCustomer(e: FormEvent) {
-    e.preventDefault();
-    if (!quickFirstName.trim()) {
-      toast('Customer first name is required', 'error');
-      return;
-    }
-    setQuickSaving(true);
-    try {
-      const sb = requireSupabase();
-      const newCust = {
-        first_name: quickFirstName.trim(),
-        last_name: quickLastName.trim(),
-        phone: quickPhone.trim(),
-        email: quickEmail.trim(),
-        address: quickAddress.trim(),
-      };
-      const res = check(await sb.from('customers').insert(newCust).select('*').single());
-      if (res.data) {
-        toast(`Registered buyer ${fullName(res.data)}!`);
-        setCustomerId(res.data.id);
-        setQuickCustOpen(false);
-        setQuickFirstName('');
-        setQuickLastName('');
-        setQuickPhone('');
-        setQuickEmail('');
-        setQuickAddress('');
-        await reload();
-      }
-    } catch (err: any) {
-      toast(err.message || 'Failed to add customer', 'error');
-    } finally {
-      setQuickSaving(false);
-    }
-  }
-
   function handlePrintBillOfSale() {
     window.print();
   }
@@ -455,54 +425,31 @@ export default function BuyersOrderDetail() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Left 7 Cols: Customer & Vehicle Selection */}
           <div className="space-y-6 lg:col-span-7">
-            {/* Customer Section */}
-            <Card className="p-5 space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <div className="flex items-center gap-2">
-                  <span className="grid h-6 w-6 place-items-center rounded-lg bg-orange-100 text-orange-600 font-black text-xs">
-                    1
-                  </span>
+            {/* 1. Universal Customer / Buyer Information (Live Search-As-You-Type) */}
+            <Card className="p-5 space-y-3">
+              <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                <span className="grid h-6 w-6 place-items-center rounded-lg bg-orange-100 text-orange-600 font-black text-xs">
+                  1
+                </span>
+                <div>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
                     Buyer / Customer Information
                   </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Shared universal account across Service, Parts, and Sales
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setQuickCustOpen(true)}
-                  className="inline-flex items-center gap-1 rounded-xl bg-orange-500/10 px-2.5 py-1 text-xs font-black text-orange-700 hover:bg-orange-500 hover:text-slate-950 transition"
-                >
-                  <PlusIcon className="h-3.5 w-3.5" />
-                  <span>+ Quick New Buyer</span>
-                </button>
               </div>
 
-              <Field label="Choose Buyer (Shared across Service, Parts & Showroom) *">
-                <Select value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
-                  <option value="">-- Choose Buyer from Shop Customer Database --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {fullName(c)} {c.phone ? `· ${c.phone}` : ''} {c.email ? `· ${c.email}` : ''}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-
-              {selectedCustomer ? (
-                <div className="rounded-2xl bg-slate-50 p-3.5 border border-slate-200 text-xs space-y-1">
-                  <div className="flex items-center justify-between">
-                    <p className="font-bold text-slate-900">{fullName(selectedCustomer)}</p>
-                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800">
-                      Shared Client Account
-                    </span>
-                  </div>
-                  <p className="text-slate-600">{selectedCustomer.phone || 'No phone'} · {selectedCustomer.email || 'No email'}</p>
-                  <p className="text-slate-500">{selectedCustomer.address || 'No street address on file'}</p>
-                </div>
-              ) : (
-                <p className="text-[11px] text-slate-400 italic">
-                  Select an existing customer from your shop database or click "+ Quick New Buyer" to register a buyer.
-                </p>
-              )}
+              <CustomerSearchPicker
+                customers={customers}
+                selectedCustomerId={customerId}
+                onSelectCustomer={(c) => setCustomerId(c?.id || '')}
+                placeholder="🔍 Type customer name, phone #, email, or vehicle to search…"
+                label="Buyer Account"
+                helperText="Search by name, phone, or email across all shop customers. Register walk-ins with + Quick New Customer."
+                required
+              />
             </Card>
 
             {/* Vehicle Unit Section */}
@@ -511,9 +458,19 @@ export default function BuyersOrderDetail() {
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
                   2. Vehicle / Equipment Sold
                 </h3>
-                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-700">
-                  {unitCondition.toUpperCase()}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setVinScannerOpen(true)}
+                    className="inline-flex items-center gap-1 rounded-xl bg-orange-500 px-2.5 py-1 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 hover:bg-orange-400 transition active:scale-95"
+                  >
+                    <ScanIcon className="h-3.5 w-3.5" />
+                    <span>📷 Scan VIN</span>
+                  </button>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-700">
+                    {unitCondition.toUpperCase()}
+                  </span>
+                </div>
               </div>
 
               <Field label="Link From Showroom Inventory (Optional)">
@@ -879,108 +836,12 @@ export default function BuyersOrderDetail() {
         </div>
       )}
 
-      {/* Inline Quick Customer Intake Modal (Shared with Service & Parts) */}
-      {quickCustOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto"
-          onClick={() => setQuickCustOpen(false)}
-        >
-          <div
-            className="relative w-full max-w-lg rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-2xl text-slate-100 space-y-4 animate-in fade-in zoom-in-95 duration-150 my-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-500 text-slate-950 font-black">
-                  <UsersIcon className="h-5 w-5" />
-                </span>
-                <div>
-                  <h3 className="text-base font-bold text-white">Quick Buyer Intake</h3>
-                  <p className="text-xs text-slate-400">Registers into shared customer database across Service, Parts &amp; Sales</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                data-modal-close="true"
-                onClick={() => setQuickCustOpen(false)}
-                className="rounded-full bg-slate-800 p-1.5 text-slate-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveQuickCustomer} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="First Name *">
-                  <Input
-                    value={quickFirstName}
-                    onChange={(e) => setQuickFirstName(e.target.value)}
-                    placeholder="First name"
-                    className="bg-slate-950 text-white"
-                    required
-                  />
-                </Field>
-                <Field label="Last Name">
-                  <Input
-                    value={quickLastName}
-                    onChange={(e) => setQuickLastName(e.target.value)}
-                    placeholder="Last name"
-                    className="bg-slate-950 text-white"
-                  />
-                </Field>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Phone Number">
-                  <Input
-                    value={quickPhone}
-                    onChange={(e) => setQuickPhone(e.target.value)}
-                    placeholder="(406) 555-0199"
-                    className="bg-slate-950 text-white"
-                  />
-                </Field>
-                <Field label="Email Address">
-                  <Input
-                    type="email"
-                    value={quickEmail}
-                    onChange={(e) => setQuickEmail(e.target.value)}
-                    placeholder="buyer@example.com"
-                    className="bg-slate-950 text-white"
-                  />
-                </Field>
-              </div>
-
-              <Field label="Street Address">
-                <Input
-                  value={quickAddress}
-                  onChange={(e) => setQuickAddress(e.target.value)}
-                  placeholder="123 Main St, Helena, MT"
-                  className="bg-slate-950 text-white"
-                />
-              </Field>
-
-              <div className="flex gap-2 pt-2 border-t border-slate-800">
-                <Button
-                  type="submit"
-                  variant="accent"
-                  disabled={quickSaving}
-                  className="flex-1 text-xs font-black shadow-md shadow-orange-500/20"
-                >
-                  {quickSaving ? 'Saving…' : 'Save & Select Buyer →'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setQuickCustOpen(false)}
-                  className="text-xs text-slate-400 hover:text-white"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Vehicle VIN Scanner Modal */}
+      <VinScannerModal
+        isOpen={vinScannerOpen}
+        onClose={() => setVinScannerOpen(false)}
+        onVinDetected={handleVinDetected}
+      />
     </div>
   );
 }
