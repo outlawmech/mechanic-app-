@@ -57,6 +57,10 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    private void invokeSuperBackPressed() {
+        super.onBackPressed();
+    }
+
     @Override
     public void onBackPressed() {
         try {
@@ -75,7 +79,7 @@ public class MainActivity extends BridgeActivity {
                         @Override
                         public void onReceiveValue(String value) {
                             if ("\"root\"".equals(value) || value == null || "null".equals(value)) {
-                                MainActivity.super.onBackPressed();
+                                invokeSuperBackPressed();
                             }
                         }
                     }
