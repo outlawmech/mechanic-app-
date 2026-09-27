@@ -11,6 +11,11 @@ import {
   SparklesIcon,
   VehicleIcon,
   WrenchIcon,
+  PlusIcon,
+  UsersIcon,
+  PhoneIcon,
+  MailIcon,
+  MapPinIcon,
 } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Select, Spinner, ErrorState } from '../components/ui';
 import SignaturePad from '../components/SignaturePad';
@@ -36,6 +41,15 @@ export default function BuyersOrderDetail() {
   const [showSignPad, setShowSignPad] = useState(false);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [signerName, setSignerName] = useState('');
+
+  // Inline Quick Customer Intake Modal State
+  const [quickCustOpen, setQuickCustOpen] = useState(false);
+  const [quickFirstName, setQuickFirstName] = useState('');
+  const [quickLastName, setQuickLastName] = useState('');
+  const [quickPhone, setQuickPhone] = useState('');
+  const [quickEmail, setQuickEmail] = useState('');
+  const [quickAddress, setQuickAddress] = useState('');
+  const [quickSaving, setQuickSaving] = useState(false);
 
   // Form State
   const [customerId, setCustomerId] = useState('');
@@ -280,10 +294,72 @@ export default function BuyersOrderDetail() {
         toast('Buyer’s Order updated!');
         await reload();
       }
+
+      // If deal is finalized/completed, automatically sync sold vehicle to customer's service garage
+      if (customerId && status === 'completed' && unitMake && unitModel) {
+        try {
+          const checkVeh = await sb
+            .from('vehicles')
+            .select('id')
+            .eq('customer_id', customerId)
+            .eq('vin', unitVin.trim().toUpperCase())
+            .limit(1);
+
+          if (!checkVeh.data || checkVeh.data.length === 0) {
+            await sb.from('vehicles').insert({
+              customer_id: customerId,
+              year: parseInt(unitYear, 10) || new Date().getFullYear(),
+              make: unitMake.trim(),
+              model: unitModel.trim(),
+              vin: unitVin.trim().toUpperCase(),
+              color: unitColor.trim(),
+              type: 'motorcycle',
+            });
+          }
+        } catch (vehErr) {
+          console.warn('Vehicle sync to customer garage error:', vehErr);
+        }
+      }
     } catch (err: any) {
       toast(err.message || 'Failed to save deal sheet', 'error');
     } finally {
       setSaving(false);
+    }
+  }
+
+  // Quick Inline Customer Creation (Shared with Service & Parts)
+  async function handleSaveQuickCustomer(e: FormEvent) {
+    e.preventDefault();
+    if (!quickFirstName.trim()) {
+      toast('Customer first name is required', 'error');
+      return;
+    }
+    setQuickSaving(true);
+    try {
+      const sb = requireSupabase();
+      const newCust = {
+        first_name: quickFirstName.trim(),
+        last_name: quickLastName.trim(),
+        phone: quickPhone.trim(),
+        email: quickEmail.trim(),
+        address: quickAddress.trim(),
+      };
+      const res = check(await sb.from('customers').insert(newCust).select('*').single());
+      if (res.data) {
+        toast(`Registered buyer ${fullName(res.data)}!`);
+        setCustomerId(res.data.id);
+        setQuickCustOpen(false);
+        setQuickFirstName('');
+        setQuickLastName('');
+        setQuickPhone('');
+        setQuickEmail('');
+        setQuickAddress('');
+        await reload();
+      }
+    } catch (err: any) {
+      toast(err.message || 'Failed to add customer', 'error');
+    } finally {
+      setQuickSaving(false);
     }
   }
 
@@ -382,31 +458,50 @@ export default function BuyersOrderDetail() {
             {/* Customer Section */}
             <Card className="p-5 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-                  1. Buyer / Customer Information
-                </h3>
-                <Link to="/customers/new" className="text-xs font-bold text-orange-600 hover:underline">
-                  + Add Customer
-                </Link>
+                <div className="flex items-center gap-2">
+                  <span className="grid h-6 w-6 place-items-center rounded-lg bg-orange-100 text-orange-600 font-black text-xs">
+                    1
+                  </span>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    Buyer / Customer Information
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQuickCustOpen(true)}
+                  className="inline-flex items-center gap-1 rounded-xl bg-orange-500/10 px-2.5 py-1 text-xs font-black text-orange-700 hover:bg-orange-500 hover:text-slate-950 transition"
+                >
+                  <PlusIcon className="h-3.5 w-3.5" />
+                  <span>+ Quick New Buyer</span>
+                </button>
               </div>
 
-              <Field label="Select Registered Buyer *">
+              <Field label="Choose Buyer (Shared across Service, Parts & Showroom) *">
                 <Select value={customerId} onChange={(e) => setCustomerId(e.target.value)} required>
-                  <option value="">-- Choose Buyer --</option>
+                  <option value="">-- Choose Buyer from Shop Customer Database --</option>
                   {customers.map((c) => (
                     <option key={c.id} value={c.id}>
-                      {fullName(c)} {c.phone ? `(${c.phone})` : ''}
+                      {fullName(c)} {c.phone ? `· ${c.phone}` : ''} {c.email ? `· ${c.email}` : ''}
                     </option>
                   ))}
                 </Select>
               </Field>
 
-              {selectedCustomer && (
+              {selectedCustomer ? (
                 <div className="rounded-2xl bg-slate-50 p-3.5 border border-slate-200 text-xs space-y-1">
-                  <p className="font-bold text-slate-900">{fullName(selectedCustomer)}</p>
-                  <p className="text-slate-600">{selectedCustomer.phone} · {selectedCustomer.email}</p>
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-slate-900">{fullName(selectedCustomer)}</p>
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-800">
+                      Shared Client Account
+                    </span>
+                  </div>
+                  <p className="text-slate-600">{selectedCustomer.phone || 'No phone'} · {selectedCustomer.email || 'No email'}</p>
                   <p className="text-slate-500">{selectedCustomer.address || 'No street address on file'}</p>
                 </div>
+              ) : (
+                <p className="text-[11px] text-slate-400 italic">
+                  Select an existing customer from your shop database or click "+ Quick New Buyer" to register a buyer.
+                </p>
               )}
             </Card>
 
@@ -780,6 +875,109 @@ export default function BuyersOrderDetail() {
               }}
               onCancel={() => setShowSignPad(false)}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Inline Quick Customer Intake Modal (Shared with Service & Parts) */}
+      {quickCustOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-xs p-4 overflow-y-auto"
+          onClick={() => setQuickCustOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-lg rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-2xl text-slate-100 space-y-4 animate-in fade-in zoom-in-95 duration-150 my-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-500 text-slate-950 font-black">
+                  <UsersIcon className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-white">Quick Buyer Intake</h3>
+                  <p className="text-xs text-slate-400">Registers into shared customer database across Service, Parts &amp; Sales</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                data-modal-close="true"
+                onClick={() => setQuickCustOpen(false)}
+                className="rounded-full bg-slate-800 p-1.5 text-slate-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveQuickCustomer} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="First Name *">
+                  <Input
+                    value={quickFirstName}
+                    onChange={(e) => setQuickFirstName(e.target.value)}
+                    placeholder="First name"
+                    className="bg-slate-950 text-white"
+                    required
+                  />
+                </Field>
+                <Field label="Last Name">
+                  <Input
+                    value={quickLastName}
+                    onChange={(e) => setQuickLastName(e.target.value)}
+                    placeholder="Last name"
+                    className="bg-slate-950 text-white"
+                  />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Phone Number">
+                  <Input
+                    value={quickPhone}
+                    onChange={(e) => setQuickPhone(e.target.value)}
+                    placeholder="(406) 555-0199"
+                    className="bg-slate-950 text-white"
+                  />
+                </Field>
+                <Field label="Email Address">
+                  <Input
+                    type="email"
+                    value={quickEmail}
+                    onChange={(e) => setQuickEmail(e.target.value)}
+                    placeholder="buyer@example.com"
+                    className="bg-slate-950 text-white"
+                  />
+                </Field>
+              </div>
+
+              <Field label="Street Address">
+                <Input
+                  value={quickAddress}
+                  onChange={(e) => setQuickAddress(e.target.value)}
+                  placeholder="123 Main St, Helena, MT"
+                  className="bg-slate-950 text-white"
+                />
+              </Field>
+
+              <div className="flex gap-2 pt-2 border-t border-slate-800">
+                <Button
+                  type="submit"
+                  variant="accent"
+                  disabled={quickSaving}
+                  className="flex-1 text-xs font-black shadow-md shadow-orange-500/20"
+                >
+                  {quickSaving ? 'Saving…' : 'Save & Select Buyer →'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setQuickCustOpen(false)}
+                  className="text-xs text-slate-400 hover:text-white"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

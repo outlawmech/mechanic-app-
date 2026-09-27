@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 import { ArrowLeftIcon, PlusIcon, UsersIcon, WrenchIcon } from '../components/icons';
-import { Button, Card, EmptyState, ErrorState, Field, Input, PageTitle, Select, Spinner } from '../components/ui';
+import { Button, Card, EmptyState, ErrorState, Field, Input, Textarea, PageTitle, Select, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, getVehicleTypeInfo, todayISO, vehicleLabel } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
@@ -346,11 +346,13 @@ export default function NewWorkOrder() {
             </Field>
           </div>
 
-          <Field label="Primary Complaint / Service Request / Notes">
-            <Input
+          <Field label="Primary Complaint / Service Request / Detailed Notes">
+            <Textarea
+              rows={5}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="e.g. 100-hr service, won't turn over, hydraulic leak"
+              placeholder="e.g. 100-hr full service, won't turn over, hydraulic leak at boom cylinder, customer reports sputter under load at 4500 RPM..."
+              className="min-h-[140px]"
             />
           </Field>
         </Card>

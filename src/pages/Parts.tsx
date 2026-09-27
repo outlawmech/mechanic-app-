@@ -579,7 +579,7 @@ export default function Parts() {
 
   return (
     <div className="space-y-4">
-      {/* Page Title & Action Bar */}
+      {/* Page Title & Desktop Action Toolbar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageTitle
           title="Parts &amp; Inventory"
@@ -590,71 +590,145 @@ export default function Parts() {
           }
         />
 
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Desktop Uniform Actions (All aligned at uniform height) */}
+        <div className="hidden sm:flex items-center gap-2">
           {mainTab === 'inventory' && !addingPart && (
             <>
               <button
                 type="button"
                 onClick={() => setScannerOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition active:scale-95"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800 shadow-xs hover:bg-slate-50 transition active:scale-95"
               >
-                <ScanIcon className="h-4 w-4 text-orange-400" />
-                <span>📷 Scan</span>
+                <ScanIcon className="h-4 w-4 text-orange-600" />
+                <span>📷 Scan SKU</span>
               </button>
               <button
                 type="button"
                 onClick={() => setPriceBooksOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-xs font-bold text-purple-300 shadow-xs hover:bg-purple-500/20 transition"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800 shadow-xs hover:bg-slate-50 transition active:scale-95"
               >
-                <BookOpenIcon className="h-4 w-4 text-purple-400" />
+                <BookOpenIcon className="h-4 w-4 text-purple-600" />
                 <span>Price Books {pbStats.totalSkus > 0 ? `(${pbStats.totalSkus.toLocaleString()})` : ''}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setCsvOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
-                title="Bulk CSV Inventory Importer"
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800 shadow-xs hover:bg-slate-50 transition active:scale-95"
               >
-                <FileSpreadsheetIcon className="h-4 w-4 text-orange-600" />
-                <span className="hidden sm:inline">Import CSV</span>
+                <FileSpreadsheetIcon className="h-4 w-4 text-emerald-600" />
+                <span>Import CSV</span>
               </button>
             </>
           )}
 
-          {mainTab === 'special_orders' && (
-            <Button
-              variant="accent"
-              onClick={() => {
-                setOrderToEdit(null);
-                setSpecialOrderModalOpen(true);
-              }}
-              className="text-xs font-bold"
-            >
-              <PlusIcon className="h-4 w-4" /> New Special Order
-            </Button>
-          )}
-
           <Link
             to="/parts/counter"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-2 text-xs font-black text-slate-950 shadow-xs hover:bg-orange-400 transition shadow-orange-500/20"
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition active:scale-95"
           >
-            <span>⚡ New Part Invoice</span>
+            <span>⚡ Part Invoice</span>
           </Link>
 
           {mainTab === 'inventory' && !addingPart && (
-            <Button
-              variant="accent"
+            <button
+              type="button"
               onClick={() => {
                 setEditingPart(null);
                 setForm(emptyPart);
                 setAddingPart(true);
               }}
-              className="text-xs"
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-orange-500 px-3.5 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 hover:bg-orange-400 transition active:scale-95"
             >
-              <PlusIcon className="h-4 w-4" /> Add Part
-            </Button>
+              <PlusIcon className="h-4 w-4" />
+              <span>+ Add Part</span>
+            </button>
+          )}
+
+          {mainTab === 'special_orders' && (
+            <button
+              type="button"
+              onClick={() => {
+                setOrderToEdit(null);
+                setSpecialOrderModalOpen(true);
+              }}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-orange-500 px-3.5 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 hover:bg-orange-400 transition active:scale-95"
+            >
+              <PlusIcon className="h-4 w-4" />
+              <span>+ New Special Order</span>
+            </button>
           )}
         </div>
+      </div>
+
+      {/* Mobile Uniform Action Grid (Equal heights & aligned grids) */}
+      <div className="sm:hidden space-y-2">
+        {/* Row 1: Top 2 Primary Actions */}
+        <div className="grid grid-cols-2 gap-2">
+          {mainTab === 'inventory' && !addingPart ? (
+            <button
+              type="button"
+              onClick={() => {
+                setEditingPart(null);
+                setForm(emptyPart);
+                setAddingPart(true);
+              }}
+              className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-3 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 active:scale-95 transition"
+            >
+              <PlusIcon className="h-4 w-4" />
+              <span>+ Add Part</span>
+            </button>
+          ) : mainTab === 'special_orders' ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOrderToEdit(null);
+                setSpecialOrderModalOpen(true);
+              }}
+              className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-3 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 active:scale-95 transition"
+            >
+              <PlusIcon className="h-4 w-4" />
+              <span>+ Special Order</span>
+            </button>
+          ) : null}
+
+          <Link
+            to="/parts/counter"
+            className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3 text-xs font-bold text-white shadow-xs active:scale-95 transition"
+          >
+            <span>⚡ Part Invoice</span>
+          </Link>
+        </div>
+
+        {/* Row 2: Bottom 3 Secondary Utilities */}
+        {mainTab === 'inventory' && !addingPart && (
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              className="flex h-9 items-center justify-center gap-1 rounded-xl border border-slate-300 bg-white px-2 text-[11px] font-bold text-slate-800 shadow-xs active:scale-95 transition"
+            >
+              <ScanIcon className="h-3.5 w-3.5 text-orange-600" />
+              <span>Scan SKU</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setPriceBooksOpen(true)}
+              className="flex h-9 items-center justify-center gap-1 rounded-xl border border-slate-300 bg-white px-2 text-[11px] font-bold text-slate-800 shadow-xs active:scale-95 transition"
+            >
+              <BookOpenIcon className="h-3.5 w-3.5 text-purple-600" />
+              <span>Price Books</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCsvOpen(true)}
+              className="flex h-9 items-center justify-center gap-1 rounded-xl border border-slate-300 bg-white px-2 text-[11px] font-bold text-slate-800 shadow-xs active:scale-95 transition"
+            >
+              <FileSpreadsheetIcon className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Import CSV</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Mode Tabs: In-Stock Inventory vs Special Orders */}

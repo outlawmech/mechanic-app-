@@ -81,8 +81,14 @@ export function Select({
   );
 }
 
-export function Textarea({ className = '', ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea {...rest} className={`${inputCls} min-h-20 ${className}`} />;
+export function Textarea({ className = '', rows = 4, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      rows={rows}
+      {...rest}
+      className={`w-full rounded-xl border-0 bg-slate-100 p-3.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-2 focus:ring-orange-500 min-h-[140px] leading-relaxed resize-y ${className}`}
+    />
+  );
 }
 
 const BADGE: Record<string, string> = {

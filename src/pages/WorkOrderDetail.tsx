@@ -766,7 +766,14 @@ export default function WorkOrderDetail() {
             </div>
 
             {/* Job Notes & Hour Tracking */}
-            <Card className="space-y-3 p-4">
+            <Card className="space-y-3.5 p-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Technician Notes &amp; Diagnoses
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium">Expandable</span>
+              </div>
+
               <Field label={vehicleTypeInfo ? `${vehicleTypeInfo.hoursLabel} at service` : 'Service Hours / Miles'}>
                 <Input
                   value={hoursValue}
@@ -775,17 +782,19 @@ export default function WorkOrderDetail() {
                 />
               </Field>
 
-              <Field label="Job Notes & Diagnoses">
+              <Field label="Service Notes, Diagnoses &amp; Findings">
                 <Textarea
+                  rows={8}
                   value={notesValue}
                   onChange={(e) => setNotesDraft(e.target.value)}
-                  placeholder="Customer requests, diagnoses, gate codes, part numbers, etc."
+                  placeholder="Enter detailed diagnostic findings, customer complaints, tech steps, clearance specs, gate codes, etc."
+                  className="min-h-[180px] font-mono text-xs leading-relaxed"
                 />
               </Field>
 
               {(notesDraft !== null || hoursDraft !== null) && (
-                <Button variant="ghost" className="w-full text-xs font-semibold" onClick={saveDetails}>
-                  Save Updates
+                <Button variant="accent" className="w-full text-xs font-bold shadow-sm" onClick={saveDetails}>
+                  ✓ Save Notes &amp; Hours Updates
                 </Button>
               )}
             </Card>

@@ -34,6 +34,8 @@ public class MainActivity extends BridgeActivity {
 
         // Intercept Android hardware & gesture back button for in-app navigation
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            private long lastBackPressTime = 0;
+
             @Override
             public void handleOnBackPressed() {
                 try {
@@ -52,8 +54,18 @@ public class MainActivity extends BridgeActivity {
                                 @Override
                                 public void onReceiveValue(String value) {
                                     if ("\"root\"".equals(value) || value == null || "null".equals(value)) {
-                                        // On root home dashboard: minimize to background instead of killing process
-                                        moveTaskToBack(true);
+                                        long now = System.currentTimeMillis();
+                                        if (now - lastBackPressTime < 2000) {
+                                            // Second tap within 2 seconds: minimize app smoothly
+                                            moveTaskToBack(true);
+                                        } else {
+                                            lastBackPressTime = now;
+                                            android.widget.Toast.makeText(
+                                                MainActivity.this,
+                                                "Tap back again to exit Outlaw Shop Systems",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show();
+                                        }
                                     }
                                 }
                             }
@@ -63,7 +75,18 @@ public class MainActivity extends BridgeActivity {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-                moveTaskToBack(true);
+
+                long now = System.currentTimeMillis();
+                if (now - lastBackPressTime < 2000) {
+                    moveTaskToBack(true);
+                } else {
+                    lastBackPressTime = now;
+                    android.widget.Toast.makeText(
+                        MainActivity.this,
+                        "Tap back again to exit Outlaw Shop Systems",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show();
+                }
             }
         });
 

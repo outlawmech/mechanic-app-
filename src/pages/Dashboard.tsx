@@ -7,7 +7,6 @@ import {
   BuildingBankIcon,
   ClipboardIcon,
   ClockIcon,
-  AlertCircleIcon,
   PlusIcon,
   ReceiptIcon,
   UsersIcon,
@@ -15,14 +14,21 @@ import {
   SparklesIcon,
   TagIcon,
   BoxIcon,
+  CalendarIcon,
+  ScanIcon,
+  BookOpenIcon,
+  PhoneCallIcon,
+  PackageCheckIcon,
+  ChevronRightIcon,
+  AlertCircleIcon,
+  CarIcon,
 } from '../components/icons';
-import { Card, EmptyState } from '../components/ui';
+import { Card, EmptyState, Badge } from '../components/ui';
 import WorkOrderCard from '../components/WorkOrderCard';
-import type { WorkOrderFull, DealershipUnit } from '../types';
-import { money } from '../lib/format';
+import type { WorkOrderFull, DealershipUnit, SpecialOrder, InvoiceFull } from '../types';
+import { money, fullName, vehicleLabel, shortDate } from '../lib/format';
 import { useShopSettings } from '../lib/settings';
 import { getSubscriptionInfo, STRIPE_PAYMENT_URL } from '../lib/subscription';
-
 import { cacheLocal, getCachedLocal } from '../lib/offlineSync';
 
 interface Metrics {
@@ -43,7 +49,15 @@ export default function Dashboard() {
   const [recentOrders, setRecentOrders] = useState<WorkOrderFull[]>(() => {
     return getCachedLocal<WorkOrderFull[]>('dashboard_orders') || [];
   });
+  const [unpaidInvoices, setUnpaidInvoices] = useState<any[]>(() => {
+    return getCachedLocal<any[]>('dashboard_unpaid_invoices') || [];
+  });
+  const [specialOrders, setSpecialOrders] = useState<SpecialOrder[]>(() => {
+    return getCachedLocal<SpecialOrder[]>('dashboard_special_orders') || [];
+  });
   const [upcomingCurtailments, setUpcomingCurtailments] = useState<DealershipUnit[]>([]);
+  const [activeTab, setActiveTab] = useState<'active' | 'in_progress' | 'completed'>('active');
+
   const [metrics, setMetrics] = useState<Metrics>(() => {
     return (
       getCachedLocal<Metrics>('dashboard_metrics') || {
@@ -72,14 +86,18 @@ export default function Dashboard() {
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
       const cachedOrders = getCachedLocal<WorkOrderFull[]>('dashboard_orders') || getCachedLocal<WorkOrderFull[]>('work_orders');
       const cachedMetrics = getCachedLocal<Metrics>('dashboard_metrics');
-      if (cachedOrders) setRecentOrders(cachedOrders.slice(0, 6));
+      const cachedUnpaid = getCachedLocal<any[]>('dashboard_unpaid_invoices');
+      const cachedSO = getCachedLocal<SpecialOrder[]>('dashboard_special_orders');
+      if (cachedOrders) setRecentOrders(cachedOrders.slice(0, 10));
       if (cachedMetrics) setMetrics(cachedMetrics);
+      if (cachedUnpaid) setUnpaidInvoices(cachedUnpaid);
+      if (cachedSO) setSpecialOrders(cachedSO);
       setLoading(false);
       return;
     }
 
     try {
-      const [ordersRes, invoicesRes, customersRes, unitsRes] = await Promise.all([
+      const [ordersRes, invoicesRes, customersRes, unitsRes, soRes] = await Promise.all([
         supabase
           .from('work_orders')
           .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
@@ -88,8 +106,9 @@ export default function Dashboard() {
           .limit(20),
         supabase
           .from('invoices')
-          .select('id, total, status')
-          .eq('user_id', user.id),
+          .select('id, number, total, status, created_at, customer:customers(*)')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
         supabase
           .from('customers')
           .select('id', { count: 'exact', head: true })
@@ -100,13 +119,21 @@ export default function Dashboard() {
           .eq('user_id', user.id)
           .eq('is_floored', true)
           .eq('floorplan_paid_off', false),
+        supabase
+          .from('special_orders')
+          .select('*')
+          .eq('user_id', user.id)
+          .in('status', ['ordered', 'in_transit', 'received', 'notified'])
+          .order('created_at', { ascending: false })
+          .limit(6),
       ]);
 
       const orders = (ordersRes.data || []) as WorkOrderFull[];
-      const invoices = invoicesRes.data || [];
+      const allInvoices = (invoicesRes.data || []) as any[];
       const floored = (unitsRes.data || []) as DealershipUnit[];
+      const activeSOs = (soRes.data || []) as SpecialOrder[];
 
-      // Check for curtailments due within next 30 days or past due
+      // Check for curtailments due within next 30 days
       const in30Days = new Date();
       in30Days.setDate(in30Days.getDate() + 30);
       const dueSoon = floored.filter((u) => {
@@ -120,124 +147,217 @@ export default function Dashboard() {
       const completed = orders.filter((o) => o.status === 'completed').length;
       const open = orders.filter((o) => o.status === 'open' || o.status === 'in_progress').length;
 
-      const unpaidInvoices = invoices.filter((i) => i.status === 'unpaid' || i.status === 'draft');
-      const unpaidTotal = unpaidInvoices.reduce((sum, i) => sum + Number(i.total || 0), 0);
+      const unpaidList = allInvoices.filter((i) => i.status === 'unpaid' || i.status === 'draft');
+      const unpaidTotal = unpaidList.reduce((sum, i) => sum + Number(i.total || 0), 0);
 
       const latestMetrics: Metrics = {
         inProgressCount: inProgress,
         completedCount: completed,
         openCount: open,
         unpaidTotal,
-        unpaidCount: unpaidInvoices.length,
+        unpaidCount: unpaidList.length,
         totalCustomers: customersRes.count || 0,
       };
 
-      setRecentOrders(orders.slice(0, 6));
+      setRecentOrders(orders.slice(0, 10));
+      setUnpaidInvoices(unpaidList.slice(0, 5));
+      setSpecialOrders(activeSOs);
       setMetrics(latestMetrics);
+
       cacheLocal('dashboard_orders', orders);
+      cacheLocal('dashboard_unpaid_invoices', unpaidList.slice(0, 5));
+      cacheLocal('dashboard_special_orders', activeSOs);
       cacheLocal('dashboard_metrics', latestMetrics);
     } catch (err) {
       console.warn('Dashboard online fetch failed, using local cache:', err);
       const cachedOrders = getCachedLocal<WorkOrderFull[]>('dashboard_orders') || getCachedLocal<WorkOrderFull[]>('work_orders');
       const cachedMetrics = getCachedLocal<Metrics>('dashboard_metrics');
-      if (cachedOrders) setRecentOrders(cachedOrders.slice(0, 6));
+      if (cachedOrders) setRecentOrders(cachedOrders.slice(0, 10));
       if (cachedMetrics) setMetrics(cachedMetrics);
     } finally {
       setLoading(false);
     }
   }
 
+  // Filter orders by selected tab
+  const filteredOrders = recentOrders.filter((o) => {
+    if (activeTab === 'active') return o.status === 'open' || o.status === 'in_progress';
+    if (activeTab === 'in_progress') return o.status === 'in_progress';
+    if (activeTab === 'completed') return o.status === 'completed';
+    return true;
+  });
+
   return (
-    <div className="space-y-6">
-      {/* Top Banner & Quick Actions Bar */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-5">
+      {/* 1. Header & Live Mode Switcher */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-black tracking-tight text-slate-900">
-              {isDms ? 'Dealership DMS Portal' : 'Solo Rig Dashboard'}
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+              {settings.shop_name || 'Outlaw Shop Systems'}
             </h1>
             <span
-              className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase ${
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-black uppercase tracking-wider ${
                 isDms
-                  ? 'bg-purple-100 text-purple-800 border border-purple-300'
-                  : 'bg-orange-100 text-orange-800 border border-orange-300'
+                  ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                  : 'bg-orange-100 text-orange-950 border border-orange-300'
               }`}
             >
-              {isDms ? '🏢 DMS Mode' : '🚛 Solo Rig'}
+              {isDms ? '🏢 Dealership DMS' : '🚛 Solo Rig Mode'}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
             {isDms
-              ? 'Multi-department powersports, marine & dealership operations.'
-              : 'Live mobile mechanic and repair shop activity.'}
+              ? 'Multi-department service, parts counter, and showroom operations.'
+              : 'Mobile mechanic, field service, and repair order dispatch.'}
           </p>
         </div>
 
-        {/* Quick Actions (Adapts to Mode) */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Live Date / Quick Status */}
+        <div className="flex items-center gap-2">
           <Link
-            to="/work/new"
-            className="flex items-center gap-1.5 rounded-xl bg-orange-500 px-3.5 py-2 text-xs font-black text-slate-950 shadow shadow-orange-500/20 transition hover:bg-orange-400 active:scale-95"
+            to="/schedule"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 transition"
           >
-            <PlusIcon className="h-4 w-4" />
-            <span>New Repair Order</span>
-          </Link>
-
-          {isDms && (
-            <>
-              <Link
-                to="/sales"
-                className="flex items-center gap-1.5 rounded-xl bg-purple-900 px-3.5 py-2 text-xs font-bold text-purple-100 shadow transition hover:bg-purple-800 active:scale-95"
-              >
-                <TagIcon className="h-4 w-4 text-purple-300" />
-                <span>Showroom Floor</span>
-              </Link>
-              <Link
-                to="/sales/deal/new"
-                className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow transition hover:bg-slate-800 active:scale-95"
-              >
-                <ReceiptIcon className="h-4 w-4 text-orange-400" />
-                <span>Buyer's Order</span>
-              </Link>
-            </>
-          )}
-
-          <Link
-            to="/customers/new"
-            className="flex items-center gap-1.5 rounded-xl bg-slate-800 px-3 py-2 text-xs font-semibold text-white shadow transition hover:bg-slate-700"
-          >
-            <UsersIcon className="h-4 w-4" />
-            <span>Add Customer</span>
+            <CalendarIcon className="h-4 w-4 text-orange-600" />
+            <span>Today's Schedule</span>
           </Link>
         </div>
       </div>
 
-      {/* Subscription Card for Desktop */}
-      {!sub.isPro && (
-        <div className="rounded-2xl border border-orange-500/30 bg-gradient-to-r from-orange-500/10 via-orange-400/5 to-slate-900/40 p-4 text-slate-900 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-500 text-slate-950 font-bold shadow-sm">
-              <SparklesIcon className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-orange-700">
-                14-Day Free Trial Active · {sub.planName} ({sub.daysLeft} days remaining)
-              </p>
-              <p className="text-xs text-slate-600">
-                Lock in early founder pricing at {sub.planPrice} before beta testing concludes.
-              </p>
-            </div>
+      {/* 2. 1-Tap Quick Action Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5">
+        <Link
+          to="/work/new"
+          className="flex items-center gap-2.5 rounded-2xl bg-orange-500 p-3 text-slate-950 shadow-md shadow-orange-500/20 transition hover:bg-orange-400 active:scale-95 group"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-950 text-orange-400 font-black shadow-xs">
+            <PlusIcon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <span className="block text-xs font-black leading-tight group-hover:underline">New RO</span>
+            <span className="block text-[10px] text-slate-900/80 font-semibold truncate">Service Intake</span>
           </div>
-          <a
-            href={STRIPE_PAYMENT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-slate-950 shadow shadow-orange-500/20 hover:bg-orange-400"
+        </Link>
+
+        <Link
+          to="/parts/counter"
+          className="flex items-center gap-2.5 rounded-2xl bg-slate-900 p-3 text-white shadow-md shadow-slate-900/20 transition hover:bg-slate-800 active:scale-95 group"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-orange-500 text-slate-950 font-black shadow-xs">
+            <BoxIcon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <span className="block text-xs font-black leading-tight group-hover:underline">Part Invoice</span>
+            <span className="block text-[10px] text-slate-400 font-semibold truncate">Counter Sale</span>
+          </div>
+        </Link>
+
+        <Link
+          to="/schedule"
+          className="flex items-center gap-2.5 rounded-2xl bg-white border border-slate-200/80 p-3 text-slate-800 shadow-xs transition hover:bg-slate-50 active:scale-95 group"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-600 font-black">
+            <CalendarIcon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <span className="block text-xs font-bold leading-tight group-hover:underline">Schedule</span>
+            <span className="block text-[10px] text-slate-500 font-medium truncate">Dispatch &amp; Bays</span>
+          </div>
+        </Link>
+
+        {isDms ? (
+          <Link
+            to="/sales/deal/new"
+            className="flex items-center gap-2.5 rounded-2xl bg-purple-950 p-3 text-purple-100 shadow-md shadow-purple-950/20 transition hover:bg-purple-900 active:scale-95 group"
           >
-            Upgrade {sub.planName} ({sub.planPrice})
-          </a>
-        </div>
-      )}
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-purple-500 text-white font-black shadow-xs">
+              <TagIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <span className="block text-xs font-black leading-tight group-hover:underline">Buyer's Order</span>
+              <span className="block text-[10px] text-purple-300 font-semibold truncate">Deal Desk</span>
+            </div>
+          </Link>
+        ) : (
+          <Link
+            to="/parts"
+            className="flex items-center gap-2.5 rounded-2xl bg-white border border-slate-200/80 p-3 text-slate-800 shadow-xs transition hover:bg-slate-50 active:scale-95 group"
+          >
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-700 font-black">
+              <BookOpenIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <span className="block text-xs font-bold leading-tight group-hover:underline">Price Books</span>
+              <span className="block text-[10px] text-slate-500 font-medium truncate">OEM Master Tapes</span>
+            </div>
+          </Link>
+        )}
+
+        <Link
+          to="/customers/new"
+          className="flex items-center gap-2.5 rounded-2xl bg-white border border-slate-200/80 p-3 text-slate-800 shadow-xs transition hover:bg-slate-50 active:scale-95 group"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-700 font-black">
+            <UsersIcon className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <span className="block text-xs font-bold leading-tight group-hover:underline">+ Customer</span>
+            <span className="block text-[10px] text-slate-500 font-medium truncate">Shared Client DB</span>
+          </div>
+        </Link>
+      </div>
+
+      {/* 3. 4 High-Impact Shop Pulse Tiles */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Link to="/work" className="block transition hover:-translate-y-0.5">
+          <Card className="flex items-center gap-3.5 p-4 border-l-4 border-l-orange-500">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-600 font-bold">
+              <ClipboardIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Active ROs</p>
+              <p className="text-2xl font-black text-slate-900">{metrics.openCount}</p>
+            </div>
+          </Card>
+        </Link>
+
+        <Link to="/work" className="block transition hover:-translate-y-0.5">
+          <Card className="flex items-center gap-3.5 p-4 border-l-4 border-l-amber-500">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-700 font-bold">
+              <ClockIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">In Bay / Progress</p>
+              <p className="text-2xl font-black text-slate-900">{metrics.inProgressCount}</p>
+            </div>
+          </Card>
+        </Link>
+
+        <Link to="/invoices" className="block transition hover:-translate-y-0.5">
+          <Card className="flex items-center gap-3.5 p-4 border-l-4 border-l-emerald-500">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-700 font-bold">
+              <ReceiptIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Unpaid Tickets</p>
+              <p className="text-2xl font-black text-slate-900">{money(metrics.unpaidTotal)}</p>
+            </div>
+          </Card>
+        </Link>
+
+        <Link to="/customers" className="block transition hover:-translate-y-0.5">
+          <Card className="flex items-center gap-3.5 p-4 border-l-4 border-l-blue-500">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-700 font-bold">
+              <UsersIcon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Client Accounts</p>
+              <p className="text-2xl font-black text-slate-900">{metrics.totalCustomers}</p>
+            </div>
+          </Card>
+        </Link>
+      </div>
 
       {/* Commercial Floorplan Curtailment Alert Banner (DMS Mode Only) */}
       {isDms && upcomingCurtailments.length > 0 && (
@@ -248,7 +368,7 @@ export default function Dashboard() {
             </span>
             <div>
               <p className="text-xs font-black uppercase tracking-wide text-orange-950">
-                Upcoming Floorplan Curtailment ({upcomingCurtailments.length} Floored Unit{upcomingCurtailments.length === 1 ? '' : 's'})
+                Floorplan Curtailments Due ({upcomingCurtailments.length} Floored Unit{upcomingCurtailments.length === 1 ? '' : 's'})
               </p>
               <p className="text-xs text-orange-900 mt-0.5">
                 {upcomingCurtailments
@@ -269,154 +389,195 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 4 Primary Top Metrics Grid */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Link to="/work" className="block transition hover:-translate-y-0.5">
-          <Card className="flex items-center gap-3 p-4">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-600 font-bold">
-              <ClipboardIcon className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Active Jobs</p>
-              <p className="text-xl font-black text-slate-900">{metrics.openCount}</p>
+      {/* 4. Main 2-Column Split: Active Shop Floor & Department Activity */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Left Column (7 Cols on desktop): Active Repair Orders */}
+        <div className="space-y-4 lg:col-span-7">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800">
+                Shop Floor Repair Orders
+              </h2>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                {filteredOrders.length}
+              </span>
             </div>
-          </Card>
-        </Link>
 
-        <Link to="/work" className="block transition hover:-translate-y-0.5">
-          <Card className="flex items-center gap-3 p-4">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-700 font-bold">
-              <ClockIcon className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">In Progress</p>
-              <p className="text-xl font-black text-slate-900">{metrics.inProgressCount}</p>
+            {/* Quick Segmented Status Filter */}
+            <div className="flex rounded-xl bg-slate-200 p-1 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setActiveTab('active')}
+                className={`rounded-lg px-2.5 py-1 transition ${
+                  activeTab === 'active' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Active ({metrics.openCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('in_progress')}
+                className={`rounded-lg px-2.5 py-1 transition ${
+                  activeTab === 'in_progress' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                In Bay ({metrics.inProgressCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('completed')}
+                className={`rounded-lg px-2.5 py-1 transition ${
+                  activeTab === 'completed' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Completed ({metrics.completedCount})
+              </button>
             </div>
-          </Card>
-        </Link>
-
-        <Link to="/invoices" className="block transition hover:-translate-y-0.5">
-          <Card className="flex items-center gap-3 p-4">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-purple-100 text-purple-600 font-bold">
-              <ReceiptIcon className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Unpaid Invoices</p>
-              <p className="text-xl font-black text-slate-900">{money(metrics.unpaidTotal)}</p>
-            </div>
-          </Card>
-        </Link>
-
-        <Link to="/customers" className="block transition hover:-translate-y-0.5">
-          <Card className="flex items-center gap-3 p-4">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-600 font-bold">
-              <UsersIcon className="h-5 w-5" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Total Customers</p>
-              <p className="text-xl font-black text-slate-900">{metrics.totalCustomers}</p>
-            </div>
-          </Card>
-        </Link>
-      </div>
-
-      {/* Main Responsive Split: Recent Jobs & Shop Health */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Left 2 Cols: Active & Recent Work Orders */}
-        <div className="space-y-4 lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
-              Recent Repair Orders
-            </h2>
-            <Link to="/work" className="text-xs font-bold text-orange-600 hover:text-orange-700">
-              View all ({metrics.openCount}) →
-            </Link>
           </div>
 
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-20 animate-pulse rounded-2xl bg-slate-200" />
+                <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-200" />
               ))}
             </div>
-          ) : recentOrders.length === 0 ? (
+          ) : filteredOrders.length === 0 ? (
             <EmptyState
               icon={<ClipboardIcon className="h-8 w-8 text-slate-400" />}
-              title="No repair orders yet"
-              sub="Create your first repair order to start tracking repairs, parts, and labor."
+              title="No active repair orders"
+              sub="Create a new repair order to track diagnostic time, parts, and machine repair history."
               action={
                 <Link
                   to="/work/new"
                   className="inline-flex rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-slate-950 shadow shadow-orange-500/20 hover:bg-orange-400"
                 >
-                  Create First Repair Order
+                  + Create Repair Order
                 </Link>
               }
             />
           ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {recentOrders.map((order) => (
+            <div className="space-y-3">
+              {filteredOrders.map((order) => (
                 <WorkOrderCard key={order.id} wo={order} />
               ))}
             </div>
           )}
         </div>
 
-        {/* Right 1 Col: Quick Links & Shop Stats */}
-        <div className="space-y-4">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">Shop Summary</h2>
-          <Card className="divide-y divide-slate-100 p-0 overflow-hidden shadow-sm">
-            <div className="flex items-center justify-between p-3.5">
-              <div className="flex items-center gap-2.5 text-xs text-slate-600">
-                <UsersIcon className="h-4 w-4 text-slate-400" />
-                <span>Total Customers</span>
+        {/* Right Column (5 Cols on desktop): Special Orders, Cash Flow & Quick Utilities */}
+        <div className="space-y-4 lg:col-span-5">
+          {/* Urgent Special Orders Staging */}
+          {specialOrders.length > 0 && (
+            <Card className="p-4 space-y-3 border-orange-200 bg-white shadow-xs">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <div className="flex items-center gap-1.5">
+                  <PackageCheckIcon className="h-4 w-4 text-orange-600" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    Parts Special Orders ({specialOrders.length})
+                  </span>
+                </div>
+                <Link to="/parts" className="text-xs font-bold text-orange-600 hover:underline">
+                  Manage →
+                </Link>
               </div>
-              <span className="text-xs font-bold text-slate-900">{metrics.totalCustomers}</span>
+
+              <div className="divide-y divide-slate-100">
+                {specialOrders.map((so) => (
+                  <div key={so.id} className="py-2 flex items-center justify-between text-xs">
+                    <div>
+                      <p className="font-bold text-slate-900 font-mono">{so.part_number}</p>
+                      <p className="text-[11px] text-slate-500">{so.customer_name} {so.holding_bin ? `· Bin: ${so.holding_bin}` : ''}</p>
+                    </div>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
+                        so.status === 'received' || so.status === 'notified'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : so.status === 'in_transit'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {so.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Pending Invoices / Cash Flow Board */}
+          <Card className="p-4 space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <div className="flex items-center gap-1.5">
+                <ReceiptIcon className="h-4 w-4 text-orange-600" />
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  Unpaid Tickets ({unpaidInvoices.length})
+                </span>
+              </div>
+              <Link to="/invoices" className="text-xs font-bold text-orange-600 hover:underline">
+                View All →
+              </Link>
             </div>
 
-            <div className="flex items-center justify-between p-3.5">
-              <div className="flex items-center gap-2.5 text-xs text-slate-600">
-                <ClockIcon className="h-4 w-4 text-emerald-500" />
-                <span>Completed ROs</span>
+            {unpaidInvoices.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-2 text-center">All customer tickets are settled!</p>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {unpaidInvoices.map((inv) => (
+                  <Link
+                    key={inv.id}
+                    to={`/invoices/${inv.id}`}
+                    className="py-2.5 flex items-center justify-between hover:bg-slate-50 px-1 rounded-lg transition"
+                  >
+                    <div>
+                      <p className="font-bold text-slate-900 text-xs">
+                        {inv.number} · {inv.customer ? fullName(inv.customer) : 'Walk-In Customer'}
+                      </p>
+                      <p className="text-[10px] text-slate-500">{shortDate(inv.created_at)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono font-black text-xs text-slate-900">{money(inv.total)}</p>
+                      <span className="text-[9px] font-bold text-amber-600 uppercase">Unpaid</span>
+                    </div>
+                  </Link>
+                ))}
               </div>
-              <span className="text-xs font-bold text-slate-900">{metrics.completedCount}</span>
-            </div>
+            )}
+          </Card>
 
-            <div className="flex items-center justify-between p-3.5">
-              <div className="flex items-center gap-2.5 text-xs text-slate-600">
-                <ReceiptIcon className="h-4 w-4 text-orange-500" />
-                <span>Pending Receivables</span>
+          {/* Quick Department Hub Links */}
+          <Card className="divide-y divide-slate-100">
+            <Link
+              to="/parts"
+              className="flex items-center justify-between p-3.5 hover:bg-orange-50/50 transition group"
+            >
+              <div className="flex items-center gap-2.5 text-xs font-bold text-slate-700 group-hover:text-orange-800">
+                <BoxIcon className="h-4 w-4 text-orange-600" />
+                <span>Parts Department &amp; OEM Price Books</span>
               </div>
-              <span className="text-xs font-bold text-slate-900">
-                {money(metrics.unpaidTotal)} ({metrics.unpaidCount})
-              </span>
-            </div>
+              <ChevronRightIcon className="h-4 w-4 text-slate-400 group-hover:text-orange-600" />
+            </Link>
 
             <Link
               to="/reports"
-              className="flex items-center justify-between p-3.5 bg-slate-50/70 hover:bg-orange-50/50 transition group"
+              className="flex items-center justify-between p-3.5 hover:bg-orange-50/50 transition group"
             >
               <div className="flex items-center gap-2.5 text-xs font-bold text-slate-700 group-hover:text-orange-800">
                 <BanknotesIcon className="h-4 w-4 text-emerald-600" />
-                <span>Financials &amp; Tax Reports</span>
+                <span>Financial &amp; Revenue Reports</span>
               </div>
-              <span className="text-[11px] font-bold text-orange-600 group-hover:underline">View →</span>
+              <ChevronRightIcon className="h-4 w-4 text-slate-400 group-hover:text-orange-600" />
             </Link>
-          </Card>
 
-          {/* Shortcut Card */}
-          <Card className="bg-slate-900 text-white p-4 space-y-3 shadow-md">
-            <p className="text-xs font-bold uppercase tracking-wide text-orange-400">Outlaw Pro Tip</p>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              {isDms
-                ? 'Showroom units can be dispatched directly to your service techs for PDI assembly with 1-tap from the Showroom tab.'
-                : 'Generate invoices directly from any repair order or text payment links straight to your customer phone from the invoice screen.'}
-            </p>
             <Link
               to="/settings"
-              className="inline-block text-xs font-bold text-orange-400 hover:text-orange-300"
+              className="flex items-center justify-between p-3.5 hover:bg-orange-50/50 transition group"
             >
-              Configure Shop Info &amp; Rates →
+              <div className="flex items-center gap-2.5 text-xs font-bold text-slate-700 group-hover:text-orange-800">
+                <WrenchIcon className="h-4 w-4 text-slate-600" />
+                <span>Shop Rates &amp; Preferences</span>
+              </div>
+              <ChevronRightIcon className="h-4 w-4 text-slate-400 group-hover:text-orange-600" />
             </Link>
           </Card>
         </div>

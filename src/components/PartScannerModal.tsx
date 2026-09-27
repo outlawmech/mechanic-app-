@@ -250,7 +250,22 @@ export default function PartScannerModal({
       }
     }
 
-    // 2. Try native Android Flashlight Interface if available
+    // 2. Try ImageCapture API if available
+    if (typeof (window as any).ImageCapture !== 'undefined' && currentStream) {
+      try {
+        const track = currentStream.getVideoTracks()[0];
+        if (track) {
+          const imageCapture = new (window as any).ImageCapture(track);
+          if (typeof imageCapture.setOptions === 'function') {
+            await imageCapture.setOptions({ torch: nextState });
+          }
+        }
+      } catch (icErr) {
+        console.warn('ImageCapture torch error:', icErr);
+      }
+    }
+
+    // 3. Try native Android Flashlight Interface if available
     if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
       try {
         (window as any).AndroidNativeFlashlight.setTorch(nextState);
@@ -357,16 +372,19 @@ export default function PartScannerModal({
               </div>
 
               {/* Top Controls Overlay */}
-              <div className="absolute top-3 right-3 flex items-center gap-2">
+              <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
                 <button
                   type="button"
                   onClick={toggleTorch}
-                  className={`rounded-xl p-2 text-xs font-bold transition shadow ${
-                    torchOn ? 'bg-orange-500 text-slate-950' : 'bg-slate-900/80 text-white hover:bg-slate-800'
+                  className={`rounded-xl px-3 py-1.5 text-xs font-black transition shadow-lg flex items-center gap-1.5 ${
+                    torchOn
+                      ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300 shadow-amber-400/50'
+                      : 'bg-slate-900/80 text-white hover:bg-slate-800 ring-1 ring-white/20'
                   }`}
-                  title="Flashlight / Torch"
+                  title="Toggle Physical Rear LED Flashlight"
                 >
-                  💡 Flash
+                  <span>💡</span>
+                  <span>{torchOn ? 'Flash ON' : 'Flash'}</span>
                 </button>
               </div>
 
