@@ -23,6 +23,7 @@ import Settings from './pages/Settings';
 import Schedule from './pages/Schedule';
 import WorkOrderDetail from './pages/WorkOrderDetail';
 import WorkOrders from './pages/WorkOrders';
+import Help from './pages/Help';
 
 function AppRoutes() {
   const { user, loading: authLoading } = useAuth();
@@ -65,6 +66,7 @@ function AppRoutes() {
           <Route path="sales" element={<Sales />} />
           <Route path="sales/deal/new" element={<BuyersOrderDetail />} />
           <Route path="sales/deal/:id" element={<BuyersOrderDetail />} />
+          <Route path="help" element={<Help />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Dashboard />} />
         </Route>

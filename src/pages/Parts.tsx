@@ -8,6 +8,8 @@ import {
   PlusIcon,
   SearchIcon,
   TrashIcon,
+  ScanIcon,
+  FileSpreadsheetIcon,
 } from '../components/icons';
 import { Link } from 'react-router-dom';
 import {
@@ -27,6 +29,8 @@ import { check, errMsg, requireSupabase } from '../lib/supabase';
 import type { Part } from '../types';
 
 import { cacheLocal, getCachedLocal, safeFetchWithCache, enqueueOfflineAction } from '../lib/offlineSync';
+import PartScannerModal from '../components/PartScannerModal';
+import CsvInventoryImporterModal from '../components/CsvInventoryImporterModal';
 
 const CATEGORIES = [
   'General',
@@ -62,6 +66,8 @@ export default function Parts() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [addingPart, setAddingPart] = useState(false);
   const [editingPart, setEditingPart] = useState<Part | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [csvOpen, setCsvOpen] = useState(false);
   const [form, setForm] = useState(emptyPart);
   const [saving, setSaving] = useState(false);
 
@@ -316,9 +322,25 @@ export default function Parts() {
         <PageTitle title="Parts &amp; Inventory" sub={`${totalSkus} SKUs in inventory`} />
         {!addingPart && (
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition active:scale-95"
+            >
+              <ScanIcon className="h-4 w-4 text-orange-400" />
+              <span>📷 Scan Barcode / OCR</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCsvOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
+            >
+              <FileSpreadsheetIcon className="h-4 w-4 text-orange-600" />
+              <span>📂 Import CSV</span>
+            </button>
             <Link
               to="/parts/counter"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-orange-400 px-3 py-2 text-xs font-black text-slate-950 shadow-xs hover:bg-orange-300 transition"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-2 text-xs font-black text-slate-950 shadow-xs hover:bg-orange-400 transition shadow-orange-500/20"
             >
               <span>⚡ Parts Counter POS</span>
             </Link>
@@ -662,6 +684,44 @@ export default function Parts() {
           })}
         </div>
       )}
+
+      {/* Smart Camera Barcode / OCR Scanner Modal */}
+      <PartScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        parts={allParts}
+        onSelectPart={(part) => {
+          setSearch(part.sku);
+          setEditingPart(part);
+          setForm({
+            sku: part.sku || '',
+            name: part.name || '',
+            category: part.category || 'General',
+            cost_price: String(part.cost_price ?? ''),
+            sell_price: String(part.sell_price ?? ''),
+            qty_on_hand: String(part.qty_on_hand ?? '1'),
+            reorder_point: String(part.reorder_point ?? '0'),
+            location: part.location || '',
+            supplier: part.supplier || '',
+            notes: part.notes || '',
+          });
+          setAddingPart(true);
+        }}
+        onAdjustStock={(part, delta) => adjustStock(part, delta)}
+        onAddNewPart={(sku) => {
+          setEditingPart(null);
+          setForm({ ...emptyPart, sku });
+          setAddingPart(true);
+        }}
+      />
+
+      {/* Bulk CSV Inventory Importer Modal */}
+      <CsvInventoryImporterModal
+        isOpen={csvOpen}
+        onClose={() => setCsvOpen(false)}
+        existingParts={allParts}
+        onImportComplete={reload}
+      />
     </div>
   );
 }

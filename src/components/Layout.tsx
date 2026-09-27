@@ -14,6 +14,8 @@ import {
   MonitorIcon,
   SmartphoneIcon,
   SparklesIcon,
+  BookOpenIcon,
+  HelpCircleIcon,
 } from './icons';
 import { useShopSettings } from '../lib/settings';
 import { useAuth } from '../lib/auth';
@@ -32,6 +34,7 @@ const soloDesktopTabs = [
   { to: '/parts', label: 'Parts Inventory', shortLabel: 'Parts', icon: BoxIcon, end: false },
   { to: '/invoices', label: 'Invoices & Billing', shortLabel: 'Invoices', icon: ReceiptIcon, end: false },
   { to: '/reports', label: 'Financials & Reports', shortLabel: 'Reports', icon: BanknotesIcon, end: false },
+  { to: '/help', label: 'Help & Knowledge Base', shortLabel: 'Help', icon: BookOpenIcon, end: false },
   { to: '/settings', label: 'Shop Settings', shortLabel: 'Settings', icon: SettingsIcon, end: false },
 ];
 
@@ -45,6 +48,7 @@ const dealerDesktopTabs = [
   { to: '/customers', label: 'Customer Directory', shortLabel: 'Customers', icon: UsersIcon, end: false },
   { to: '/invoices', label: 'Invoices & Billing', shortLabel: 'Invoices', icon: ReceiptIcon, end: false },
   { to: '/reports', label: 'Financials & Reports', shortLabel: 'Reports', icon: BanknotesIcon, end: false },
+  { to: '/help', label: 'Help & Knowledge Base', shortLabel: 'Help', icon: BookOpenIcon, end: false },
   { to: '/settings', label: 'Dealership Settings', shortLabel: 'Settings', icon: SettingsIcon, end: false },
 ];
 
@@ -552,6 +556,23 @@ export default function Layout() {
                     type="button"
                     onClick={() => {
                       setShowMoreMenu(false);
+                      navigate('/help');
+                    }}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-purple-100 text-purple-800">
+                      <BookOpenIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Help &amp; Guides</p>
+                      <p className="text-[10px] text-slate-500">DMS manuals &amp; tips</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
                       navigate('/settings');
                     }}
                     className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
@@ -615,6 +636,23 @@ export default function Layout() {
                     <div>
                       <p className="text-xs font-bold text-slate-900">Financials &amp; Reports</p>
                       <p className="text-[10px] text-slate-500">QuickBooks &amp; Revenue</p>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMoreMenu(false);
+                      navigate('/help');
+                    }}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-purple-100 text-purple-800">
+                      <BookOpenIcon className="h-5 w-5" />
+                    </span>
+                    <div>
+                      <p className="text-xs font-bold text-slate-900">Help &amp; Guides</p>
+                      <p className="text-[10px] text-slate-500">Rig setup &amp; guides</p>
                     </div>
                   </button>
 

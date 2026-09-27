@@ -364,6 +364,51 @@ export const ShieldCheckIcon = (p: P) => (
   </Svg>
 );
 
+export const BarcodeIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M3 5v14" />
+    <path d="M8 5v14" />
+    <path d="M12 5v14" />
+    <path d="M17 5v14" />
+    <path d="M21 5v14" />
+  </Svg>
+);
+
+export const ScanIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+    <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+    <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+    <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+    <line x1="7" y1="12" x2="17" y2="12" />
+  </Svg>
+);
+
+export const FileSpreadsheetIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+    <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+    <path d="M8 13h8" />
+    <path d="M8 17h8" />
+    <path d="M12 9v12" />
+  </Svg>
+);
+
+export const BookOpenIcon = (p: P) => (
+  <Svg {...p}>
+    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+  </Svg>
+);
+
+export const HelpCircleIcon = (p: P) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </Svg>
+);
+
 export function VehicleIcon({
   type,
   className = 'h-4 w-4',
