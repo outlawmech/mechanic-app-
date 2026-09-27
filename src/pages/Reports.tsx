@@ -12,7 +12,7 @@ import {
   ClockIcon,
   ArrowLeftIcon,
 } from '../components/icons';
-import { Button, Card, PageTitle, Spinner, ErrorState } from '../components/ui';
+import { ACTION_BTN_CLS, Button, Card, PageTitle, Spinner, ErrorState } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { money, num, fullName, longDate, shortDate } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
@@ -368,12 +368,12 @@ export default function Reports() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3 pt-1">
+        <div className="grid grid-cols-1 gap-2.5 pt-1 sm:grid-cols-3">
           <Button
             type="button"
             variant="accent"
             onClick={exportInvoicesCSV}
-            className="text-xs font-bold shadow-xs flex items-center justify-center gap-2"
+            className={`${ACTION_BTN_CLS} shadow-xs`}
           >
             <ReceiptIcon className="h-4 w-4 text-slate-950" />
             <span>Export Invoices ({filteredInvoices.length})</span>
@@ -383,7 +383,7 @@ export default function Reports() {
             type="button"
             variant="ghost"
             onClick={exportPaymentsCSV}
-            className="text-xs font-semibold bg-white border border-slate-200 flex items-center justify-center gap-2 hover:bg-slate-50"
+            className={`${ACTION_BTN_CLS} bg-white border border-slate-200 font-semibold hover:bg-slate-50`}
           >
             <CreditCardIcon className="h-4 w-4 text-slate-700" />
             <span>Export Income &amp; Payments</span>
@@ -393,7 +393,7 @@ export default function Reports() {
             type="button"
             variant="ghost"
             onClick={exportInventoryCSV}
-            className="text-xs font-semibold bg-white border border-slate-200 flex items-center justify-center gap-2 hover:bg-slate-50"
+            className={`${ACTION_BTN_CLS} bg-white border border-slate-200 font-semibold hover:bg-slate-50`}
           >
             <BoxIcon className="h-4 w-4 text-slate-700" />
             <span>Export Inventory Valuation</span>

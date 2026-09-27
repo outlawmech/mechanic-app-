@@ -21,6 +21,7 @@ import {
   ScanIcon,
 } from '../components/icons';
 import {
+  ACTION_GRID_CLS,
   Badge,
   Button,
   Card,
@@ -466,10 +467,10 @@ export default function Sales() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <div className={`${ACTION_GRID_CLS} justify-center pt-2`}>
             <Button
               variant="accent"
-              className="w-full sm:w-auto px-6 py-3 text-xs font-black shadow-lg"
+              className="h-10 w-full sm:h-9 sm:w-auto shadow-lg"
               onClick={async () => {
                 await updateSettings({ enable_dealership_mode: true });
                 toast('🏢 Switched to Dealership & Multi-Tech DMS Mode!');
@@ -480,7 +481,7 @@ export default function Sales() {
 
             <Button
               variant="ghost"
-              className="w-full sm:w-auto text-xs font-bold text-slate-300 border border-slate-700 bg-slate-800 hover:bg-slate-700"
+              className="h-10 w-full sm:h-9 sm:w-auto text-xs font-bold text-slate-300 border border-slate-700 bg-slate-800 hover:bg-slate-700"
               onClick={() => setShowPreview(true)}
             >
               Preview Showroom Floor
@@ -488,7 +489,7 @@ export default function Sales() {
 
             <Link
               to="/"
-              className="text-xs font-semibold text-slate-400 hover:text-white underline sm:no-underline"
+              className="inline-flex h-10 w-full items-center justify-center text-xs font-semibold text-slate-400 hover:text-white underline sm:no-underline sm:h-9 sm:w-auto"
             >
               Back to Dashboard
             </Link>

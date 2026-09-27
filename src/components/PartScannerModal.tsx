@@ -14,6 +14,8 @@ import { Button, Card, Input } from './ui';
 import type { Part } from '../types';
 import { money, num } from '../lib/format';
 import { lookupPriceBookSku, type PriceBookEntry } from '../lib/priceBooks';
+import { BarcodeEngine } from '../lib/barcodeEngine';
+import { recognizeText } from '../lib/ocrEngine';
 
 interface PartScannerModalProps {
   isOpen: boolean;
@@ -44,13 +46,13 @@ export default function PartScannerModal({
   const [matchedPart, setMatchedPart] = useState<Part | null>(null);
   const [matchedPb, setMatchedPb] = useState<PriceBookEntry | null>(null);
   const [candidateSkus, setCandidateSkus] = useState<string[]>([]);
-  const [torchOn, setTorchOn] = useState(false);
   const [manualQuery, setManualQuery] = useState('');
+
+  const barcodeEngineRef = useRef<BarcodeEngine | null>(null);
 
   // Start Camera Stream
   useEffect(() => {
     let stream: MediaStream | null = null;
-    let scanInterval: any = null;
 
     if (isOpen) {
       setMatchedPart(null);
@@ -86,43 +88,25 @@ export default function PartScannerModal({
           );
         });
 
-      // Periodic Live Barcode Scanning
-      if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
-        try {
-          const barcodeDetector = new (window as any).BarcodeDetector({
-            formats: ['qr_code', 'ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e'],
-          });
-
-          scanInterval = setInterval(async () => {
-            if (scanMode === 'barcode' && videoRef.current && videoRef.current.readyState >= 2) {
-              try {
-                const barcodes = await barcodeDetector.detect(videoRef.current);
-                if (barcodes.length > 0) {
-                  const rawVal = barcodes[0].rawValue?.trim();
-                  if (rawVal) {
-                    handleDetectedValue(rawVal);
-                  }
-                }
-              } catch {}
-            }
-          }, 450);
-        } catch {}
+      // Periodic Live Barcode Scanning (ZXing — works in the Android WebView)
+      if (scanMode === 'barcode' && videoRef.current) {
+        const engine = new BarcodeEngine({
+          onResult: ({ text }) => handleDetectedValue(text),
+          onError: (err) => console.warn('Barcode engine error:', err),
+        });
+        barcodeEngineRef.current = engine;
+        void engine.start(videoRef.current);
       }
     }
 
     return () => {
-      if (scanInterval) clearInterval(scanInterval);
+      barcodeEngineRef.current?.stop();
+      barcodeEngineRef.current = null;
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
       activeStreamRef.current = null;
-      if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
-        try {
-          (window as any).AndroidNativeFlashlight.setTorch(false);
-        } catch {}
-      }
       setCameraActive(false);
-      setTorchOn(false);
     };
   }, [isOpen, scanMode]);
 
@@ -183,20 +167,14 @@ export default function PartScannerModal({
       }
       ctx.putImageData(imgData, 0, 0);
 
-      // Check if browser native text detector is available
-      if ('TextDetector' in window) {
-        const textDetector = new (window as any).TextDetector();
-        const detectedTexts = await textDetector.detect(canvas);
-        if (detectedTexts.length > 0) {
-          const rawLines: string[] = detectedTexts.map((t: any) => t.rawValue).filter(Boolean);
-          const fullText = rawLines.join(' ');
-          extractPartNumberCandidates(fullText);
-          return;
-        }
+      // Offline Tesseract WASM OCR
+      const fullText = await recognizeText(canvas);
+      if (fullText) {
+        extractPartNumberCandidates(fullText);
+        return;
       }
 
-      // If no native text detector, simulate visual pattern matching against current SKU catalog
-      // by inspecting manual query or pattern match
+      // Nothing legible: fall back to matching the manual query against the catalog
       const matchingExisting = parts.find((p) =>
         manualQuery && p.sku.toLowerCase().includes(manualQuery.toLowerCase())
       );
@@ -223,64 +201,6 @@ export default function PartScannerModal({
       const firstCandidate = candidates[0];
       handleDetectedValue(firstCandidate);
     }
-  }
-
-  // Toggle Torch/Flashlight
-  async function toggleTorch() {
-    const nextState = !torchOn;
-    let success = false;
-
-    // 1. Direct WebRTC track applyConstraints (Supported on Chrome, Edge, Safari, Android WebView)
-    const currentStream = activeStreamRef.current || (videoRef.current?.srcObject as MediaStream | null);
-    if (currentStream) {
-      const tracks = currentStream.getVideoTracks();
-      for (const track of tracks) {
-        try {
-          const caps = (track.getCapabilities ? track.getCapabilities() : {}) as any;
-          await track.applyConstraints({
-            advanced: [{ torch: nextState } as any],
-          });
-          success = true;
-        } catch {
-          try {
-            await (track as any).applyConstraints({
-              torch: nextState,
-            });
-            success = true;
-          } catch (err) {
-            console.warn('WebRTC torch constraint error:', err);
-          }
-        }
-      }
-    }
-
-    // 2. Try ImageCapture API if available
-    if (!success && typeof (window as any).ImageCapture !== 'undefined' && currentStream) {
-      try {
-        const track = currentStream.getVideoTracks()[0];
-        if (track) {
-          const imageCapture = new (window as any).ImageCapture(track);
-          if (typeof imageCapture.setOptions === 'function') {
-            await imageCapture.setOptions({ fillLightMode: nextState ? 'torch' : 'off', torch: nextState });
-            success = true;
-          }
-        }
-      } catch (icErr) {
-        console.warn('ImageCapture torch error:', icErr);
-      }
-    }
-
-    // 3. Try native Android Flashlight Interface if available
-    if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
-      try {
-        const res = (window as any).AndroidNativeFlashlight.setTorch(nextState);
-        if (res) success = true;
-      } catch (nativeErr) {
-        console.warn('Native Android torch error:', nativeErr);
-      }
-    }
-
-    setTorchOn(nextState);
   }
 
   if (!isOpen) return null;
@@ -375,23 +295,6 @@ export default function PartScannerModal({
                   {/* Horizontal Red Laser Scan Line */}
                   <div className="absolute inset-x-2 top-1/2 h-0.5 bg-red-500 shadow-sm shadow-red-500/80 animate-pulse" />
                 </div>
-              </div>
-
-              {/* Top Controls Overlay */}
-              <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
-                <button
-                  type="button"
-                  onClick={toggleTorch}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-black transition shadow-lg flex items-center gap-1.5 ${
-                    torchOn
-                      ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300 shadow-amber-400/50'
-                      : 'bg-slate-900/80 text-white hover:bg-slate-800 ring-1 ring-white/20'
-                  }`}
-                  title="Toggle Physical Rear LED Flashlight"
-                >
-                  <span>💡</span>
-                  <span>{torchOn ? 'Flash ON' : 'Flash'}</span>
-                </button>
               </div>
 
               {/* OCR Action Trigger Button */}

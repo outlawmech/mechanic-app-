@@ -1,7 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ScanIcon, VehicleIcon, CheckIcon, WrenchIcon, SparklesIcon } from './icons';
 import { Button, Spinner } from './ui';
 import { decodeVehicleVIN, type DecodedVehicleInfo } from '../lib/vinDecoder';
+import { BarcodeEngine } from '../lib/barcodeEngine';
+import { recognizeText } from '../lib/ocrEngine';
 
 export interface VinScannerModalProps {
   isOpen: boolean;
@@ -15,7 +17,6 @@ export default function VinScannerModal({
   onVinDetected,
 }: VinScannerModalProps) {
   const [scanMode, setScanMode] = useState<'barcode' | 'ocr'>('barcode');
-  const [torchOn, setTorchOn] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -26,11 +27,30 @@ export default function VinScannerModal({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const activeStreamRef = useRef<MediaStream | null>(null);
+  const barcodeEngineRef = useRef<BarcodeEngine | null>(null);
+
+  const handleFoundVin = useCallback(
+    async (rawVin: string) => {
+      const clean = rawVin.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (!clean) return;
+      setDetectedVin(clean);
+      setDecoding(true);
+
+      try {
+        const info = await decodeVehicleVIN(clean);
+        setDecodedInfo(info);
+      } catch {
+        setDecodedInfo(null);
+      } finally {
+        setDecoding(false);
+      }
+    },
+    []
+  );
 
   // Initialize Camera Stream
   useEffect(() => {
     let stream: MediaStream | null = null;
-    let scanInterval: any = null;
 
     if (isOpen) {
       setDetectedVin('');
@@ -64,101 +84,34 @@ export default function VinScannerModal({
           );
         });
 
-      // Live Barcode Scanner
-      if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
-        try {
-          const barcodeDetector = new (window as any).BarcodeDetector({
-            formats: ['code_39', 'code_128', 'data_matrix', 'qr_code', 'pdf417'],
-          });
-
-          scanInterval = setInterval(async () => {
-            if (scanMode === 'barcode' && videoRef.current && videoRef.current.readyState >= 2) {
-              try {
-                const barcodes = await barcodeDetector.detect(videoRef.current);
-                if (barcodes.length > 0) {
-                  for (const b of barcodes) {
-                    const raw = b.rawValue?.trim();
-                    if (raw && (raw.length === 17 || raw.length === 12)) {
-                      handleFoundVin(raw);
-                      break;
-                    }
-                  }
-                }
-              } catch {}
+      // Live Barcode Scanner (ZXing — works in the Android WebView)
+      if (scanMode === 'barcode' && videoRef.current) {
+        const engine = new BarcodeEngine({
+          onResult: ({ text }) => {
+            const clean = text.trim();
+            if (clean.length === 17 || clean.length === 12) {
+              void handleFoundVin(clean);
             }
-          }, 400);
-        } catch {}
+          },
+          onError: (err) => console.warn('Barcode engine error:', err),
+        });
+        barcodeEngineRef.current = engine;
+        void engine.start(videoRef.current);
       }
     }
 
     return () => {
-      if (scanInterval) clearInterval(scanInterval);
+      barcodeEngineRef.current?.stop();
+      barcodeEngineRef.current = null;
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
       activeStreamRef.current = null;
-      if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
-        try {
-          (window as any).AndroidNativeFlashlight.setTorch(false);
-        } catch {}
-      }
       setCameraActive(false);
-      setTorchOn(false);
     };
-  }, [isOpen, scanMode]);
+  }, [isOpen, scanMode, handleFoundVin]);
 
-  async function handleFoundVin(rawVin: string) {
-    const clean = rawVin.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-    if (!clean) return;
-    setDetectedVin(clean);
-    setDecoding(true);
-
-    try {
-      const info = await decodeVehicleVIN(clean);
-      setDecodedInfo(info);
-    } catch {
-      setDecodedInfo(null);
-    } finally {
-      setDecoding(false);
-    }
-  }
-
-  // Toggle Torch/Flashlight
-  async function toggleTorch() {
-    const nextState = !torchOn;
-    let success = false;
-
-    const currentStream = activeStreamRef.current || (videoRef.current?.srcObject as MediaStream | null);
-    if (currentStream) {
-      const tracks = currentStream.getVideoTracks();
-      for (const track of tracks) {
-        try {
-          await track.applyConstraints({
-            advanced: [{ torch: nextState } as any],
-          });
-          success = true;
-        } catch {
-          try {
-            await (track as any).applyConstraints({ torch: nextState });
-            success = true;
-          } catch (err) {
-            console.warn('Torch constraint error:', err);
-          }
-        }
-      }
-    }
-
-    if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
-      try {
-        const res = (window as any).AndroidNativeFlashlight.setTorch(nextState);
-        if (res) success = true;
-      } catch {}
-    }
-
-    setTorchOn(nextState);
-  }
-
-  // OCR VIN Frame Capture
+  // OCR VIN Frame Capture (Tesseract WASM)
   async function captureAndReadOCR() {
     if (!videoRef.current || !canvasRef.current) return;
     setScanning(true);
@@ -173,17 +126,11 @@ export default function VinScannerModal({
       canvas.height = video.videoHeight || 480;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-      if ('TextDetector' in window) {
-        const textDetector = new (window as any).TextDetector();
-        const detectedTexts = await textDetector.detect(canvas);
-        for (const t of detectedTexts) {
-          const raw = t.rawValue?.trim() || '';
-          const vinMatches = raw.match(/\b[A-HJ-NPR-Z0-9]{17}\b/i) || raw.match(/\b[A-Z0-9]{12}\b/i);
-          if (vinMatches && vinMatches[0]) {
-            handleFoundVin(vinMatches[0]);
-            break;
-          }
-        }
+      const text = await recognizeText(canvas);
+      const vinMatches =
+        text.match(/\b[A-HJ-NPR-Z0-9]{17}\b/i) || text.match(/\b[A-Z0-9]{12}\b/i);
+      if (vinMatches && vinMatches[0]) {
+        await handleFoundVin(vinMatches[0]);
       }
     } catch (err) {
       console.warn('OCR error:', err);
@@ -276,22 +223,6 @@ export default function VinScannerModal({
               </div>
               <div className="absolute inset-x-2 top-1/2 h-0.5 bg-red-500 shadow-sm shadow-red-500/80 animate-pulse" />
             </div>
-          </div>
-
-          {/* Flashlight Button */}
-          <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
-            <button
-              type="button"
-              onClick={toggleTorch}
-              className={`rounded-xl px-3 py-1.5 text-xs font-black transition shadow-lg flex items-center gap-1.5 ${
-                torchOn
-                  ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300 shadow-amber-400/50'
-                  : 'bg-slate-900/80 text-white hover:bg-slate-800 ring-1 ring-white/20'
-              }`}
-            >
-              <span>💡</span>
-              <span>{torchOn ? 'Flash ON' : 'Flash'}</span>
-            </button>
           </div>
 
           {/* OCR Capture Button */}

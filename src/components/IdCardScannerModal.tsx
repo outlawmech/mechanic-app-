@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ScanIcon, UsersIcon, CheckIcon, MapPinIcon } from './icons';
 import { Button } from './ui';
 import { parseAAMVA, type ParsedDriverLicense } from '../lib/aamvaParser';
+import { BarcodeEngine } from '../lib/barcodeEngine';
 
 export interface IdCardScannerModalProps {
   isOpen: boolean;
@@ -14,18 +15,17 @@ export default function IdCardScannerModal({
   onClose,
   onIdDetected,
 }: IdCardScannerModalProps) {
-  const [torchOn, setTorchOn] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scannedId, setScannedId] = useState<ParsedDriverLicense | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const activeStreamRef = useRef<MediaStream | null>(null);
+  const barcodeEngineRef = useRef<BarcodeEngine | null>(null);
 
   // Initialize Camera Stream
   useEffect(() => {
     let stream: MediaStream | null = null;
-    let scanInterval: any = null;
 
     if (isOpen) {
       setScannedId(null);
@@ -58,82 +58,30 @@ export default function IdCardScannerModal({
           );
         });
 
-      // PDF417 Live Barcode Scanner
-      if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
-        try {
-          const barcodeDetector = new (window as any).BarcodeDetector({
-            formats: ['pdf417', 'qr_code'],
-          });
-
-          scanInterval = setInterval(async () => {
-            if (videoRef.current && videoRef.current.readyState >= 2) {
-              try {
-                const barcodes = await barcodeDetector.detect(videoRef.current);
-                if (barcodes.length > 0) {
-                  for (const b of barcodes) {
-                    const raw = b.rawValue?.trim();
-                    if (raw) {
-                      const parsed = parseAAMVA(raw);
-                      if (parsed) {
-                        setScannedId(parsed);
-                        break;
-                      }
-                    }
-                  }
-                }
-              } catch {}
-            }
-          }, 350);
-        } catch {}
+      // PDF417 Live Barcode Scanner (ZXing — works in the Android WebView)
+      if (videoRef.current) {
+        const engine = new BarcodeEngine({
+          onResult: ({ text }) => {
+            const parsed = parseAAMVA(text.trim());
+            if (parsed) setScannedId(parsed);
+          },
+          onError: (err) => console.warn('Barcode engine error:', err),
+        });
+        barcodeEngineRef.current = engine;
+        void engine.start(videoRef.current);
       }
     }
 
     return () => {
-      if (scanInterval) clearInterval(scanInterval);
+      barcodeEngineRef.current?.stop();
+      barcodeEngineRef.current = null;
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
       activeStreamRef.current = null;
-      if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
-        try {
-          (window as any).AndroidNativeFlashlight.setTorch(false);
-        } catch {}
-      }
       setCameraActive(false);
-      setTorchOn(false);
     };
   }, [isOpen]);
-
-  // Toggle Torch/Flashlight
-  async function toggleTorch() {
-    const nextState = !torchOn;
-
-    const currentStream = activeStreamRef.current || (videoRef.current?.srcObject as MediaStream | null);
-    if (currentStream) {
-      const tracks = currentStream.getVideoTracks();
-      for (const track of tracks) {
-        try {
-          await track.applyConstraints({
-            advanced: [{ torch: nextState } as any],
-          });
-        } catch {
-          try {
-            await (track as any).applyConstraints({ torch: nextState });
-          } catch (err) {
-            console.warn('Torch constraint error:', err);
-          }
-        }
-      }
-    }
-
-    if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
-      try {
-        (window as any).AndroidNativeFlashlight.setTorch(nextState);
-      } catch {}
-    }
-
-    setTorchOn(nextState);
-  }
 
   function handleAccept() {
     if (!scannedId) return;
@@ -194,21 +142,6 @@ export default function IdCardScannerModal({
             </div>
           </div>
 
-          {/* Flashlight Button */}
-          <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
-            <button
-              type="button"
-              onClick={toggleTorch}
-              className={`rounded-xl px-3 py-1.5 text-xs font-black transition shadow-lg flex items-center gap-1.5 ${
-                torchOn
-                  ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300 shadow-amber-400/50'
-                  : 'bg-slate-900/80 text-white hover:bg-slate-800 ring-1 ring-white/20'
-              }`}
-            >
-              <span>💡</span>
-              <span>{torchOn ? 'Flash ON' : 'Flash'}</span>
-            </button>
-          </div>
         </div>
 
         {/* Results & Auto-Fill Bottom Card */}

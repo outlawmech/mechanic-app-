@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BanknotesIcon, ReceiptIcon, SearchIcon } from '../components/icons';
-import { Badge, Card, Chip, EmptyState, ErrorState, PageTitle, Spinner } from '../components/ui';
+import { ACTION_GRID_CLS, actionBtnCls, Badge, Card, Chip, EmptyState, ErrorState, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, longDate, money, num } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
@@ -71,17 +71,11 @@ export default function Invoices() {
           title="Invoices"
           sub={totalDue > 0 ? `${money(totalDue)} outstanding receivables` : `${data?.length ?? 0} total invoices`}
         />
-        <div className="flex items-center gap-2">
-          <Link
-            to="/parts/counter"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-orange-400 px-3.5 py-2 text-xs font-black text-slate-950 shadow-sm transition hover:bg-orange-300"
-          >
+        <div className={ACTION_GRID_CLS}>
+          <Link to="/parts/counter" className={actionBtnCls('accent')}>
             <span>⚡ New Part Invoice</span>
           </Link>
-          <Link
-            to="/reports"
-            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800"
-          >
+          <Link to="/reports" className={actionBtnCls('primary')}>
             <BanknotesIcon className="h-4 w-4 text-orange-400" />
             <span>Financials &amp; Reports</span>
           </Link>
