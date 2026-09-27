@@ -3,9 +3,7 @@ package com.outlawshopsystems.app;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
-import android.hardware.camera2.CameraMetadata;
 import android.os.Build;
 import android.os.Bundle;
 import android.print.PrintAttributes;
@@ -13,6 +11,7 @@ import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -58,6 +57,37 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    @Override
+    public void onBackPressed() {
+        try {
+            WebView webView = (this.getBridge() != null) ? this.getBridge().getWebView() : null;
+            if (webView != null) {
+                webView.evaluateJavascript(
+                    "(function() {" +
+                    "  var closeBtn = document.querySelector('[data-modal-close=\"true\"]');" +
+                    "  if (closeBtn) { closeBtn.click(); return 'modal'; }" +
+                    "  if (window.location.pathname !== '/' && window.location.pathname !== '') {" +
+                    "    window.history.back(); return 'nav';" +
+                    "  }" +
+                    "  return 'root';" +
+                    "})()",
+                    new ValueCallback<String>() {
+                        @Override
+                        public void onReceiveValue(String value) {
+                            if ("\"root\"".equals(value) || value == null || "null".equals(value)) {
+                                MainActivity.super.onBackPressed();
+                            }
+                        }
+                    }
+                );
+                return;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        super.onBackPressed();
+    }
+
     public static class OutlawFlashlightInterface {
         private final Context context;
 
@@ -71,14 +101,12 @@ public class MainActivity extends BridgeActivity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     CameraManager cameraManager = (CameraManager) context.getSystemService(Context.CAMERA_SERVICE);
                     if (cameraManager != null) {
-                        for (String id : cameraManager.getCameraIdList()) {
-                            CameraCharacteristics chars = cameraManager.getCameraCharacteristics(id);
-                            Boolean flashAvailable = chars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
-                            Integer lensFacing = chars.get(CameraCharacteristics.LENS_FACING);
-                            if (flashAvailable != null && flashAvailable &&
-                                (lensFacing == null || lensFacing == CameraMetadata.LENS_FACING_BACK || lensFacing == 1)) {
+                        String[] ids = cameraManager.getCameraIdList();
+                        for (String id : ids) {
+                            try {
                                 cameraManager.setTorchMode(id, enabled);
                                 return true;
+                            } catch (Exception ignored) {
                             }
                         }
                     }
