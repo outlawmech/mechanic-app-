@@ -137,7 +137,7 @@ export default function Settings() {
       {user && (
         <Card className="flex items-center justify-between p-3.5 bg-slate-900 text-white">
           <div className="min-w-0">
-            <p className="text-[11px] font-medium text-amber-400 uppercase tracking-wide">
+            <p className="text-[11px] font-medium text-orange-400 uppercase tracking-wide">
               Signed in account
             </p>
             <p className="text-xs font-semibold truncate text-slate-200">{user.email}</p>
@@ -158,7 +158,7 @@ export default function Settings() {
         <Card className="space-y-4 p-5 bg-gradient-to-br from-slate-900 to-slate-950 text-white shadow-xl border border-slate-800">
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">
+              <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">
                 Active System Edition
               </span>
               <h3 className="text-base font-black text-white mt-0.5">
@@ -169,7 +169,7 @@ export default function Settings() {
               className={`rounded-full px-3 py-1 text-xs font-black uppercase ${
                 form.enable_dealership_mode
                   ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  : 'bg-orange-500/20 text-orange-300 border border-orange-500/40'
               }`}
             >
               {form.enable_dealership_mode ? '🏢 DMS Active' : '🚛 Solo Rig Active'}
@@ -191,7 +191,7 @@ export default function Settings() {
               }}
               className={`cursor-pointer rounded-2xl p-4 transition border-2 text-left ${
                 !form.enable_dealership_mode
-                  ? 'border-amber-400 bg-slate-800/90 ring-1 ring-amber-400/50 shadow-lg'
+                  ? 'border-orange-500 bg-slate-800/90 ring-1 ring-orange-500/50 shadow-lg'
                   : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
               }`}
             >
@@ -200,10 +200,10 @@ export default function Settings() {
                   🚛 Solo Rig Edition
                 </span>
                 {!form.enable_dealership_mode && (
-                  <span className="h-2.5 w-2.5 rounded-full bg-amber-400 animate-pulse" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-orange-500 animate-pulse" />
                 )}
               </div>
-              <p className="text-[11px] text-amber-400 font-bold mt-1">$29 / month</p>
+              <p className="text-[11px] text-orange-400 font-bold mt-1">$29 / month</p>
               <p className="text-xs text-slate-300 mt-2 leading-relaxed">
                 Streamlined for mobile mechanics and solo vans. Dispatch schedule, repair orders, on-site invoicing, and parts catalog.
               </p>
@@ -307,7 +307,7 @@ export default function Settings() {
         {/* Business Profile */}
         <Card className="space-y-3 p-4">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-            <WrenchIcon className="h-4 w-4 text-amber-500" />
+            <WrenchIcon className="h-4 w-4 text-orange-500" />
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">
               Business Profile &amp; Branding
             </h3>
@@ -506,7 +506,7 @@ export default function Settings() {
               className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                 sub.isPro
                   ? 'bg-emerald-500/20 text-emerald-300'
-                  : 'bg-amber-400/20 text-amber-300'
+                  : 'bg-orange-400/20 text-orange-300'
               }`}
             >
               {sub.isPro ? (
@@ -520,7 +520,7 @@ export default function Settings() {
             <h3 className="text-base font-bold text-white">{sub.planName}</h3>
           </div>
           <div className="text-right">
-            <span className="text-xl font-black text-amber-400">{sub.planPrice}</span>
+            <span className="text-xl font-black text-orange-400">{sub.planPrice}</span>
           </div>
         </div>
 
@@ -553,19 +553,19 @@ export default function Settings() {
           ) : (
             <>
               <div className="flex items-center gap-2">
-                <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+                <CheckIcon className="h-4 w-4 text-orange-400 shrink-0" />
                 <span>Unlimited Invoices &amp; Work Orders</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+                <CheckIcon className="h-4 w-4 text-orange-400 shrink-0" />
                 <span>Full Inventory &amp; Stock Management</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+                <CheckIcon className="h-4 w-4 text-orange-400 shrink-0" />
                 <span>Multi-Tenant Cloud Sync (Supabase)</span>
               </div>
               <div className="flex items-center gap-2">
-                <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+                <CheckIcon className="h-4 w-4 text-orange-400 shrink-0" />
                 <span>Instant PDF &amp; Custom Branding</span>
               </div>
             </>
@@ -578,7 +578,7 @@ export default function Settings() {
               href={STRIPE_PAYMENT_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-400 shadow-md active:scale-[0.99]"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-orange-400 shadow-md active:scale-[0.99]"
             >
               Start 14-Day Free Trial
               <span className="text-xs font-normal text-slate-900">(Then {sub.planPrice})</span>
@@ -658,11 +658,11 @@ export default function Settings() {
               localStorage.setItem('outlaw_view_mode', 'desktop');
               window.location.reload();
             }}
-            className="flex flex-col items-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50/60 p-3 text-center transition hover:bg-amber-100/60 active:scale-95"
+            className="flex flex-col items-center gap-1.5 rounded-xl border border-orange-300 bg-orange-50/60 p-3 text-center transition hover:bg-orange-100/60 active:scale-95"
           >
-            <MonitorIcon className="h-5 w-5 text-amber-800" />
-            <span className="text-xs font-bold text-amber-900">Force Desktop</span>
-            <span className="text-[10px] text-amber-700">Widescreen + Nav</span>
+            <MonitorIcon className="h-5 w-5 text-orange-800" />
+            <span className="text-xs font-bold text-orange-900">Force Desktop</span>
+            <span className="text-[10px] text-orange-700">Widescreen + Nav</span>
           </button>
           <button
             type="button"
@@ -719,8 +719,8 @@ export default function Settings() {
       </Card>
 
       {/* Data Management Card */}
-      <Card className="space-y-3 border-amber-200 bg-amber-50/50 p-4">
-        <h3 className="text-xs font-bold uppercase tracking-wide text-amber-900">
+      <Card className="space-y-3 border-orange-200 bg-orange-50/50 p-4">
+        <h3 className="text-xs font-bold uppercase tracking-wide text-orange-900">
           Demo Data Management
         </h3>
         <p className="text-xs text-slate-600">
@@ -730,9 +730,9 @@ export default function Settings() {
           variant="ghost"
           onClick={handleWipeDemoData}
           disabled={wiping}
-          className="w-full border border-amber-300 bg-white text-xs font-semibold text-amber-800 hover:bg-amber-100"
+          className="w-full border border-orange-300 bg-white text-xs font-semibold text-orange-800 hover:bg-orange-100"
         >
-          <TrashIcon className="h-4 w-4 text-amber-700" />
+          <TrashIcon className="h-4 w-4 text-orange-700" />
           {wiping ? 'Wiping demo rows…' : 'Wipe Sample Demo Records'}
         </Button>
       </Card>

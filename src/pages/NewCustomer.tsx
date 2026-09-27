@@ -305,7 +305,7 @@ export default function NewCustomer() {
                   type="button"
                   onClick={handleDecodeVin}
                   disabled={decoding || !form.vin.trim()}
-                  className="flex items-center gap-1 rounded-xl bg-amber-400 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-xs"
+                  className="flex items-center gap-1 rounded-xl bg-orange-400 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-orange-300 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-xs"
                 >
                   <SparklesIcon className="h-3.5 w-3.5" />
                   <span>{decoding ? 'Decoding…' : 'Decode'}</span>
@@ -351,14 +351,14 @@ export default function NewCustomer() {
             <button
               type="button"
               onClick={() => setForm((f) => ({ ...f, has_second_engine: true }))}
-              className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 hover:text-amber-700"
+              className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 hover:text-orange-700"
             >
               <PlusIcon className="h-3.5 w-3.5" /> + Add Second Engine / Kicker Motor
             </button>
           ) : (
-            <div className="rounded-xl border border-amber-200 bg-amber-50/40 p-3 space-y-2.5">
+            <div className="rounded-xl border border-orange-200 bg-orange-50/40 p-3 space-y-2.5">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-bold uppercase tracking-wide text-amber-900">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-orange-900">
                   Second Engine / Kicker Motor
                 </p>
                 <button

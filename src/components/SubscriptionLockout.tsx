@@ -46,7 +46,7 @@ export default function SubscriptionLockout({ onUnlocked }: SubscriptionLockoutP
       <div className="w-full max-w-md space-y-6">
         {/* Header Icon */}
         <div className="text-center">
-          <div className="relative mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-amber-400 text-slate-950 shadow-2xl shadow-amber-400/20">
+          <div className="relative mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-orange-500 text-slate-950 shadow-2xl shadow-orange-500/20">
             <WrenchIcon className="h-8 w-8" />
             <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white ring-2 ring-slate-950">
               <LockClosedIcon className="h-3.5 w-3.5" />
@@ -64,32 +64,32 @@ export default function SubscriptionLockout({ onUnlocked }: SubscriptionLockoutP
         <Card className="space-y-4 border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 p-5 shadow-2xl ring-1 ring-white/10">
           <div className="flex items-start justify-between border-b border-slate-800/80 pb-3">
             <div>
-              <span className="inline-flex items-center rounded-full bg-amber-400/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-300">
+              <span className="inline-flex items-center rounded-full bg-orange-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-orange-300 border border-orange-500/30">
                 Solo Rig Tier
               </span>
               <h2 className="mt-1 text-lg font-bold text-white">Outlaw Shop Systems</h2>
             </div>
             <div className="text-right">
-              <span className="text-2xl font-black text-amber-400">$29</span>
+              <span className="text-2xl font-black text-orange-400">$29</span>
               <span className="text-xs text-slate-400"> / month</span>
             </div>
           </div>
 
           <div className="space-y-2.5 text-xs text-slate-300">
             <div className="flex items-center gap-2.5">
-              <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+              <CheckIcon className="h-4 w-4 text-orange-400 shrink-0" />
               <span>Unlimited Customer &amp; Vehicle Profiles</span>
             </div>
             <div className="flex items-center gap-2.5">
-              <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+              <CheckIcon className="h-4 w-4 text-orange-400 shrink-0" />
               <span>Work Order Tracking &amp; Offline PDF Invoicing</span>
             </div>
             <div className="flex items-center gap-2.5">
-              <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+              <CheckIcon className="h-4 w-4 text-orange-400 shrink-0" />
               <span>Full Parts &amp; Inventory Management</span>
             </div>
             <div className="flex items-center gap-2.5">
-              <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" />
+              <CheckIcon className="h-4 w-4 text-orange-400 shrink-0" />
               <span>Real-Time Cloud Sync &amp; Multi-Device Support</span>
             </div>
           </div>
@@ -99,7 +99,7 @@ export default function SubscriptionLockout({ onUnlocked }: SubscriptionLockoutP
               href={STRIPE_PAYMENT_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-400 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-amber-300 shadow-lg shadow-amber-400/10 active:scale-[0.99]"
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-orange-400 shadow-lg shadow-orange-500/20 active:scale-[0.99]"
             >
               Activate Subscription ($29/mo)
             </a>

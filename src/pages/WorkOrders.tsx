@@ -80,7 +80,7 @@ export default function WorkOrders() {
         <PageTitle title="Repair Orders (RO)" sub={`${data?.length ?? 0} total repair orders`} />
         <Link
           to="/work/new"
-          className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 shadow transition hover:bg-amber-300"
+          className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-orange-400 px-4 py-2 text-xs font-bold text-slate-950 shadow transition hover:bg-orange-300"
         >
           <PlusIcon className="h-4 w-4" />
           <span>New Repair Order</span>
@@ -96,7 +96,7 @@ export default function WorkOrders() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search RO #, customer name, vehicle, plate, part…"
-            className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-orange-400"
           />
         </div>
 
@@ -124,7 +124,7 @@ export default function WorkOrders() {
             !searchQuery && (
               <Link
                 to="/work/new"
-                className="inline-flex rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-300"
+                className="inline-flex rounded-xl bg-orange-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-orange-300"
               >
                 + New Repair Order
               </Link>

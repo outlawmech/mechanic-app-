@@ -439,7 +439,7 @@ export default function CustomerDetail() {
               onChange={(e) => setCustForm({ ...custForm, notes: e.target.value })}
               placeholder="e.g. VIP client, preferred tech, gate code, fleet discount..."
               rows={2}
-              className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+              className="w-full rounded-xl border border-slate-200 bg-white p-2.5 text-xs text-slate-900 shadow-sm focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500"
             />
           </Field>
 
@@ -468,7 +468,7 @@ export default function CustomerDetail() {
               <button
                 type="button"
                 onClick={startEditCustomer}
-                className="text-[11px] font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1"
+                className="text-[11px] font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1"
               >
                 <PencilIcon className="h-3 w-3" /> Edit
               </button>
@@ -529,7 +529,7 @@ export default function CustomerDetail() {
               <div className="space-y-2">
                 {invs.map((i) => (
                   <Link key={i.id} to={`/invoices/${i.id}`}>
-                    <Card className="flex items-center justify-between p-3.5 hover:border-amber-400/50 transition">
+                    <Card className="flex items-center justify-between p-3.5 hover:border-orange-400/50 transition">
                       <div>
                         <p className="font-mono text-xs font-bold text-slate-600">{i.number}</p>
                         <p className="mt-0.5 text-xs text-slate-500">{longDate(i.issued_at)}</p>
@@ -562,7 +562,7 @@ export default function CustomerDetail() {
                     setV(emptyVehicle);
                     setAddingVehicle(true);
                   }}
-                  className="flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-700"
+                  className="flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700"
                 >
                   <PlusIcon className="h-3.5 w-3.5" /> + Add Vehicle
                 </button>
@@ -660,7 +660,7 @@ export default function CustomerDetail() {
                         type="button"
                         onClick={handleDecodeVin}
                         disabled={decoding || !v.vin.trim()}
-                        className="flex items-center gap-1 rounded-xl bg-amber-400 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-xs"
+                        className="flex items-center gap-1 rounded-xl bg-orange-400 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-orange-300 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-xs"
                       >
                         <SparklesIcon className="h-3.5 w-3.5" />
                         <span>{decoding ? 'Decoding…' : 'Decode'}</span>
@@ -724,7 +724,7 @@ export default function CustomerDetail() {
                 {vehs.map((veh) => {
                   const info = getVehicleTypeInfo(veh.type);
                   return (
-                    <Card key={veh.id} className="p-3.5 hover:border-amber-400/50 transition">
+                    <Card key={veh.id} className="p-3.5 hover:border-orange-400/50 transition">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -750,7 +750,7 @@ export default function CustomerDetail() {
                                   {veh.type === 'marine' && veh.engine2_info ? 'Main Motor:' : 'Engine / Motor:'}
                                 </span>
                                 {veh.engine_hours && (
-                                  <span className="inline-flex items-center gap-1 text-amber-800">
+                                  <span className="inline-flex items-center gap-1 text-orange-800">
                                     <ClockIcon className="h-3 w-3" />
                                     {veh.engine_hours} hrs
                                   </span>
@@ -771,7 +771,7 @@ export default function CustomerDetail() {
                               <div className="flex items-center justify-between font-semibold text-slate-800">
                                 <span>Second Motor / Aux:</span>
                                 {veh.engine2_hours && (
-                                  <span className="inline-flex items-center gap-1 text-amber-800">
+                                  <span className="inline-flex items-center gap-1 text-orange-800">
                                     <ClockIcon className="h-3 w-3" />
                                     {veh.engine2_hours} hrs
                                   </span>
@@ -791,7 +791,7 @@ export default function CustomerDetail() {
                         <div className="flex items-center gap-1.5 shrink-0">
                           <Link
                             to={`/work/new?customer=${c.id}&vehicle=${veh.id}`}
-                            className="inline-flex items-center gap-1 rounded-lg bg-amber-400 px-2 py-1 text-[11px] font-black text-slate-950 hover:bg-amber-300 transition shadow-2xs"
+                            className="inline-flex items-center gap-1 rounded-lg bg-orange-400 px-2 py-1 text-[11px] font-black text-slate-950 hover:bg-orange-300 transition shadow-2xs"
                             title="Start new repair order for this machine"
                           >
                             <WrenchIcon className="h-3 w-3" />
@@ -833,7 +833,7 @@ export default function CustomerDetail() {
               <div className="space-y-2">
                 {wos.map((w) => (
                   <Link key={w.id} to={`/work/${w.id}`}>
-                    <Card className="flex items-center justify-between p-3.5 hover:border-amber-400/50 transition">
+                    <Card className="flex items-center justify-between p-3.5 hover:border-orange-400/50 transition">
                       <div>
                         <p className="font-mono text-xs font-bold text-slate-600">{w.number}</p>
                         <p className="mt-0.5 text-xs text-slate-500">{longDate(w.created_at)}</p>

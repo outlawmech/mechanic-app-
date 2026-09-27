@@ -16,7 +16,7 @@ interface PhotoGalleryProps {
 
 const CATEGORY_MAP: Record<PhotoCategory, { label: string; tag: string; color: string }> = {
   pre_inspection: { label: 'Pre-Inspection', tag: 'INSPECT', color: 'bg-blue-50 text-blue-700 border-blue-200' },
-  damaged_part: { label: 'Damaged / Worn', tag: 'DAMAGE', color: 'bg-amber-50 text-amber-700 border-amber-200' },
+  damaged_part: { label: 'Damaged / Worn', tag: 'DAMAGE', color: 'bg-orange-50 text-orange-700 border-orange-200' },
   completed_work: { label: 'Completed Work', tag: 'DONE', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   diagnostic: { label: 'Diagnostic Scan', tag: 'DIAG', color: 'bg-purple-50 text-purple-700 border-purple-200' },
   general: { label: 'General Photo', tag: 'PHOTO', color: 'bg-slate-50 text-slate-700 border-slate-200' },
@@ -261,7 +261,7 @@ export default function PhotoGallery({ workOrderId }: PhotoGalleryProps) {
                 onClick={() => setActiveCategoryFilter(key)}
                 className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold transition ${
                   activeCategoryFilter === key
-                    ? 'bg-amber-400 text-slate-950 shadow-sm'
+                    ? 'bg-orange-400 text-slate-950 shadow-sm'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
@@ -325,8 +325,8 @@ export default function PhotoGallery({ workOrderId }: PhotoGalleryProps) {
           >
             <div className="flex items-center justify-between border-b border-slate-800 p-3">
               <div className="flex items-center gap-1.5">
-                <CameraIcon className="h-4 w-4 text-amber-400" />
-                <span className="text-xs font-bold text-amber-400">
+                <CameraIcon className="h-4 w-4 text-orange-400" />
+                <span className="text-xs font-bold text-orange-400">
                   {CATEGORY_MAP[selectedPhoto.category]?.label || 'Photo'}
                 </span>
               </div>

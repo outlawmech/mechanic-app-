@@ -671,7 +671,7 @@ export default function WorkOrderDetail() {
             )}
 
             {showInvoicePanel && (
-              <Card className="space-y-3 border-amber-300 bg-amber-50/50 p-4">
+              <Card className="space-y-3 border-orange-300 bg-orange-50/50 p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
                   Generate Customer Invoice
                 </p>
@@ -698,7 +698,7 @@ export default function WorkOrderDetail() {
                   </Button>
                 </div>
                 {items.length === 0 && (
-                  <p className="text-xs text-amber-600">Add at least one line item first.</p>
+                  <p className="text-xs text-orange-600">Add at least one line item first.</p>
                 )}
               </Card>
             )}
@@ -773,7 +773,7 @@ export default function WorkOrderDetail() {
                 <button
                   type="button"
                   onClick={() => setShowSignaturePad(true)}
-                  className="text-[11px] font-semibold text-amber-600 hover:text-amber-700"
+                  className="text-[11px] font-semibold text-orange-600 hover:text-orange-700"
                 >
                   Re-sign / Update
                 </button>
@@ -794,11 +794,11 @@ export default function WorkOrderDetail() {
               defaultName={fullName(wo.customer)}
             />
           ) : (
-            <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50/50 p-4 space-y-2">
+            <div className="rounded-2xl border border-dashed border-orange-300 bg-orange-50/50 p-4 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <CheckIcon className="h-4 w-4 text-amber-700" />
-                  <span className="text-xs font-bold text-amber-950">Customer Signature</span>
+                  <CheckIcon className="h-4 w-4 text-orange-700" />
+                  <span className="text-xs font-bold text-orange-950">Customer Signature</span>
                 </div>
                 <Button
                   type="button"
@@ -809,7 +809,7 @@ export default function WorkOrderDetail() {
                   Get Signature
                 </Button>
               </div>
-              <p className="text-[11px] text-amber-800/80">
+              <p className="text-[11px] text-orange-800/80">
                 Capture customer finger signature & authorization directly on your phone screen.
               </p>
             </div>
@@ -933,14 +933,14 @@ export default function WorkOrderDetail() {
 
             {/* INSTANT PART NUMBER SEARCH (When kind === 'part' and partEntryMode === 'inventory') */}
             {kind === 'part' && partEntryMode === 'inventory' && (
-              <div className="space-y-2 rounded-xl border border-amber-200 bg-amber-50/40 p-3">
+              <div className="space-y-2 rounded-xl border border-orange-200 bg-orange-50/40 p-3">
                 {selectedPart ? (
                   // Selected Part Preview Card
-                  <div className="flex items-start justify-between rounded-xl bg-white p-3 shadow-sm ring-1 ring-amber-400">
+                  <div className="flex items-start justify-between rounded-xl bg-white p-3 shadow-sm ring-1 ring-orange-400">
                     <div>
                       <div className="flex items-center gap-2">
                         {selectedPart.sku && (
-                          <span className="font-mono text-xs font-bold rounded bg-amber-100 text-amber-900 px-1.5 py-0.5">
+                          <span className="font-mono text-xs font-bold rounded bg-orange-100 text-orange-900 px-1.5 py-0.5">
                             {selectedPart.sku}
                           </span>
                         )}
@@ -981,7 +981,7 @@ export default function WorkOrderDetail() {
                         value={partSearchQuery}
                         onChange={(e) => setPartSearchQuery(e.target.value)}
                         placeholder="Search SKU # (e.g. WIX-51348), part name, or brand…"
-                        className="h-9 w-full rounded-xl bg-white pl-9 pr-3 text-xs shadow-sm ring-1 ring-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        className="h-9 w-full rounded-xl bg-white pl-9 pr-3 text-xs shadow-sm ring-1 ring-orange-300 focus:outline-none focus:ring-2 focus:ring-orange-500"
                         autoFocus
                       />
                     </div>
@@ -998,7 +998,7 @@ export default function WorkOrderDetail() {
                               setPartEntryMode('manual');
                               setDesc(partSearchQuery);
                             }}
-                            className="mt-1 font-bold text-amber-600 underline"
+                            className="mt-1 font-bold text-orange-600 underline"
                           >
                             Add as custom part instead
                           </button>
@@ -1009,7 +1009,7 @@ export default function WorkOrderDetail() {
                             key={p.id}
                             type="button"
                             onClick={() => handleSelectInventoryPart(p)}
-                            className="flex w-full items-center justify-between rounded-lg p-2 text-left transition hover:bg-amber-50/80 active:scale-[0.99]"
+                            className="flex w-full items-center justify-between rounded-lg p-2 text-left transition hover:bg-orange-50/80 active:scale-[0.99]"
                           >
                             <div className="min-w-0 flex-1 pr-2">
                               <div className="flex items-center gap-1.5">

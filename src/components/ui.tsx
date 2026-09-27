@@ -37,11 +37,11 @@ export function Button({
   ...rest
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: BtnVariant }) {
   const styles: Record<BtnVariant, string> = {
-    primary: 'bg-slate-900 text-white active:bg-slate-700',
-    accent: 'bg-amber-400 text-slate-900 active:bg-amber-300',
-    success: 'bg-emerald-600 text-white active:bg-emerald-500',
-    ghost: 'bg-slate-100 text-slate-700 active:bg-slate-200',
-    danger: 'bg-red-50 text-red-600 active:bg-red-100',
+    primary: 'bg-slate-900 text-white hover:bg-slate-800 active:bg-slate-700 shadow-xs',
+    accent: 'bg-orange-500 text-slate-950 font-black hover:bg-orange-400 active:bg-orange-600 shadow-md shadow-orange-500/20',
+    success: 'bg-emerald-600 text-white hover:bg-emerald-500 active:bg-emerald-700 shadow-xs',
+    ghost: 'bg-slate-100 text-slate-700 hover:bg-slate-200 active:bg-slate-300',
+    danger: 'bg-red-50 text-red-600 hover:bg-red-100 active:bg-red-200',
   };
   return (
     <button
@@ -63,7 +63,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 const inputCls =
-  'w-full rounded-xl border-0 bg-slate-100 px-3.5 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-2 focus:ring-amber-400';
+  'w-full rounded-xl border-0 bg-slate-100 px-3.5 py-2.5 text-sm text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 outline-none focus:bg-white focus:ring-2 focus:ring-orange-500';
 
 export function Input({ className = '', ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...rest} className={`${inputCls} ${className}`} />;
@@ -86,12 +86,12 @@ export function Textarea({ className = '', ...rest }: TextareaHTMLAttributes<HTM
 }
 
 const BADGE: Record<string, string> = {
-  open: 'bg-blue-50 text-blue-700 ring-blue-600/20',
-  in_progress: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-  completed: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+  open: 'bg-orange-50 text-orange-700 ring-orange-600/25',
+  in_progress: 'bg-orange-50 text-orange-700 ring-orange-600/25',
+  completed: 'bg-emerald-50 text-emerald-700 ring-emerald-600/25',
   invoiced: 'bg-slate-200/70 text-slate-600 ring-slate-500/20',
-  unpaid: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-  paid: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
+  unpaid: 'bg-orange-50 text-orange-700 ring-orange-600/25',
+  paid: 'bg-emerald-50 text-emerald-700 ring-emerald-600/25',
   void: 'bg-red-50 text-red-600 ring-red-600/20',
 };
 
@@ -120,7 +120,7 @@ export function Badge({ status }: { status: string }) {
 export function Spinner() {
   return (
     <div className="flex justify-center py-16">
-      <div className="h-7 w-7 animate-spin rounded-full border-[2.5px] border-slate-200 border-t-slate-900" />
+      <div className="h-7 w-7 animate-spin rounded-full border-[2.5px] border-slate-200 border-t-orange-500" />
     </div>
   );
 }
@@ -198,7 +198,7 @@ export function Chip({
     <button
       onClick={onClick}
       className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
-        active ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200'
+        active ? 'bg-orange-500 text-slate-950 font-bold shadow-xs' : 'bg-white text-slate-600 ring-1 ring-inset ring-slate-200 hover:bg-slate-50'
       }`}
     >
       {children}

@@ -385,7 +385,7 @@ export default function BuyersOrderDetail() {
                 <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
                   1. Buyer / Customer Information
                 </h3>
-                <Link to="/customers/new" className="text-xs font-bold text-amber-600 hover:underline">
+                <Link to="/customers/new" className="text-xs font-bold text-orange-600 hover:underline">
                   + Add Customer
                 </Link>
               </div>
@@ -433,17 +433,17 @@ export default function BuyersOrderDetail() {
               </Field>
 
               {selectedUnit && selectedUnit.is_floored && (
-                <div className="rounded-2xl border border-amber-300 bg-amber-50/80 p-3.5 space-y-1 text-xs text-amber-950">
+                <div className="rounded-2xl border border-orange-300 bg-orange-50/80 p-3.5 space-y-1 text-xs text-orange-950">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold uppercase tracking-wider flex items-center gap-1.5 text-[11px] text-amber-900">
-                      <BuildingBankIcon className="h-4 w-4 text-amber-700" />
+                    <span className="font-bold uppercase tracking-wider flex items-center gap-1.5 text-[11px] text-orange-900">
+                      <BuildingBankIcon className="h-4 w-4 text-orange-700" />
                       Floorplan Financed: {selectedUnit.floorplan_company || 'Lender Line'}
                     </span>
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${
                         selectedUnit.floorplan_paid_off
                           ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-200 text-amber-950'
+                          : 'bg-orange-200 text-orange-950'
                       }`}
                     >
                       {selectedUnit.floorplan_paid_off
@@ -451,7 +451,7 @@ export default function BuyersOrderDetail() {
                         : `Payoff Due: ${money(selectedUnit.floorplan_balance || selectedUnit.cost_price)}`}
                     </span>
                   </div>
-                  <p className="text-[11px] text-amber-800 leading-snug">
+                  <p className="text-[11px] text-orange-800 leading-snug">
                     Remit lender payoff to <strong>{selectedUnit.floorplan_company || 'your floorplan financier'}</strong> upon final payment to release the Manufacturer’s Statement of Origin (MSO) or title.
                   </p>
                 </div>
@@ -536,7 +536,7 @@ export default function BuyersOrderDetail() {
           <div className="space-y-6 lg:col-span-5">
             <Card className="p-5 space-y-4 bg-slate-900 text-white shadow-xl">
               <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-orange-400">
                   Itemized Price &amp; Deal Desking
                 </h3>
                 <span className="text-xs font-mono font-bold text-slate-400">{orderNumber}</span>
@@ -552,7 +552,7 @@ export default function BuyersOrderDetail() {
                       value={unitPrice}
                       onChange={(e) => setUnitPrice(e.target.value)}
                       placeholder="0.00"
-                      className="h-8 w-full rounded-lg bg-slate-800 px-2.5 text-right font-mono text-xs text-white ring-1 ring-slate-700 focus:ring-amber-400"
+                      className="h-8 w-full rounded-lg bg-slate-800 px-2.5 text-right font-mono text-xs text-white ring-1 ring-slate-700 focus:ring-orange-400"
                       required
                     />
                   </div>
@@ -648,7 +648,7 @@ export default function BuyersOrderDetail() {
 
                 <div className="flex items-center justify-between border-t border-slate-700 pt-2 font-black text-sm">
                   <span className="text-white">Total Delivered Price:</span>
-                  <span className="font-mono text-amber-400 text-base">{money(calculations.totalPrice)}</span>
+                  <span className="font-mono text-orange-400 text-base">{money(calculations.totalPrice)}</span>
                 </div>
 
                 <div className="flex items-center justify-between pt-1">
@@ -664,7 +664,7 @@ export default function BuyersOrderDetail() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between border-t-2 border-amber-400/80 pt-2 font-black">
+                <div className="flex items-center justify-between border-t-2 border-orange-400/80 pt-2 font-black">
                   <span className="text-white text-sm">Balance Due / Financed:</span>
                   <span className="font-mono text-lg text-emerald-400">{money(calculations.balanceDue)}</span>
                 </div>
@@ -703,12 +703,12 @@ export default function BuyersOrderDetail() {
 
               {/* Floored Unit Payoff Settlement Option */}
               {status === 'completed' && selectedUnit?.is_floored && !selectedUnit.floorplan_paid_off && (
-                <label className="flex items-start gap-2 text-xs font-semibold text-amber-200 bg-amber-950/40 p-3 rounded-xl border border-amber-500/40 cursor-pointer">
+                <label className="flex items-start gap-2 text-xs font-semibold text-orange-200 bg-orange-950/40 p-3 rounded-xl border border-orange-500/40 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={markFloorplanPaidOff}
                     onChange={(e) => setMarkFloorplanPaidOff(e.target.checked)}
-                    className="h-4 w-4 rounded text-amber-500 focus:ring-amber-400 mt-0.5 shrink-0"
+                    className="h-4 w-4 rounded text-orange-500 focus:ring-orange-400 mt-0.5 shrink-0"
                   />
                   <span>
                     <strong>Remit Floorplan Payoff ({money(selectedUnit.floorplan_balance || selectedUnit.cost_price)})</strong> to {selectedUnit.floorplan_company || 'Lender Line'} &amp; mark title/MSO released upon deal completion.
@@ -728,7 +728,7 @@ export default function BuyersOrderDetail() {
                     <button
                       type="button"
                       onClick={() => setShowSignPad(true)}
-                      className="text-xs font-bold text-amber-400 hover:underline"
+                      className="text-xs font-bold text-orange-400 hover:underline"
                     >
                       + Sign on Screen
                     </button>
@@ -746,7 +746,7 @@ export default function BuyersOrderDetail() {
                 type="submit"
                 variant="accent"
                 disabled={saving}
-                className="w-full py-3 font-black text-sm text-slate-950 shadow-lg shadow-amber-400/20"
+                className="w-full py-3 font-black text-sm text-slate-950 shadow-lg shadow-orange-400/20"
               >
                 {saving ? 'Saving…' : isNew ? 'Create Buyer’s Order' : 'Update & Save Deal'}
               </Button>

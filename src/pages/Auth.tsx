@@ -96,7 +96,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-dvh bg-slate-950 text-slate-100 selection:bg-amber-400 selection:text-slate-950">
+    <div className="min-h-dvh bg-slate-950 text-slate-100 selection:bg-orange-500 selection:text-slate-950">
       {/* Top Navigation Bar */}
       <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
@@ -104,13 +104,13 @@ export default function Auth() {
             <img
               src="/icon-192.png"
               alt="Outlaw Shop Systems"
-              className="h-10 w-10 rounded-xl object-cover ring-1 ring-amber-400/40 shadow-md shadow-amber-400/20"
+              className="h-10 w-10 rounded-xl object-cover ring-1 ring-orange-500/40 shadow-md shadow-orange-500/20"
             />
             <div>
               <span className="font-mono text-base font-black tracking-tight text-white block leading-none">
                 OUTLAW
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-orange-400">
                 Shop Systems
               </span>
             </div>
@@ -121,9 +121,9 @@ export default function Auth() {
               href={APK_PUBLIC_DOWNLOAD_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-amber-400 hover:text-white transition"
+              className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-orange-500 hover:text-white transition"
             >
-              <SmartphoneIcon className="h-3.5 w-3.5 text-amber-400" />
+              <SmartphoneIcon className="h-3.5 w-3.5 text-orange-400" />
               <span>Android APK</span>
             </a>
 
@@ -138,7 +138,7 @@ export default function Auth() {
             <button
               type="button"
               onClick={() => scrollToAuth('signup')}
-              className="rounded-xl bg-amber-400 px-4 py-1.5 text-xs font-black text-slate-950 shadow-md shadow-amber-400/20 hover:bg-amber-300 transition active:scale-95"
+              className="rounded-xl bg-orange-500 px-4 py-1.5 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 hover:bg-orange-400 transition active:scale-95"
             >
               Start Free Trial
             </button>
@@ -148,16 +148,16 @@ export default function Auth() {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden px-4 pt-12 pb-16 sm:px-6 sm:pt-20 sm:pb-24 border-b border-slate-800/80">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(245,158,11,0.15),rgba(255,255,255,0))]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(234,88,12,0.18),rgba(255,255,255,0))]" />
 
         <div className="relative mx-auto max-w-4xl text-center space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1 text-xs font-bold text-amber-400">
+          <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-3.5 py-1 text-xs font-bold text-orange-400">
             <SparklesIcon className="h-3.5 w-3.5" />
             <span>BUILT FOR MOBILE TECHS, HEAVY DUTY &amp; POWERSPORTS DEALERS</span>
           </div>
 
           <h1 className="text-3xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl leading-[1.1]">
-            The No-BS Shop &amp; Dealer Management Software Built by a <span className="text-amber-400">Mechanic</span>, Not a Tech Bro.
+            The No-BS Shop &amp; Dealer Management Software Built by a <span className="text-orange-400">Mechanic</span>, Not a Tech Bro.
           </h1>
 
           <p className="mx-auto max-w-2xl text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
@@ -170,7 +170,7 @@ export default function Auth() {
             <button
               type="button"
               onClick={() => scrollToAuth('signup', 'solo')}
-              className="flex items-center gap-2 rounded-xl bg-amber-400 px-6 py-3.5 text-sm font-black text-slate-950 shadow-xl shadow-amber-400/25 transition hover:bg-amber-300 active:scale-95"
+              className="flex items-center gap-2 rounded-xl bg-orange-500 px-6 py-3.5 text-sm font-black text-slate-950 shadow-xl shadow-orange-500/25 transition hover:bg-orange-400 active:scale-95"
             >
               <span>Start 14-Day Free Trial</span>
               <span className="text-xs font-bold bg-slate-950/10 px-2 py-0.5 rounded-md">No CC Required</span>
@@ -180,9 +180,9 @@ export default function Auth() {
               href={APK_PUBLIC_DOWNLOAD_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/90 px-5 py-3.5 text-sm font-bold text-white shadow hover:border-amber-400 hover:bg-slate-800 transition"
+              className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/90 px-5 py-3.5 text-sm font-bold text-white shadow hover:border-orange-500 hover:bg-slate-800 transition"
             >
-              <SmartphoneIcon className="h-4 w-4 text-amber-400" />
+              <SmartphoneIcon className="h-4 w-4 text-orange-400" />
               <span>Download Android APK</span>
             </a>
           </div>
@@ -208,7 +208,7 @@ export default function Auth() {
       {/* 6 Core Feature Pillars */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20 border-b border-slate-800/80">
         <div className="text-center space-y-2 mb-12">
-          <p className="text-xs font-bold uppercase tracking-wider text-amber-400">Built For Real Shop Life</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-orange-400">Built For Real Shop Life</p>
           <h2 className="text-2xl font-black tracking-tight text-white sm:text-4xl">
             Everything You Need to Run Your Rig or Dealership
           </h2>
@@ -220,7 +220,7 @@ export default function Auth() {
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {/* Feature 1 */}
           <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 space-y-3 shadow-lg">
-            <span className="grid h-12 w-12 place-items-center rounded-xl bg-amber-400/10 text-amber-400 font-bold">
+            <span className="grid h-12 w-12 place-items-center rounded-xl bg-orange-500/10 text-orange-400 font-bold">
               <ClipboardIcon className="h-6 w-6" />
             </span>
             <h3 className="text-lg font-bold text-white">Repair Orders in 10 Seconds</h3>
@@ -288,14 +288,14 @@ export default function Auth() {
 
       {/* Founder Story Section */}
       <section className="mx-auto max-w-4xl px-4 py-16 sm:px-6 border-b border-slate-800/80">
-        <div className="rounded-3xl border border-amber-500/20 bg-gradient-to-br from-slate-900 via-slate-900/90 to-amber-950/20 p-8 sm:p-10 shadow-2xl space-y-5">
+        <div className="rounded-3xl border border-orange-500/20 bg-gradient-to-br from-slate-900 via-slate-900/90 to-orange-950/20 p-8 sm:p-10 shadow-2xl space-y-5">
           <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-400 text-slate-950 font-black">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-orange-500 text-slate-950 font-black shadow-md shadow-orange-500/20">
               ⚡
             </span>
             <div>
               <h3 className="text-lg font-black text-white">Why I Built Outlaw Shop Systems</h3>
-              <p className="text-xs text-amber-400 font-semibold">17 Years in the Bays &amp; Behind the Service Desk</p>
+              <p className="text-xs text-orange-400 font-semibold">17 Years in the Bays &amp; Behind the Service Desk</p>
             </div>
           </div>
 
@@ -316,7 +316,7 @@ export default function Auth() {
       {/* Two-Tier Pricing Section */}
       <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 border-b border-slate-800/80">
         <div className="text-center space-y-2 mb-12">
-          <p className="text-xs font-bold uppercase tracking-wider text-amber-400">Choose Your Setup</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-orange-400">Choose Your Setup</p>
           <h2 className="text-2xl font-black tracking-tight text-white sm:text-4xl">
             Simple, Transparent Pricing
           </h2>
@@ -332,7 +332,7 @@ export default function Auth() {
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="text-xl font-black text-white">Solo Rig &amp; Garage</h3>
-                  <p className="text-xs text-amber-400 font-semibold">For Mobile Techs &amp; Independent Shops</p>
+                  <p className="text-xs text-orange-400 font-semibold">For Mobile Techs &amp; Independent Shops</p>
                 </div>
                 <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300">
                   14-Day Trial
@@ -380,8 +380,8 @@ export default function Auth() {
           </div>
 
           {/* Plan 2: Powersports & Dealership DMS */}
-          <div className="rounded-3xl border-2 border-amber-400 bg-gradient-to-b from-slate-900 to-amber-950/25 p-8 space-y-6 flex flex-col justify-between shadow-2xl relative">
-            <div className="absolute -top-3.5 right-6 rounded-full bg-amber-400 px-3.5 py-0.5 text-[10px] font-black uppercase text-slate-950 tracking-wider shadow">
+          <div className="rounded-3xl border-2 border-orange-500 bg-gradient-to-b from-slate-900 to-orange-950/25 p-8 space-y-6 flex flex-col justify-between shadow-2xl relative">
+            <div className="absolute -top-3.5 right-6 rounded-full bg-orange-500 px-3.5 py-0.5 text-[10px] font-black uppercase text-slate-950 tracking-wider shadow">
               Dealership DMS
             </div>
 
@@ -389,15 +389,15 @@ export default function Auth() {
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="text-xl font-black text-white">Powersports DMS</h3>
-                  <p className="text-xs text-amber-400 font-semibold">For Motorcycle, ATV &amp; Marine Dealers</p>
+                  <p className="text-xs text-orange-400 font-semibold">For Motorcycle, ATV &amp; Marine Dealers</p>
                 </div>
-                <span className="rounded-full bg-amber-400/20 px-3 py-1 text-xs font-bold text-amber-300">
+                <span className="rounded-full bg-orange-500/20 px-3 py-1 text-xs font-bold text-orange-300 border border-orange-500/30">
                   14-Day Trial
                 </span>
               </div>
 
               <div className="flex items-baseline gap-1.5">
-                <span className="text-4xl font-black text-amber-400">$99</span>
+                <span className="text-4xl font-black text-orange-400">$99</span>
                 <span className="text-sm font-semibold text-slate-400">/ month</span>
               </div>
 
@@ -406,8 +406,8 @@ export default function Auth() {
               </p>
 
               <ul className="space-y-2.5 text-xs text-slate-200 pt-4 border-t border-slate-800">
-                <li className="flex items-center gap-2.5 font-bold text-amber-300">
-                  <CheckIcon className="h-4 w-4 text-amber-400 shrink-0" /> Everything in Solo Rig Package, PLUS:
+                <li className="flex items-center gap-2.5 font-bold text-orange-300">
+                  <CheckIcon className="h-4 w-4 text-orange-400 shrink-0" /> Everything in Solo Rig Package, PLUS:
                 </li>
                 <li className="flex items-center gap-2.5">
                   <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Showroom Unit Inventory (New, Used, Consignment)
@@ -430,7 +430,7 @@ export default function Auth() {
             <button
               type="button"
               onClick={() => scrollToAuth('signup', 'dealer')}
-              className="w-full rounded-xl bg-amber-400 py-3.5 text-sm font-black text-slate-950 hover:bg-amber-300 shadow-lg shadow-amber-400/25 transition active:scale-95"
+              className="w-full rounded-xl bg-orange-500 py-3.5 text-sm font-black text-slate-950 hover:bg-orange-400 shadow-lg shadow-orange-500/25 transition active:scale-95"
             >
               Start Dealership Free Trial
             </button>
@@ -444,7 +444,7 @@ export default function Auth() {
           <img
             src="/icon-192.png"
             alt="Outlaw Shop Systems"
-            className="mx-auto h-14 w-14 rounded-2xl object-cover ring-1 ring-amber-400/40 shadow-xl shadow-amber-400/20"
+            className="mx-auto h-14 w-14 rounded-2xl object-cover ring-1 ring-orange-500/40 shadow-xl shadow-orange-500/20"
           />
           <h2 className="text-2xl font-black tracking-tight text-white">
             {mode === 'signup' ? 'Start 14-Day Free Trial' : 'Sign In to Your Shop'}
@@ -466,7 +466,7 @@ export default function Auth() {
             }}
             className={`rounded-lg py-2 transition ${
               mode === 'signup'
-                ? 'bg-amber-400 text-slate-950 shadow font-black'
+                ? 'bg-orange-500 text-slate-950 shadow font-black'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -480,7 +480,7 @@ export default function Auth() {
             }}
             className={`rounded-lg py-2 transition ${
               mode === 'login'
-                ? 'bg-amber-400 text-slate-950 shadow font-black'
+                ? 'bg-orange-500 text-slate-950 shadow font-black'
                 : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -501,12 +501,12 @@ export default function Auth() {
                       onClick={() => setSelectedPackage('solo')}
                       className={`rounded-xl border p-2.5 text-left transition ${
                         selectedPackage === 'solo'
-                          ? 'border-amber-400 bg-amber-400/10 text-white shadow-xs'
+                          ? 'border-orange-500 bg-orange-500/10 text-white shadow-xs'
                           : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
                       }`}
                     >
                       <p className="font-bold text-slate-100">🛠️ Solo Rig</p>
-                      <p className="text-[10px] text-amber-400 font-semibold mt-0.5">$29 / mo</p>
+                      <p className="text-[10px] text-orange-400 font-semibold mt-0.5">$29 / mo</p>
                       <p className="text-[10px] text-slate-400 mt-1">Mobile &amp; Repair Garage</p>
                     </button>
 
@@ -515,12 +515,12 @@ export default function Auth() {
                       onClick={() => setSelectedPackage('dealer')}
                       className={`rounded-xl border p-2.5 text-left transition ${
                         selectedPackage === 'dealer'
-                          ? 'border-amber-400 bg-amber-400/10 text-white shadow-xs'
+                          ? 'border-orange-500 bg-orange-500/10 text-white shadow-xs'
                           : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
                       }`}
                     >
                       <p className="font-bold text-slate-100">🏍️ Dealer DMS</p>
-                      <p className="text-[10px] text-amber-400 font-semibold mt-0.5">$99 / mo</p>
+                      <p className="text-[10px] text-orange-400 font-semibold mt-0.5">$99 / mo</p>
                       <p className="text-[10px] text-slate-400 mt-1">Showroom &amp; Unit Sales</p>
                     </button>
                   </div>
@@ -585,7 +585,7 @@ export default function Auth() {
               type="submit"
               variant="accent"
               disabled={loading}
-              className="w-full py-3 font-black text-sm shadow-lg shadow-amber-400/20"
+              className="w-full py-3 font-black text-sm shadow-lg shadow-orange-500/20"
             >
               {loading
                 ? 'Please wait…'
@@ -613,7 +613,7 @@ export default function Auth() {
             href={APK_PUBLIC_DOWNLOAD_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-amber-400 transition"
+            className="hover:text-orange-400 transition"
           >
             Direct Android APK Download
           </a>
@@ -621,7 +621,7 @@ export default function Auth() {
           <button
             type="button"
             onClick={() => scrollToAuth('login')}
-            className="hover:text-amber-400 transition"
+            className="hover:text-orange-400 transition"
           >
             Shop Sign In
           </button>

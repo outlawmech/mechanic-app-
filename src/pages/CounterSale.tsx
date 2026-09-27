@@ -286,7 +286,7 @@ export default function CounterSale() {
                   type="button"
                   onClick={() => setIsWalkIn(true)}
                   className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                    isWalkIn ? 'bg-amber-400 text-slate-950 shadow-xs' : 'bg-slate-100 text-slate-600'
+                    isWalkIn ? 'bg-orange-400 text-slate-950 shadow-xs' : 'bg-slate-100 text-slate-600'
                   }`}
                 >
                   Walk-in
@@ -295,7 +295,7 @@ export default function CounterSale() {
                   type="button"
                   onClick={() => setIsWalkIn(false)}
                   className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
-                    !isWalkIn ? 'bg-amber-400 text-slate-950 shadow-xs' : 'bg-slate-100 text-slate-600'
+                    !isWalkIn ? 'bg-orange-400 text-slate-950 shadow-xs' : 'bg-slate-100 text-slate-600'
                   }`}
                 >
                   Registered Account
@@ -343,7 +343,7 @@ export default function CounterSale() {
               <button
                 type="button"
                 onClick={addCustomItem}
-                className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1"
+                className="text-xs font-bold text-orange-600 hover:underline flex items-center gap-1"
               >
                 <PlusIcon className="h-3.5 w-3.5" /> + Custom Item
               </button>
@@ -356,7 +356,7 @@ export default function CounterSale() {
                 value={searchPart}
                 onChange={(e) => setSearchPart(e.target.value)}
                 placeholder="Search SKU, Part Name, Spark Plug, Oil..."
-                className="h-10 w-full rounded-xl bg-slate-50 pl-10 pr-4 text-xs font-medium ring-1 ring-slate-900/10 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="h-10 w-full rounded-xl bg-slate-50 pl-10 pr-4 text-xs font-medium ring-1 ring-slate-900/10 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
               />
             </div>
 
@@ -367,7 +367,7 @@ export default function CounterSale() {
                     key={p.id}
                     type="button"
                     onClick={() => addItemFromPart(p)}
-                    className="flex w-full items-center justify-between p-2.5 text-left text-xs transition hover:bg-amber-50"
+                    className="flex w-full items-center justify-between p-2.5 text-left text-xs transition hover:bg-orange-50"
                   >
                     <div>
                       <p className="font-bold text-slate-900">{p.name}</p>
@@ -457,7 +457,7 @@ export default function CounterSale() {
         {/* Right 5 Cols: Payment & Checkout */}
         <div className="space-y-4 lg:col-span-5">
           <Card className="p-5 space-y-4 bg-slate-900 text-white shadow-xl">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 border-b border-slate-800 pb-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-orange-400 border-b border-slate-800 pb-2">
               Payment &amp; Checkout
             </h3>
 
@@ -493,7 +493,7 @@ export default function CounterSale() {
 
               <div className="flex justify-between border-t border-slate-800 pt-2 text-base font-black">
                 <span className="text-white">Total Due:</span>
-                <span className="font-mono text-amber-400 text-xl">{money(totals.total)}</span>
+                <span className="font-mono text-orange-400 text-xl">{money(totals.total)}</span>
               </div>
             </div>
 
@@ -508,7 +508,7 @@ export default function CounterSale() {
                     onClick={() => setPaymentMethod(m)}
                     className={`rounded-lg py-2 capitalize transition ${
                       paymentMethod === m
-                        ? 'bg-amber-400 text-slate-950 font-black shadow-xs'
+                        ? 'bg-orange-400 text-slate-950 font-black shadow-xs'
                         : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                     }`}
                   >
@@ -547,7 +547,7 @@ export default function CounterSale() {
               type="submit"
               variant="accent"
               disabled={saving || items.length === 0}
-              className="w-full py-3.5 font-black text-sm text-slate-950 shadow-lg shadow-amber-400/20 active:scale-95 transition"
+              className="w-full py-3.5 font-black text-sm text-slate-950 shadow-lg shadow-orange-400/20 active:scale-95 transition"
             >
               {saving ? 'Processing Checkout…' : `Complete Sale (${money(totals.total)})`}
             </Button>

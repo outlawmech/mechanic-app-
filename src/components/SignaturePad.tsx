@@ -135,7 +135,7 @@ export default function SignaturePad({
           value={signerName}
           onChange={(e) => setSignerName(e.target.value)}
           placeholder="e.g. Dale Reyes"
-          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+          className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
         />
       </div>
 

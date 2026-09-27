@@ -99,13 +99,13 @@ export default function Layout() {
         {/* Switcher Bar */}
         <div className="mx-auto mb-3 flex max-w-md items-center justify-between rounded-xl bg-slate-900 px-3.5 py-2 text-xs text-slate-300 ring-1 ring-slate-800 shadow-md">
           <div className="flex items-center gap-1.5 font-medium">
-            <SmartphoneIcon className="h-4 w-4 text-amber-400" />
+            <SmartphoneIcon className="h-4 w-4 text-orange-400" />
             <span>Mobile Phone View</span>
           </div>
           <button
             type="button"
             onClick={switchToDesktop}
-            className="flex items-center gap-1 rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-amber-300 active:scale-95 shadow"
+            className="flex items-center gap-1 rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-black text-slate-950 transition hover:bg-orange-400 active:scale-95 shadow shadow-orange-500/20"
           >
             <MonitorIcon className="h-3.5 w-3.5" />
             Switch to Desktop
@@ -120,7 +120,7 @@ export default function Layout() {
                 <img
                   src={settings.logo_url || '/icon-192.png'}
                   alt={settings.shop_name}
-                  className="h-9 w-9 rounded-xl object-cover bg-slate-900 ring-1 ring-amber-400/40 shadow-sm"
+                  className="h-9 w-9 rounded-xl object-cover bg-slate-900 ring-1 ring-orange-500/40 shadow-sm"
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -129,7 +129,7 @@ export default function Layout() {
                       className={`shrink-0 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md ${
                         settings.enable_dealership_mode
                           ? 'bg-purple-950 text-purple-300 border border-purple-700'
-                          : 'bg-amber-950 text-amber-300 border border-amber-700'
+                          : 'bg-orange-950 text-orange-300 border border-orange-700'
                       }`}
                     >
                       {settings.enable_dealership_mode ? '🏢 DMS' : '🚛 SOLO'}
@@ -157,7 +157,7 @@ export default function Layout() {
                   end={t.end}
                   className={({ isActive }) =>
                     `flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition ${
-                      isActive ? 'text-slate-950 font-bold' : 'text-slate-400'
+                      isActive ? 'text-orange-600 font-black' : 'text-slate-400'
                     }`
                   }
                 >
@@ -191,7 +191,7 @@ export default function Layout() {
             <img
               src={settings.logo_url || '/icon-192.png'}
               alt={settings.shop_name}
-              className="h-10 w-10 rounded-xl object-cover bg-slate-900 ring-1 ring-amber-400/40 shadow"
+              className="h-10 w-10 rounded-xl object-cover bg-slate-900 ring-1 ring-orange-500/40 shadow"
             />
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-sm font-bold text-slate-100">{settings.shop_name}</h1>
@@ -200,7 +200,7 @@ export default function Layout() {
                 className={`inline-block mt-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
                   settings.enable_dealership_mode
                     ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
                 }`}
               >
                 {settings.enable_dealership_mode ? '🏢 Dealership DMS Active' : '🚛 Solo Rig Active'}
@@ -217,7 +217,7 @@ export default function Layout() {
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${
                     isActive
-                      ? 'bg-amber-400 text-slate-950 shadow-md font-bold'
+                      ? 'bg-orange-500 text-slate-950 shadow-md shadow-orange-500/25 font-black'
                       : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                   }`
                 }
@@ -238,9 +238,9 @@ export default function Layout() {
                 <span className="text-[10px] text-emerald-300/80">Lifetime</span>
               </div>
             ) : (
-              <div className="rounded-xl bg-slate-800/80 border border-amber-500/30 p-3 text-center space-y-2">
+              <div className="rounded-xl bg-slate-800/80 border border-orange-500/30 p-3 text-center space-y-2">
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-orange-400">
                     14-Day Free Trial
                   </p>
                   <p className="text-xs font-semibold text-slate-200">
@@ -251,7 +251,7 @@ export default function Layout() {
                   href={STRIPE_PAYMENT_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block w-full rounded-lg bg-amber-400 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-amber-300"
+                  className="block w-full rounded-lg bg-orange-500 py-1.5 text-xs font-black text-slate-950 transition hover:bg-orange-400 shadow shadow-orange-500/20"
                 >
                   Upgrade {sub.planPrice}
                 </a>
@@ -261,7 +261,7 @@ export default function Layout() {
             <button
               type="button"
               onClick={switchToAuto}
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-800 py-2.5 text-xs font-bold text-amber-400 hover:bg-slate-700 hover:text-amber-300 ring-1 ring-slate-700 active:scale-95"
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-slate-800 py-2.5 text-xs font-bold text-orange-400 hover:bg-slate-700 hover:text-orange-300 ring-1 ring-slate-700 active:scale-95"
             >
               <SmartphoneIcon className="h-4 w-4" />
               Switch to Phone Mode
@@ -273,7 +273,7 @@ export default function Layout() {
         <div className="pl-64 flex flex-col min-h-dvh">
           <div className="no-print bg-slate-900 text-slate-300 px-6 py-2.5 text-xs flex items-center justify-between border-b border-slate-800">
             <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1.5 font-bold text-amber-400">
+              <span className="flex items-center gap-1.5 font-bold text-orange-400">
                 <MonitorIcon className="h-4 w-4" />
                 Desktop Workstation Mode
               </span>
@@ -282,7 +282,7 @@ export default function Layout() {
             <button
               type="button"
               onClick={switchToAuto}
-              className="flex items-center gap-1 rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-bold text-slate-950 hover:bg-amber-300 active:scale-95"
+              className="flex items-center gap-1 rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-black text-slate-950 hover:bg-orange-400 active:scale-95 shadow shadow-orange-500/20"
             >
               <SmartphoneIcon className="h-3.5 w-3.5" />
               Return to Phone View
@@ -310,7 +310,7 @@ export default function Layout() {
               className="h-10 w-10 rounded-xl object-contain bg-white p-1 shadow"
             />
           ) : (
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-400 text-slate-950 font-black shadow">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-orange-500 text-slate-950 font-black shadow shadow-orange-500/20">
               <WrenchIcon className="h-6 w-6" />
             </span>
           )}
@@ -321,7 +321,7 @@ export default function Layout() {
               className={`inline-block mt-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
                 settings.enable_dealership_mode
                   ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  : 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
               }`}
             >
               {settings.enable_dealership_mode ? '🏢 Dealership DMS Active' : '🚛 Solo Rig Active'}
@@ -338,7 +338,7 @@ export default function Layout() {
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition ${
                   isActive
-                    ? 'bg-amber-400 text-slate-950 shadow-md font-bold'
+                    ? 'bg-orange-500 text-slate-950 shadow-md shadow-orange-500/25 font-black'
                     : 'text-slate-300 hover:bg-slate-800 hover:text-white'
                 }`
               }
@@ -359,9 +359,9 @@ export default function Layout() {
               <span className="text-[10px] text-emerald-300/80">Lifetime</span>
             </div>
           ) : (
-            <div className="rounded-xl bg-slate-800/80 border border-amber-500/30 p-3 text-center space-y-2">
+            <div className="rounded-xl bg-slate-800/80 border border-orange-500/30 p-3 text-center space-y-2">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-orange-400">
                   14-Day Free Trial
                 </p>
                 <p className="text-xs font-semibold text-slate-200">
@@ -372,7 +372,7 @@ export default function Layout() {
                 href={STRIPE_PAYMENT_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block w-full rounded-lg bg-amber-400 py-1.5 text-xs font-bold text-slate-950 transition hover:bg-amber-300"
+                className="block w-full rounded-lg bg-orange-500 py-1.5 text-xs font-black text-slate-950 transition hover:bg-orange-400 shadow shadow-orange-500/20"
               >
                 Upgrade {sub.planPrice}
               </a>
@@ -381,13 +381,13 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* Mobile Top Header (With Safe Area padding for status bar and camera notch) */}
+      {/* Mobile Top Header */}
       <header className="no-print sticky top-0 z-20 flex items-center justify-between gap-2.5 bg-slate-900 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top,0px),24px)+14px)] text-white md:hidden shadow-md">
         <div className="flex items-center gap-2.5 min-w-0">
           <img
             src={settings.logo_url || '/icon-192.png'}
             alt={settings.shop_name}
-            className="h-9 w-9 rounded-xl object-cover bg-slate-900 ring-1 ring-amber-400/40 shadow-sm shrink-0"
+            className="h-9 w-9 rounded-xl object-cover bg-slate-900 ring-1 ring-orange-500/40 shadow-sm shrink-0"
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 min-w-0">
@@ -396,7 +396,7 @@ export default function Layout() {
                 className={`shrink-0 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md ${
                   settings.enable_dealership_mode
                     ? 'bg-purple-950 text-purple-300 border border-purple-700'
-                    : 'bg-amber-950 text-amber-300 border border-amber-700'
+                    : 'bg-orange-950 text-orange-300 border border-orange-700'
                 }`}
               >
                 {settings.enable_dealership_mode ? '🏢 DMS' : '🚛 SOLO'}
@@ -411,7 +411,7 @@ export default function Layout() {
           <button
             type="button"
             onClick={switchToDesktop}
-            className="flex items-center gap-1 rounded-xl bg-amber-400 px-2.5 py-1 text-[11px] font-black text-slate-950 shadow transition hover:bg-amber-300 active:scale-95"
+            className="flex items-center gap-1 rounded-xl bg-orange-500 px-2.5 py-1 text-[11px] font-black text-slate-950 shadow shadow-orange-500/20 transition hover:bg-orange-400 active:scale-95"
             title="Switch to desktop view"
           >
             <MonitorIcon className="h-3.5 w-3.5" />
@@ -432,7 +432,7 @@ export default function Layout() {
         </main>
       </div>
 
-      {/* Clean Mobile Bottom Navigation (Adapts between Solo Rig 5-tabs and Dealership 6-tabs) */}
+      {/* Clean Mobile Bottom Navigation */}
       <nav className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden shadow-lg">
         <div className={`mx-auto grid max-w-md ${settings.enable_dealership_mode ? 'grid-cols-6' : 'grid-cols-5'} pb-[max(env(safe-area-inset-bottom,0px),8px)]`}>
           {activeMobileTabs.map((t) => (
@@ -442,7 +442,7 @@ export default function Layout() {
               end={t.end}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-1 py-2 text-[10px] font-semibold transition ${
-                  isActive ? 'text-amber-600 font-bold' : 'text-slate-500 hover:text-slate-800'
+                  isActive ? 'text-orange-600 font-bold' : 'text-slate-500 hover:text-slate-800'
                 }`
               }
             >
@@ -475,7 +475,7 @@ export default function Layout() {
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <span className="grid h-7 w-7 place-items-center rounded-lg bg-amber-400 text-slate-950 font-bold text-xs">
+                <span className="grid h-7 w-7 place-items-center rounded-lg bg-orange-500 text-slate-950 font-bold text-xs shadow-xs">
                   ⚡
                 </span>
                 <div>
@@ -503,9 +503,9 @@ export default function Layout() {
                       setShowMoreMenu(false);
                       navigate('/parts/counter');
                     }}
-                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
                   >
-                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-800">
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-100 text-orange-800">
                       <BoxIcon className="h-5 w-5" />
                     </span>
                     <div>
@@ -520,7 +520,7 @@ export default function Layout() {
                       setShowMoreMenu(false);
                       navigate('/invoices');
                     }}
-                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
                   >
                     <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-800">
                       <ReceiptIcon className="h-5 w-5" />
@@ -537,7 +537,7 @@ export default function Layout() {
                       setShowMoreMenu(false);
                       navigate('/reports');
                     }}
-                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
                   >
                     <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-100 text-blue-800">
                       <BanknotesIcon className="h-5 w-5" />
@@ -554,7 +554,7 @@ export default function Layout() {
                       setShowMoreMenu(false);
                       navigate('/settings');
                     }}
-                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
                   >
                     <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-200 text-slate-800">
                       <SettingsIcon className="h-5 w-5" />
@@ -573,7 +573,7 @@ export default function Layout() {
                       setShowMoreMenu(false);
                       navigate('/invoices');
                     }}
-                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
                   >
                     <span className="grid h-9 w-9 place-items-center rounded-xl bg-emerald-100 text-emerald-800">
                       <ReceiptIcon className="h-5 w-5" />
@@ -590,9 +590,9 @@ export default function Layout() {
                       setShowMoreMenu(false);
                       navigate('/parts');
                     }}
-                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
                   >
-                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-amber-100 text-amber-800">
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-orange-100 text-orange-800">
                       <BoxIcon className="h-5 w-5" />
                     </span>
                     <div>
@@ -607,7 +607,7 @@ export default function Layout() {
                       setShowMoreMenu(false);
                       navigate('/reports');
                     }}
-                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
                   >
                     <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-100 text-blue-800">
                       <BanknotesIcon className="h-5 w-5" />
@@ -624,7 +624,7 @@ export default function Layout() {
                       setShowMoreMenu(false);
                       navigate('/settings');
                     }}
-                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-amber-50 hover:border-amber-300"
+                    className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:bg-orange-50 hover:border-orange-300"
                   >
                     <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-200 text-slate-800">
                       <SettingsIcon className="h-5 w-5" />
@@ -651,7 +651,7 @@ export default function Layout() {
                 className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left transition ${
                   settings.enable_dealership_mode
                     ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
-                    : 'border-purple-300 bg-purple-50 text-purple-900 hover:bg-purple-100'
+                    : 'border-orange-300 bg-orange-50 text-orange-950 hover:bg-orange-100'
                 }`}
               >
                 <div>

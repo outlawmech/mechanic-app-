@@ -160,7 +160,7 @@ export default function Dashboard() {
               className={`rounded-md px-2 py-0.5 text-[10px] font-black uppercase ${
                 isDms
                   ? 'bg-purple-100 text-purple-800 border border-purple-300'
-                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+                  : 'bg-orange-100 text-orange-800 border border-orange-300'
               }`}
             >
               {isDms ? '🏢 DMS Mode' : '🚛 Solo Rig'}
@@ -177,7 +177,7 @@ export default function Dashboard() {
         <div className="flex flex-wrap items-center gap-2">
           <Link
             to="/work/new"
-            className="flex items-center gap-1.5 rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-bold text-slate-950 shadow transition hover:bg-amber-300 active:scale-95"
+            className="flex items-center gap-1.5 rounded-xl bg-orange-500 px-3.5 py-2 text-xs font-black text-slate-950 shadow shadow-orange-500/20 transition hover:bg-orange-400 active:scale-95"
           >
             <PlusIcon className="h-4 w-4" />
             <span>New Repair Order</span>
@@ -196,7 +196,7 @@ export default function Dashboard() {
                 to="/sales/deal/new"
                 className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow transition hover:bg-slate-800 active:scale-95"
               >
-                <ReceiptIcon className="h-4 w-4 text-amber-400" />
+                <ReceiptIcon className="h-4 w-4 text-orange-400" />
                 <span>Buyer's Order</span>
               </Link>
             </>
@@ -214,13 +214,13 @@ export default function Dashboard() {
 
       {/* Subscription Card for Desktop */}
       {!sub.isPro && (
-        <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-slate-900/40 p-4 text-slate-900 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="rounded-2xl border border-orange-500/30 bg-gradient-to-r from-orange-500/10 via-orange-400/5 to-slate-900/40 p-4 text-slate-900 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400 text-slate-950 font-bold">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-500 text-slate-950 font-bold shadow-sm">
               <SparklesIcon className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-xs font-bold uppercase tracking-wide text-amber-700">
+              <p className="text-xs font-bold uppercase tracking-wide text-orange-700">
                 14-Day Free Trial Active · {sub.planName} ({sub.daysLeft} days remaining)
               </p>
               <p className="text-xs text-slate-600">
@@ -232,7 +232,7 @@ export default function Dashboard() {
             href={STRIPE_PAYMENT_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 shadow hover:bg-amber-300"
+            className="inline-flex items-center justify-center rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-slate-950 shadow shadow-orange-500/20 hover:bg-orange-400"
           >
             Upgrade {sub.planName} ({sub.planPrice})
           </a>
@@ -241,16 +241,16 @@ export default function Dashboard() {
 
       {/* Commercial Floorplan Curtailment Alert Banner (DMS Mode Only) */}
       {isDms && upcomingCurtailments.length > 0 && (
-        <div className="rounded-2xl border border-amber-300 bg-amber-50/90 p-4 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3 animate-in fade-in duration-200">
+        <div className="rounded-2xl border border-orange-300 bg-orange-50/90 p-4 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3 animate-in fade-in duration-200">
           <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400 text-slate-950 font-bold">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-500 text-slate-950 font-bold shadow-xs">
               <BuildingBankIcon className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-xs font-black uppercase tracking-wide text-amber-950">
+              <p className="text-xs font-black uppercase tracking-wide text-orange-950">
                 Upcoming Floorplan Curtailment ({upcomingCurtailments.length} Floored Unit{upcomingCurtailments.length === 1 ? '' : 's'})
               </p>
-              <p className="text-xs text-amber-900 mt-0.5">
+              <p className="text-xs text-orange-900 mt-0.5">
                 {upcomingCurtailments
                   .map(
                     (u) =>
@@ -262,7 +262,7 @@ export default function Dashboard() {
           </div>
           <Link
             to="/sales"
-            className="inline-flex items-center justify-center rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-bold text-slate-950 shadow hover:bg-amber-300 shrink-0"
+            className="inline-flex items-center justify-center rounded-xl bg-orange-500 px-3.5 py-2 text-xs font-black text-slate-950 shadow shadow-orange-500/20 hover:bg-orange-400 shrink-0"
           >
             Manage Showroom Units →
           </Link>
@@ -273,7 +273,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Link to="/work" className="block transition hover:-translate-y-0.5">
           <Card className="flex items-center gap-3 p-4">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-100 text-blue-600 font-bold">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-100 text-orange-600 font-bold">
               <ClipboardIcon className="h-5 w-5" />
             </span>
             <div className="min-w-0">
@@ -285,7 +285,7 @@ export default function Dashboard() {
 
         <Link to="/work" className="block transition hover:-translate-y-0.5">
           <Card className="flex items-center gap-3 p-4">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-100 text-amber-600 font-bold">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-50 text-orange-700 font-bold">
               <ClockIcon className="h-5 w-5" />
             </span>
             <div className="min-w-0">
@@ -328,7 +328,7 @@ export default function Dashboard() {
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
               Recent Repair Orders
             </h2>
-            <Link to="/work" className="text-xs font-semibold text-amber-600 hover:text-amber-700">
+            <Link to="/work" className="text-xs font-bold text-orange-600 hover:text-orange-700">
               View all ({metrics.openCount}) →
             </Link>
           </div>
@@ -347,7 +347,7 @@ export default function Dashboard() {
               action={
                 <Link
                   to="/work/new"
-                  className="inline-flex rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-300"
+                  className="inline-flex rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-slate-950 shadow shadow-orange-500/20 hover:bg-orange-400"
                 >
                   Create First Repair Order
                 </Link>
@@ -384,7 +384,7 @@ export default function Dashboard() {
 
             <div className="flex items-center justify-between p-3.5">
               <div className="flex items-center gap-2.5 text-xs text-slate-600">
-                <ReceiptIcon className="h-4 w-4 text-amber-500" />
+                <ReceiptIcon className="h-4 w-4 text-orange-500" />
                 <span>Pending Receivables</span>
               </div>
               <span className="text-xs font-bold text-slate-900">
@@ -394,19 +394,19 @@ export default function Dashboard() {
 
             <Link
               to="/reports"
-              className="flex items-center justify-between p-3.5 bg-slate-50/70 hover:bg-amber-50/50 transition group"
+              className="flex items-center justify-between p-3.5 bg-slate-50/70 hover:bg-orange-50/50 transition group"
             >
-              <div className="flex items-center gap-2.5 text-xs font-bold text-slate-700 group-hover:text-amber-800">
+              <div className="flex items-center gap-2.5 text-xs font-bold text-slate-700 group-hover:text-orange-800">
                 <BanknotesIcon className="h-4 w-4 text-emerald-600" />
                 <span>Financials &amp; Tax Reports</span>
               </div>
-              <span className="text-[11px] font-bold text-amber-600 group-hover:underline">View →</span>
+              <span className="text-[11px] font-bold text-orange-600 group-hover:underline">View →</span>
             </Link>
           </Card>
 
           {/* Shortcut Card */}
           <Card className="bg-slate-900 text-white p-4 space-y-3 shadow-md">
-            <p className="text-xs font-bold uppercase tracking-wide text-amber-400">Outlaw Pro Tip</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-orange-400">Outlaw Pro Tip</p>
             <p className="text-xs text-slate-300 leading-relaxed">
               {isDms
                 ? 'Showroom units can be dispatched directly to your service techs for PDI assembly with 1-tap from the Showroom tab.'
@@ -414,7 +414,7 @@ export default function Dashboard() {
             </p>
             <Link
               to="/settings"
-              className="inline-block text-xs font-bold text-amber-400 hover:text-amber-300"
+              className="inline-block text-xs font-bold text-orange-400 hover:text-orange-300"
             >
               Configure Shop Info &amp; Rates →
             </Link>

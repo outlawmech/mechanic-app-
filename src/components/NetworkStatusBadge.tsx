@@ -52,8 +52,8 @@ export default function NetworkStatusBadge() {
 
   if (!isOnline) {
     return (
-      <div className="flex items-center gap-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 px-2.5 py-1 text-[11px] font-bold text-amber-300">
-        <span className="h-2 w-2 rounded-full bg-amber-400" />
+      <div className="flex items-center gap-1.5 rounded-full bg-orange-500/20 border border-orange-400/40 px-2.5 py-1 text-[11px] font-bold text-orange-300">
+        <span className="h-2 w-2 rounded-full bg-orange-400" />
         <span>Offline Mode {pendingCount > 0 ? `(${pendingCount} queued)` : ''}</span>
       </div>
     );
@@ -64,9 +64,9 @@ export default function NetworkStatusBadge() {
       <button
         type="button"
         onClick={handleManualSync}
-        className="flex items-center gap-1.5 rounded-full bg-amber-500/20 border border-amber-400/40 px-2.5 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-500/30 active:scale-95 transition"
+        className="flex items-center gap-1.5 rounded-full bg-orange-500/20 border border-orange-400/40 px-2.5 py-1 text-[11px] font-bold text-orange-300 hover:bg-orange-500/30 active:scale-95 transition"
       >
-        <span className="h-2 w-2 rounded-full bg-amber-400" />
+        <span className="h-2 w-2 rounded-full bg-orange-400" />
         <span>{pendingCount} offline {pendingCount === 1 ? 'item' : 'items'} • Tap to sync</span>
       </button>
     );

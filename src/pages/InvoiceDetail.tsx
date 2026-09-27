@@ -309,7 +309,7 @@ export default function InvoiceDetail() {
                   isFullyPaid
                     ? 'bg-emerald-100 text-emerald-800'
                     : invoice.status === 'partial'
-                      ? 'bg-amber-100 text-amber-900'
+                      ? 'bg-orange-100 text-orange-900'
                       : 'bg-red-100 text-red-800'
                 }`}
               >
@@ -359,9 +359,9 @@ export default function InvoiceDetail() {
 
             {/* Split Payment Form */}
             {showPaymentForm && (
-              <form onSubmit={handleAddPayment} className="space-y-3 rounded-xl border border-amber-300 bg-amber-50/50 p-3">
+              <form onSubmit={handleAddPayment} className="space-y-3 rounded-xl border border-orange-300 bg-orange-50/50 p-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold text-amber-950 uppercase tracking-wide">Record Payment</p>
+                  <p className="text-xs font-bold text-orange-950 uppercase tracking-wide">Record Payment</p>
                   <button
                     type="button"
                     onClick={() => setShowPaymentForm(false)}
@@ -384,7 +384,7 @@ export default function InvoiceDetail() {
                       value={payAmount}
                       onChange={(e) => setPayAmount(e.target.value)}
                       placeholder="0.00"
-                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
                     />
                   </div>
@@ -416,7 +416,7 @@ export default function InvoiceDetail() {
                     value={payRef}
                     onChange={(e) => setPayRef(e.target.value)}
                     placeholder="e.g. Check #4102 / Zelle ref #9823 / Cash on tail"
-                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
                   />
                 </div>
 
@@ -500,7 +500,7 @@ export default function InvoiceDetail() {
               <div className="border-t border-slate-100 pt-2 mt-2">
                 <Link
                   to={`/work/${invoice.work_order_id}`}
-                  className="font-bold text-amber-600 hover:text-amber-700"
+                  className="font-bold text-orange-600 hover:text-orange-700"
                 >
                   View Associated Repair Order (RO) →
                 </Link>

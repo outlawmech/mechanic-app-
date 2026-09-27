@@ -74,7 +74,7 @@ export default function Invoices() {
         <div className="flex items-center gap-2">
           <Link
             to="/parts/counter"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-black text-slate-950 shadow-sm transition hover:bg-amber-300"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-orange-400 px-3.5 py-2 text-xs font-black text-slate-950 shadow-sm transition hover:bg-orange-300"
           >
             <span>⚡ Parts Counter POS</span>
           </Link>
@@ -82,7 +82,7 @@ export default function Invoices() {
             to="/reports"
             className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800"
           >
-            <BanknotesIcon className="h-4 w-4 text-amber-400" />
+            <BanknotesIcon className="h-4 w-4 text-orange-400" />
             <span>Financials &amp; Reports</span>
           </Link>
         </div>
@@ -97,7 +97,7 @@ export default function Invoices() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search Invoice #, customer name, phone, amount…"
-            className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-orange-400"
           />
         </div>
 
@@ -124,7 +124,7 @@ export default function Invoices() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           {list.map((i) => (
             <Link key={i.id} to={`/invoices/${i.id}`} className="block transition hover:-translate-y-0.5">
-              <Card className="p-4 hover:border-amber-400/50">
+              <Card className="p-4 hover:border-orange-400/50">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-mono text-xs font-bold text-slate-500">{i.number}</p>

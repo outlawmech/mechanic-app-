@@ -499,7 +499,7 @@ export default function Sales() {
                 to="/sales/deal/new"
                 className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow transition hover:bg-slate-800"
               >
-                <ReceiptIcon className="h-4 w-4 text-amber-400" />
+                <ReceiptIcon className="h-4 w-4 text-orange-400" />
                 <span>+ Write Buyer's Order</span>
               </Link>
               <Button
@@ -559,13 +559,13 @@ export default function Sales() {
           <p className="text-[11px] text-slate-500">Dealer Cost: <strong className="text-slate-700">{money(totalCostValue)}</strong></p>
         </Card>
 
-        <Card className="p-4 space-y-1 border-amber-200 bg-amber-50/30">
+        <Card className="p-4 space-y-1 border-orange-200 bg-orange-50/30">
           <div className="flex items-center justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-900">Floorplan Financing</p>
-            <BuildingBankIcon className="h-3.5 w-3.5 text-amber-600" />
+            <p className="text-[10px] font-bold uppercase tracking-wider text-orange-900">Floorplan Financing</p>
+            <BuildingBankIcon className="h-3.5 w-3.5 text-orange-600" />
           </div>
-          <p className="text-2xl font-black text-amber-900">{money(totalFloorplanBalance)}</p>
-          <p className="text-[11px] text-amber-700 font-medium">
+          <p className="text-2xl font-black text-orange-900">{money(totalFloorplanBalance)}</p>
+          <p className="text-[11px] text-orange-700 font-medium">
             {activeFlooredUnits.length} floored unit{activeFlooredUnits.length === 1 ? '' : 's'} on line
           </p>
         </Card>
@@ -584,7 +584,7 @@ export default function Sales() {
           onClick={() => setActiveTab('units')}
           className={`pb-2.5 transition border-b-2 ${
             activeTab === 'units'
-              ? 'border-amber-500 text-slate-950 font-black'
+              ? 'border-orange-500 text-slate-950 font-black'
               : 'border-transparent text-slate-400 hover:text-slate-700'
           }`}
         >
@@ -595,7 +595,7 @@ export default function Sales() {
           onClick={() => setActiveTab('deals')}
           className={`pb-2.5 transition border-b-2 ${
             activeTab === 'deals'
-              ? 'border-amber-500 text-slate-950 font-black'
+              ? 'border-orange-500 text-slate-950 font-black'
               : 'border-transparent text-slate-400 hover:text-slate-700'
           }`}
         >
@@ -618,7 +618,7 @@ export default function Sales() {
                 Enter vehicle specs, VIN, dealer cost, floorplan financing, and advertised price.
               </p>
             </div>
-            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-900">
+            <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-bold text-orange-900">
               {form.condition.toUpperCase()}
             </span>
           </div>
@@ -672,7 +672,7 @@ export default function Sales() {
                     type="button"
                     onClick={handleDecodeVin}
                     disabled={decoding || !form.vin.trim()}
-                    className="flex items-center gap-1.5 rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-xs"
+                    className="flex items-center gap-1.5 rounded-xl bg-orange-400 px-3.5 py-2 text-xs font-bold text-slate-950 transition hover:bg-orange-300 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 shadow-xs"
                   >
                     <SparklesIcon className="h-3.5 w-3.5" />
                     <span>{decoding ? 'Decoding…' : 'Decode VIN'}</span>
@@ -790,11 +790,11 @@ export default function Sales() {
           </div>
 
           {/* Commercial Floorplan Financing Section */}
-          <div className="rounded-2xl border border-amber-200 bg-amber-50/40 p-4 space-y-3">
+          <div className="rounded-2xl border border-orange-200 bg-orange-50/40 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <BuildingBankIcon className="h-4 w-4 text-amber-700" />
-                <label className="text-xs font-black uppercase tracking-wide text-amber-950 flex items-center gap-2 cursor-pointer">
+                <BuildingBankIcon className="h-4 w-4 text-orange-700" />
+                <label className="text-xs font-black uppercase tracking-wide text-orange-950 flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={form.is_floored}
@@ -806,7 +806,7 @@ export default function Sales() {
                         floorplan_balance: checked && !form.floorplan_balance ? form.cost_price : form.floorplan_balance,
                       });
                     }}
-                    className="h-4 w-4 rounded text-amber-600 focus:ring-amber-500"
+                    className="h-4 w-4 rounded text-orange-600 focus:ring-orange-500"
                   />
                   Commercial Floorplan Unit (Floored on Lender Line)
                 </label>
@@ -825,7 +825,7 @@ export default function Sales() {
             </div>
 
             {form.is_floored && (
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-amber-200/60 animate-in fade-in duration-150">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2 border-t border-orange-200/60 animate-in fade-in duration-150">
                 <Field label="Floorplan Lender / Company">
                   <Input
                     value={form.floorplan_company}
@@ -892,7 +892,7 @@ export default function Sales() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search Make, Model, Stock #, VIN, Floorplan…"
-                className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-orange-400"
               />
             </div>
 
@@ -944,7 +944,7 @@ export default function Sales() {
                 return (
                   <Card
                     key={u.id}
-                    className="p-4 space-y-3 hover:border-amber-400/60 transition flex flex-col justify-between"
+                    className="p-4 space-y-3 hover:border-orange-400/60 transition flex flex-col justify-between"
                   >
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-2">
@@ -967,7 +967,7 @@ export default function Sales() {
                             u.status === 'sold'
                               ? 'bg-slate-200 text-slate-600'
                               : u.status === 'sale_pending'
-                                ? 'bg-amber-100 text-amber-800'
+                                ? 'bg-orange-100 text-orange-800'
                                 : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           }`}
                         >
@@ -977,7 +977,7 @@ export default function Sales() {
 
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <VehicleIcon type={u.type} className="h-4 w-4 text-amber-600 shrink-0" />
+                          <VehicleIcon type={u.type} className="h-4 w-4 text-orange-600 shrink-0" />
                           <h4 className="text-sm font-black text-slate-900 truncate">
                             {u.year} {u.make} {u.model}
                           </h4>
@@ -994,22 +994,22 @@ export default function Sales() {
 
                       {/* Floorplan Lender Tracking Badge */}
                       {u.is_floored && (
-                        <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-2 text-[11px] text-amber-950 space-y-0.5">
+                        <div className="rounded-xl border border-orange-200 bg-orange-50/70 p-2 text-[11px] text-orange-950 space-y-0.5">
                           <div className="flex items-center justify-between font-bold">
                             <span className="flex items-center gap-1">
-                              <BuildingBankIcon className="h-3 w-3 text-amber-700" />
+                              <BuildingBankIcon className="h-3 w-3 text-orange-700" />
                               {u.floorplan_company || 'Floorplan Line'}
                             </span>
                             {u.floorplan_paid_off ? (
                               <span className="text-emerald-700 font-black">PAID OFF</span>
                             ) : (
-                              <span className="font-mono font-black text-amber-900">
+                              <span className="font-mono font-black text-orange-900">
                                 {money(u.floorplan_balance || u.cost_price)}
                               </span>
                             )}
                           </div>
                           {u.floorplan_curtailment_date && !u.floorplan_paid_off && (
-                            <div className="flex items-center justify-between text-[10px] text-amber-800">
+                            <div className="flex items-center justify-between text-[10px] text-orange-800">
                               <span>Curtailment: {shortDate(u.floorplan_curtailment_date)}</span>
                               {num(u.floorplan_curtailment_amount) > 0 && (
                                 <span>{money(u.floorplan_curtailment_amount)}</span>
@@ -1041,7 +1041,7 @@ export default function Sales() {
                     <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
                       <Link
                         to={`/sales/deal/new?unit_id=${u.id}`}
-                        className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-amber-400 px-2.5 py-1.5 text-xs font-bold text-slate-950 hover:bg-amber-300 transition shadow-xs"
+                        className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-orange-400 px-2.5 py-1.5 text-xs font-bold text-slate-950 hover:bg-orange-300 transition shadow-xs"
                       >
                         <ReceiptIcon className="h-3.5 w-3.5" />
                         <span>Buyer's Order</span>
@@ -1053,7 +1053,7 @@ export default function Sales() {
                         className="inline-flex items-center gap-1 rounded-xl bg-slate-100 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200 transition"
                         title="Create PDI & Assembly ticket for service shop"
                       >
-                        <WrenchIcon className="h-3.5 w-3.5 text-amber-600" />
+                        <WrenchIcon className="h-3.5 w-3.5 text-orange-600" />
                         <span>PDI</span>
                       </button>
 
@@ -1101,7 +1101,7 @@ export default function Sales() {
             </h3>
             <Link
               to="/sales/deal/new"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-3.5 py-2 text-xs font-bold text-slate-950 shadow hover:bg-amber-300"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-orange-400 px-3.5 py-2 text-xs font-bold text-slate-950 shadow hover:bg-orange-300"
             >
               <PlusIcon className="h-4 w-4" /> New Buyer's Order
             </Link>
@@ -1115,7 +1115,7 @@ export default function Sales() {
               action={
                 <Link
                   to="/sales/deal/new"
-                  className="inline-flex rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950"
+                  className="inline-flex rounded-xl bg-orange-400 px-4 py-2 text-xs font-bold text-slate-950"
                 >
                   Write First Deal
                 </Link>
@@ -1129,7 +1129,7 @@ export default function Sales() {
                   to={`/sales/deal/${d.id}`}
                   className="block transition hover:-translate-y-0.5"
                 >
-                  <Card className="p-4 space-y-2 hover:border-amber-400/60 transition">
+                  <Card className="p-4 space-y-2 hover:border-orange-400/60 transition">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-xs font-bold text-slate-500">{d.order_number}</span>
                       <Badge status={d.status === 'completed' ? 'paid' : d.status === 'quote' ? 'draft' : 'unpaid'} />
@@ -1205,7 +1205,7 @@ export default function Sales() {
               </div>
 
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-amber-600">
+                <p className="text-xs font-bold uppercase tracking-widest text-orange-600">
                   {printingTagUnit.year} {printingTagUnit.make}
                 </p>
                 <h2 className="text-2xl font-black text-slate-950 uppercase tracking-tight">

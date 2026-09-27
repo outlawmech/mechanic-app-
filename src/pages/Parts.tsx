@@ -318,7 +318,7 @@ export default function Parts() {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               to="/parts/counter"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-3 py-2 text-xs font-black text-slate-950 shadow-xs hover:bg-amber-300 transition"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-orange-400 px-3 py-2 text-xs font-black text-slate-950 shadow-xs hover:bg-orange-300 transition"
             >
               <span>⚡ Parts Counter POS</span>
             </Link>
@@ -354,7 +354,7 @@ export default function Parts() {
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Low Stock</p>
           <p
             className={`mt-0.5 text-base font-bold ${
-              lowStockCount > 0 ? 'text-amber-600 font-extrabold' : 'text-slate-900'
+              lowStockCount > 0 ? 'text-orange-600 font-extrabold' : 'text-slate-900'
             }`}
           >
             {lowStockCount}
@@ -516,7 +516,7 @@ export default function Parts() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search parts by SKU, name, bin, vendor…"
-            className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-amber-400"
+            className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-orange-400"
           />
         </div>
 
@@ -541,8 +541,8 @@ export default function Parts() {
             }}
             className={`flex items-center gap-1 rounded-lg px-3 py-1.5 font-medium transition whitespace-nowrap ${
               activeTab === 'low_stock'
-                ? 'bg-amber-500 text-white font-bold'
-                : 'bg-white text-amber-700 ring-1 ring-amber-300'
+                ? 'bg-orange-500 text-white font-bold'
+                : 'bg-white text-orange-700 ring-1 ring-orange-300'
             }`}
           >
             <AlertCircleIcon className="h-3.5 w-3.5" />

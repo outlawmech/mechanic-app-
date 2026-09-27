@@ -332,7 +332,7 @@ export default function Reports() {
         <Card className="p-4 space-y-1">
           <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
             <span>Labor Earned</span>
-            <WrenchIcon className="h-4 w-4 text-amber-500" />
+            <WrenchIcon className="h-4 w-4 text-orange-500" />
           </div>
           <p className="text-2xl font-black text-slate-900">{money(metrics.laborRevenue)}</p>
           <p className="text-[11px] text-slate-500">
@@ -353,17 +353,17 @@ export default function Reports() {
       </div>
 
       {/* QuickBooks & Spreadsheet Export Center */}
-      <Card className="p-5 space-y-3 bg-amber-50/40 border-amber-200">
-        <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
+      <Card className="p-5 space-y-3 bg-orange-50/40 border-orange-200">
+        <div className="flex items-center justify-between border-b border-orange-200/80 pb-2">
           <div>
-            <h3 className="text-sm font-bold text-amber-950 uppercase tracking-wide">
+            <h3 className="text-sm font-bold text-orange-950 uppercase tracking-wide">
               QuickBooks &amp; CPA Export Center
             </h3>
-            <p className="text-xs text-amber-900/80">
+            <p className="text-xs text-orange-900/80">
               Download standard CSV spreadsheets formatted for QuickBooks Online, Xero, Excel, or your bookkeeper.
             </p>
           </div>
-          <span className="rounded-full bg-amber-200 px-2.5 py-0.5 text-[10px] font-bold text-amber-900">
+          <span className="rounded-full bg-orange-200 px-2.5 py-0.5 text-[10px] font-bold text-orange-900">
             1-Click Export
           </span>
         </div>
@@ -427,7 +427,7 @@ export default function Reports() {
                   <Link
                     key={inv.id}
                     to={`/invoices/${inv.id}`}
-                    className="block rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition hover:border-amber-400 hover:shadow-md"
+                    className="block rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition hover:border-orange-400 hover:shadow-md"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <div className="min-w-0">

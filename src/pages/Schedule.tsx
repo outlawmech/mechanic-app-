@@ -175,7 +175,7 @@ export default function Schedule() {
         </div>
         <Link
           to={`/work/new?scheduled=${selectedDate}`}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-4 py-2.5 text-xs font-bold text-slate-950 shadow transition hover:bg-amber-300"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-orange-400 px-4 py-2.5 text-xs font-bold text-slate-950 shadow transition hover:bg-orange-300"
         >
           <PlusIcon className="h-4 w-4" />
           <span>+ Schedule Job</span>
@@ -217,7 +217,7 @@ export default function Schedule() {
               setCalendarMonth(new Date(e.target.value + 'T12:00:00'));
             }
           }}
-          className="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-amber-400"
+          className="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-orange-400"
         />
       </div>
 
@@ -278,7 +278,7 @@ export default function Schedule() {
               action={
                 <Link
                   to={`/work/new?scheduled=${selectedDate}`}
-                  className="inline-flex rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-300"
+                  className="inline-flex rounded-xl bg-orange-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-orange-300"
                 >
                   + Schedule First Job
                 </Link>
@@ -291,12 +291,12 @@ export default function Schedule() {
                 const isToday = (wo.scheduled_at || '').slice(0, 10) === todayStr;
 
                 return (
-                  <Card key={wo.id} className="p-4 flex flex-col justify-between hover:border-amber-400/50">
+                  <Card key={wo.id} className="p-4 flex flex-col justify-between hover:border-orange-400/50">
                     <div className="space-y-2.5">
                       {/* Top Header: Stop Number & Status */}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
-                          <span className="grid h-6 w-6 place-items-center rounded-full bg-slate-900 text-xs font-black text-amber-400">
+                          <span className="grid h-6 w-6 place-items-center rounded-full bg-slate-900 text-xs font-black text-orange-400">
                             {idx + 1}
                           </span>
                           <span className="font-mono text-xs font-bold text-slate-600">
@@ -315,10 +315,10 @@ export default function Schedule() {
                           <button
                             type="button"
                             onClick={() => handleOpenMaps(wo.customer.address)}
-                            className="mt-0.5 flex items-center gap-1 text-xs text-amber-700 hover:underline text-left font-medium"
+                            className="mt-0.5 flex items-center gap-1 text-xs text-orange-700 hover:underline text-left font-medium"
                             title="Open in Google Maps"
                           >
-                            <MapPinIcon className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                            <MapPinIcon className="h-3.5 w-3.5 shrink-0 text-orange-600" />
                             <span className="truncate">{wo.customer.address}</span>
                           </button>
                         ) : (
@@ -343,7 +343,7 @@ export default function Schedule() {
 
                       {/* Complaint / Job Notes */}
                       {wo.notes && (
-                        <p className="rounded-lg bg-amber-50/60 p-2 text-xs text-slate-700 italic border border-amber-200/50">
+                        <p className="rounded-lg bg-orange-50/60 p-2 text-xs text-slate-700 italic border border-orange-200/50">
                           "{wo.notes}"
                         </p>
                       )}
@@ -425,7 +425,7 @@ export default function Schedule() {
                               setReschedulingId(wo.id);
                               setRescheduleDate((wo.scheduled_at || '').slice(0, 10) || todayStr);
                             }}
-                            className="text-slate-500 hover:text-amber-700 font-medium inline-flex items-center gap-1"
+                            className="text-slate-500 hover:text-orange-700 font-medium inline-flex items-center gap-1"
                           >
                             <CalendarIcon className="h-3 w-3" />
                             <span>{wo.scheduled_at ? longDate(wo.scheduled_at) : 'Reschedule'}</span>
@@ -434,7 +434,7 @@ export default function Schedule() {
 
                         <Link
                           to={`/work/${wo.id}`}
-                          className="font-bold text-amber-600 hover:text-amber-700 flex items-center gap-0.5"
+                          className="font-bold text-orange-600 hover:text-orange-700 flex items-center gap-0.5"
                         >
                           Open RO →
                         </Link>
@@ -501,7 +501,7 @@ export default function Schedule() {
                     onClick={() => setSelectedDate(dateStr)}
                     className={`flex h-16 flex-col justify-between rounded-xl p-1.5 text-left transition border ${
                       isSelected
-                        ? 'border-amber-400 bg-amber-50/60 ring-2 ring-amber-400/30'
+                        ? 'border-orange-400 bg-orange-50/60 ring-2 ring-orange-400/30'
                         : isToday
                           ? 'border-slate-900 bg-slate-900/5'
                           : 'border-slate-100 bg-white hover:bg-slate-50'
@@ -511,7 +511,7 @@ export default function Schedule() {
                       <span
                         className={`text-xs font-bold ${
                           isToday
-                            ? 'grid h-5 w-5 place-items-center rounded-full bg-slate-900 text-amber-400'
+                            ? 'grid h-5 w-5 place-items-center rounded-full bg-slate-900 text-orange-400'
                             : 'text-slate-800'
                         }`}
                       >
@@ -520,7 +520,7 @@ export default function Schedule() {
                     </div>
 
                     {orders.length > 0 && (
-                      <span className="rounded bg-amber-400 px-1 py-0.5 text-[9px] font-black text-slate-950 text-center">
+                      <span className="rounded bg-orange-400 px-1 py-0.5 text-[9px] font-black text-slate-950 text-center">
                         {orders.length} {orders.length === 1 ? 'job' : 'jobs'}
                       </span>
                     )}
@@ -538,7 +538,7 @@ export default function Schedule() {
               </h3>
               <Link
                 to={`/work/new?scheduled=${selectedDate}`}
-                className="text-xs font-bold text-amber-600 hover:underline"
+                className="text-xs font-bold text-orange-600 hover:underline"
               >
                 + Add Appointment on this Day
               </Link>
@@ -552,7 +552,7 @@ export default function Schedule() {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {routeOrders.map((wo) => (
                   <Link key={wo.id} to={`/work/${wo.id}`} className="block transition hover:-translate-y-0.5">
-                    <Card className="p-3.5 hover:border-amber-400/50">
+                    <Card className="p-3.5 hover:border-orange-400/50">
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="font-mono text-xs font-bold text-slate-600">RO #{wo.number}</p>
@@ -594,7 +594,7 @@ export default function Schedule() {
                 <button
                   type="button"
                   onClick={() => handleReschedule(wo, todayStr)}
-                  className="rounded-lg bg-amber-400 px-2 py-1 text-[10px] font-black text-slate-950 hover:bg-amber-300"
+                  className="rounded-lg bg-orange-400 px-2 py-1 text-[10px] font-black text-slate-950 hover:bg-orange-300"
                   title="Schedule for Today"
                 >
                   Schedule Today

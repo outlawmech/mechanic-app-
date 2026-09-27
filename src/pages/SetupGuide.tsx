@@ -45,7 +45,7 @@ export default function SetupGuide() {
     <div className="flex min-h-dvh items-center justify-center bg-slate-900 px-4 py-10">
       <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
         <div className="flex items-center gap-2.5">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-400 text-slate-900">
+          <span className="grid h-10 w-10 place-items-center rounded-xl bg-orange-400 text-slate-900">
             <WrenchIcon className="h-5 w-5" />
           </span>
           <div>
@@ -68,7 +68,7 @@ export default function SetupGuide() {
           ))}
         </ol>
 
-        <div className="mt-5 rounded-xl bg-amber-50 px-3.5 py-3 text-xs leading-relaxed text-amber-800 ring-1 ring-inset ring-amber-200">
+        <div className="mt-5 rounded-xl bg-orange-50 px-3.5 py-3 text-xs leading-relaxed text-orange-800 ring-1 ring-inset ring-orange-200">
           Easier: just paste your Supabase project URL and anon key into the chat — I&apos;ll create
           the <code>.env</code> for you and restart the preview.
         </div>

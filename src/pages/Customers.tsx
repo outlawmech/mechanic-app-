@@ -49,7 +49,7 @@ export default function Customers() {
         <PageTitle title="Customers" sub={`${data?.length ?? 0} on file`} />
         <Link
           to="/customers/new"
-          className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 shadow transition hover:bg-amber-300"
+          className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-orange-400 px-4 py-2 text-xs font-bold text-slate-950 shadow transition hover:bg-orange-300"
         >
           <PlusIcon className="h-4 w-4" />
           <span>New Customer</span>
@@ -63,7 +63,7 @@ export default function Customers() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search name, phone, email, vehicle, plate, address…"
-          className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-orange-400"
         />
       </div>
 
@@ -76,7 +76,7 @@ export default function Customers() {
             !q && (
               <Link
                 to="/customers/new"
-                className="inline-flex rounded-xl bg-amber-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-300"
+                className="inline-flex rounded-xl bg-orange-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-orange-300"
               >
                 + Add First Customer
               </Link>
@@ -87,7 +87,7 @@ export default function Customers() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
           {list.map((c) => (
             <Link key={c.id} to={`/customers/${c.id}`} className="block transition hover:-translate-y-0.5">
-              <Card className="p-4 hover:border-amber-400/50">
+              <Card className="p-4 hover:border-orange-400/50">
                 <div className="flex items-start justify-between">
                   <p className="text-sm font-bold text-slate-900">{fullName(c)}</p>
                   <span className="text-[10px] rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
