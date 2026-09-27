@@ -58,7 +58,10 @@ jobs:
       - name: Build Android APK with Persistent Key & VersionCode
         run: |
           cd android
-          ./gradlew assembleDebug -PcustomVersionCode=${{ github.run_number }} --stacktrace --no-daemon
+          ./gradlew assembleDebug -PcustomVersionCode=${{ github.run_number }} --stacktrace --no-daemon || {
+            echo "Gradle build failed, printing detailed compiler error log..."
+            ./gradlew assembleDebug --info --no-daemon
+          }
 
       - name: Copy APK to Output for Distribution
         run: |
