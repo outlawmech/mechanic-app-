@@ -34,6 +34,7 @@ export default function PartScannerModal({
 }: PartScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const activeStreamRef = useRef<MediaStream | null>(null);
 
   const [scanMode, setScanMode] = useState<'barcode' | 'ocr'>('barcode');
   const [cameraActive, setCameraActive] = useState(false);
@@ -71,6 +72,7 @@ export default function PartScannerModal({
         ?.getUserMedia(constraints)
         .then((s) => {
           stream = s;
+          activeStreamRef.current = s;
           if (videoRef.current) {
             videoRef.current.srcObject = s;
             videoRef.current.play().catch(() => {});
@@ -113,6 +115,7 @@ export default function PartScannerModal({
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
+      activeStreamRef.current = null;
       if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
         try {
           (window as any).AndroidNativeFlashlight.setTorch(false);
@@ -226,30 +229,28 @@ export default function PartScannerModal({
   async function toggleTorch() {
     const nextState = !torchOn;
 
-    // 1. Try WebRTC track applyConstraints (works on Chrome, Edge, Safari, Android WebView)
-    if (videoRef.current && videoRef.current.srcObject) {
-      try {
-        const stream = videoRef.current.srcObject as MediaStream;
-        const tracks = stream.getVideoTracks();
-        for (const track of tracks) {
+    // 1. Direct WebRTC track applyConstraints (Supported on Chrome, Edge, Safari, Android WebView)
+    const currentStream = activeStreamRef.current || (videoRef.current?.srcObject as MediaStream | null);
+    if (currentStream) {
+      const tracks = currentStream.getVideoTracks();
+      for (const track of tracks) {
+        try {
+          await track.applyConstraints({
+            advanced: [{ torch: nextState } as any],
+          });
+        } catch {
           try {
             await (track as any).applyConstraints({
-              advanced: [{ torch: nextState, fillLightMode: nextState ? 'flash' : 'off' }],
+              torch: nextState,
             });
-          } catch {
-            try {
-              await (track as any).applyConstraints({
-                advanced: [{ torch: nextState }],
-              });
-            } catch {}
+          } catch (err) {
+            console.warn('WebRTC torch constraint error:', err);
           }
         }
-      } catch (err) {
-        console.warn('WebRTC applyConstraints error:', err);
       }
     }
 
-    // 2. Try native Android Flashlight Interface if available in APK
+    // 2. Try native Android Flashlight Interface if available
     if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
       try {
         (window as any).AndroidNativeFlashlight.setTorch(nextState);

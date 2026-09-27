@@ -11,9 +11,11 @@ import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import androidx.activity.OnBackPressedCallback;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
@@ -29,6 +31,41 @@ public class MainActivity extends BridgeActivity {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST);
         }
+
+        // Intercept Android hardware & gesture back button for in-app navigation
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                try {
+                    WebView webView = (getBridge() != null) ? getBridge().getWebView() : null;
+                    if (webView != null) {
+                        webView.evaluateJavascript(
+                            "(function() {" +
+                            "  var closeBtn = document.querySelector('[data-modal-close=\"true\"]');" +
+                            "  if (closeBtn) { closeBtn.click(); return 'modal'; }" +
+                            "  if (window.location.pathname !== '/' && window.location.pathname !== '') {" +
+                            "    window.history.back(); return 'nav';" +
+                            "  }" +
+                            "  return 'root';" +
+                            "})()",
+                            new ValueCallback<String>() {
+                                @Override
+                                public void onReceiveValue(String value) {
+                                    if ("\"root\"".equals(value) || value == null || "null".equals(value)) {
+                                        // On root home dashboard: minimize to background instead of killing process
+                                        moveTaskToBack(true);
+                                    }
+                                }
+                            }
+                        );
+                        return;
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                moveTaskToBack(true);
+            }
+        });
 
         try {
             WebView webView = this.getBridge().getWebView();
