@@ -250,7 +250,14 @@ export default function Help() {
               Engineered for fast counter sales, mobile truck stock, and multi-thousand SKU dealership inventories.
             </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
+                <p className="text-xs font-bold text-slate-900">📖 OEM Master Price Books</p>
+                <p className="text-[11px] text-slate-500 leading-snug">
+                  Upload master price files directly from <strong>Suzuki Connect, Honda iN, Polaris DEX, Yamaha YDS, or WPS</strong>. Look up 100,000+ manufacturer parts offline with zero manual typing.
+                </p>
+              </div>
+
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
                 <p className="text-xs font-bold text-slate-900">📷 Dual-Mode Camera Scanner</p>
                 <p className="text-[11px] text-slate-500 leading-snug">
@@ -266,9 +273,16 @@ export default function Help() {
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <p className="text-xs font-bold text-slate-900">⚡ 30-Second Walk-In POS</p>
+                <p className="text-xs font-bold text-slate-900">⚡ New Part Invoice</p>
                 <p className="text-[11px] text-slate-500 leading-snug">
-                  Use <strong>Parts Counter POS</strong> (`/parts/counter`) to ring up walk-in retail sales, calculate change, apply discounts, and print/text receipts in 30 seconds.
+                  Use <strong>New Part Invoice</strong> (`/parts/counter`) to ring up walk-in retail sales, calculate change, apply discounts, and print/text receipts in 30 seconds.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
+                <p className="text-xs font-bold text-slate-900">🚚 Special Orders &amp; Bin Staging</p>
+                <p className="text-[11px] text-slate-500 leading-snug">
+                  Track non-stock parts ordered from WPS, Parts Unlimited, Tucker, or OEMs. Assign holding bins (`Bin SO-1`), track shipments, send 1-tap arrival SMS notifications, and convert directly to invoices.
                 </p>
               </div>
             </div>

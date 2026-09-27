@@ -76,7 +76,7 @@ export default function Invoices() {
             to="/parts/counter"
             className="inline-flex items-center gap-1.5 rounded-xl bg-orange-400 px-3.5 py-2 text-xs font-black text-slate-950 shadow-sm transition hover:bg-orange-300"
           >
-            <span>⚡ Parts Counter POS</span>
+            <span>⚡ New Part Invoice</span>
           </Link>
           <Link
             to="/reports"

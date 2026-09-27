@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   BarcodeIcon,
+  BookOpenIcon,
   CheckIcon,
   PlusIcon,
   ScanIcon,
@@ -12,6 +13,7 @@ import {
 import { Button, Card, Input } from './ui';
 import type { Part } from '../types';
 import { money, num } from '../lib/format';
+import { lookupPriceBookSku, type PriceBookEntry } from '../lib/priceBooks';
 
 interface PartScannerModalProps {
   isOpen: boolean;
@@ -39,6 +41,7 @@ export default function PartScannerModal({
   const [scanning, setScanning] = useState(false);
   const [recognizedText, setRecognizedText] = useState<string>('');
   const [matchedPart, setMatchedPart] = useState<Part | null>(null);
+  const [matchedPb, setMatchedPb] = useState<PriceBookEntry | null>(null);
   const [candidateSkus, setCandidateSkus] = useState<string[]>([]);
   const [torchOn, setTorchOn] = useState(false);
   const [manualQuery, setManualQuery] = useState('');
@@ -50,6 +53,7 @@ export default function PartScannerModal({
 
     if (isOpen) {
       setMatchedPart(null);
+      setMatchedPb(null);
       setRecognizedText('');
       setCandidateSkus([]);
       setCameraError(null);
@@ -119,7 +123,7 @@ export default function PartScannerModal({
     if (!clean) return;
 
     setRecognizedText(clean);
-    // Find part in catalog
+    // 1. Check in-stock parts first
     const match = parts.find(
       (p) =>
         p.sku.toLowerCase() === clean.toLowerCase() ||
@@ -128,8 +132,14 @@ export default function PartScannerModal({
 
     if (match) {
       setMatchedPart(match);
+      setMatchedPb(null);
     } else {
       setMatchedPart(null);
+      // 2. Query OEM Master Price Books
+      lookupPriceBookSku(clean).then((pb) => {
+        setMatchedPb(pb);
+      });
+
       if (!candidateSkus.includes(clean)) {
         setCandidateSkus((prev) => [clean, ...prev.slice(0, 3)]);
       }
@@ -414,6 +424,41 @@ export default function PartScannerModal({
                   </div>
                 )}
               </div>
+            </div>
+          ) : matchedPb ? (
+            /* Matched in OEM Price Book */
+            <div className="rounded-2xl border-2 border-purple-500/40 bg-purple-950/20 p-4 space-y-3 animate-in fade-in duration-150">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/20 px-2 py-0.5 text-[10px] font-black uppercase text-purple-300 border border-purple-500/30">
+                    <BookOpenIcon className="h-3 w-3" /> Found in {matchedPb.brand || matchedPb.manufacturer} Price Book
+                  </span>
+                  <h4 className="text-sm font-black text-white mt-1">{matchedPb.name}</h4>
+                  <p className="font-mono text-xs text-orange-400 font-bold">SKU: {matchedPb.sku}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-base font-black text-purple-300">{money(matchedPb.sell_price)}</p>
+                  <p className="text-[10px] text-slate-400">Cost: {money(matchedPb.cost_price)}</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-300">
+                This item is verified in your OEM price book but not currently in stocking inventory.
+              </p>
+
+              {onAddNewPart && (
+                <Button
+                  variant="accent"
+                  className="w-full text-xs font-bold flex items-center justify-center gap-1.5 py-2"
+                  onClick={() => {
+                    onAddNewPart(matchedPb.sku);
+                    onClose();
+                  }}
+                >
+                  <PlusIcon className="h-4 w-4" />
+                  <span>Add {matchedPb.sku} to Shop Inventory</span>
+                </Button>
+              )}
             </div>
           ) : recognizedText ? (
             /* Recognized SKU not in catalog */

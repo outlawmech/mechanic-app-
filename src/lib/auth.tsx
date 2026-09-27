@@ -117,6 +117,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function signOut() {
     const sb = requireSupabase();
+    try {
+      localStorage.removeItem('outlaw_shop_settings');
+      localStorage.removeItem('outlaw_active_tier');
+      localStorage.removeItem('outlaw_cache_customers');
+      localStorage.removeItem('outlaw_cache_parts');
+      localStorage.removeItem('outlaw_cache_work_orders');
+      localStorage.removeItem('outlaw_cache_invoices');
+      localStorage.removeItem('outlaw_cache_special_orders');
+    } catch {}
     await sb.auth.signOut();
   }
 

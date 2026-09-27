@@ -7,6 +7,7 @@ import {
   ChevronRightIcon,
   ClockIcon,
   MailIcon,
+  ScanIcon,
   SearchIcon,
   SendIcon,
   ShareIcon,
@@ -42,6 +43,7 @@ import {
   workOrderEstimate,
 } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
+import { lookupPriceBookSku } from '../lib/priceBooks';
 import type { InvoiceSummary, Part, WorkItem, WorkOrderFull, WorkOrderStatus } from '../types';
 
 const KIND_LABEL: Record<WorkItem['kind'], string> = { labor: 'Labor', part: 'Part', fee: 'Fee' };
@@ -59,6 +61,7 @@ import {
 } from '../lib/photoStorage';
 import SignaturePad from '../components/SignaturePad';
 import PhotoGallery from '../components/PhotoGallery';
+import PartScannerModal from '../components/PartScannerModal';
 
 export default function WorkOrderDetail() {
   const { id } = useParams();
@@ -141,6 +144,7 @@ export default function WorkOrderDetail() {
   const [selectedPartId, setSelectedPartId] = useState('');
   const [partSearchQuery, setPartSearchQuery] = useState('');
   const [partEntryMode, setPartEntryMode] = useState<'inventory' | 'manual'>('inventory');
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [adding, setAdding] = useState(false);
 
   // Sync default tax % from shop settings
@@ -901,6 +905,14 @@ export default function WorkOrderDetail() {
                   >
                     Custom / Manual Part
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setScannerOpen(true)}
+                    className="flex items-center gap-1 rounded-lg bg-orange-500 px-2.5 py-1 text-[11px] font-black text-slate-950 hover:bg-orange-400 active:scale-95 transition shadow-xs"
+                  >
+                    <ScanIcon className="h-3.5 w-3.5" />
+                    <span>📷 Scan</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -1085,6 +1097,40 @@ export default function WorkOrderDetail() {
           </form>
         </div>
       </div>
+
+      {/* Barcode / OCR Camera Scanner for Work Order Parts */}
+      <PartScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        parts={inventoryParts}
+        onSelectPart={(p) => {
+          setKind('part');
+          setPartEntryMode('inventory');
+          setSelectedPartId(p.id);
+          setDesc(p.sku ? `${p.sku} - ${p.name}` : p.name);
+          setPrice(String(p.sell_price));
+          setScannerOpen(false);
+          toast(`Selected ${p.sku} for repair order!`);
+        }}
+        onAddNewPart={async (sku) => {
+          setKind('part');
+          const pb = await lookupPriceBookSku(sku);
+          if (pb) {
+            setPartEntryMode('manual');
+            setSelectedPartId('');
+            setDesc(`${pb.sku} - ${pb.name}`);
+            setPrice(String(pb.sell_price));
+            toast(`Pre-filled ${pb.sku} from ${pb.brand || pb.manufacturer} Price Book!`);
+          } else {
+            setPartEntryMode('manual');
+            setSelectedPartId('');
+            setDesc(`Part #${sku}`);
+            setPrice('0');
+            toast(`Scanned part #${sku}`);
+          }
+          setScannerOpen(false);
+        }}
+      />
     </div>
   );
 }

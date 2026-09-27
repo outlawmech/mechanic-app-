@@ -263,3 +263,45 @@ export type Part = {
   updated_at?: string;
   created_at?: string;
 };
+
+export type SpecialOrderStatus =
+  | 'ordered'
+  | 'in_transit'
+  | 'received'
+  | 'notified'
+  | 'fulfilled'
+  | 'canceled';
+
+export type SpecialOrderPaymentStatus = 'unpaid' | 'deposit_paid' | 'paid_in_full';
+
+export type SpecialOrder = {
+  id: string;
+  user_id?: string;
+  order_number: string;
+  customer_id?: string | null;
+  customer_name: string;
+  customer_phone?: string;
+  customer_email?: string;
+  part_id?: string | null;
+  part_number: string;
+  description: string;
+  quantity: number | string;
+  cost_price: number | string;
+  sell_price: number | string;
+  vendor?: string;
+  purchase_order_number?: string;
+  tracking_number?: string;
+  holding_bin?: string;
+  deposit_amount?: number | string;
+  payment_status: SpecialOrderPaymentStatus;
+  status: SpecialOrderStatus;
+  work_order_id?: string | null;
+  ordered_at?: string | null;
+  received_at?: string | null;
+  notified_at?: string | null;
+  fulfilled_at?: string | null;
+  notes?: string;
+  created_at: string;
+  updated_at?: string;
+};
+

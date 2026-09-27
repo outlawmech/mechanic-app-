@@ -196,7 +196,7 @@ export default function Auth() {
               <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> 1-Tap VIN &amp; Boat HIN Decoder
             </span>
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
-              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> 30-Sec Parts Counter POS
+              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Instant Part Invoicing
             </span>
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
               <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Showroom Unit Sales &amp; PDI

@@ -233,7 +233,7 @@ export default function Settings() {
               </div>
               <p className="text-[11px] text-purple-300 font-bold mt-1">$99 / month</p>
               <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                Full dealership operations. Showroom unit inventory, commercial floorplan financing, Buyer's Orders &amp; bills of sale, and parts counter POS.
+                Full dealership operations. Showroom unit inventory, commercial floorplan financing, Buyer's Orders &amp; bills of sale, and direct part invoices.
               </p>
             </div>
           </div>
@@ -526,7 +526,7 @@ export default function Settings() {
 
         <p className="text-xs text-slate-300 leading-relaxed">
           {form.enable_dealership_mode
-            ? 'Complete dealership management suite: Showroom inventory, floorplan line financing, Buyer’s Orders & bills of sale, parts counter POS register, and multi-tech service bay scheduling.'
+            ? 'Complete dealership management suite: Showroom inventory, floorplan line financing, Buyer’s Orders & bills of sale, direct part invoicing, and multi-tech service bay scheduling.'
             : 'Unlock unlimited repair orders, cloud multi-tenant database sync, parts & inventory tracking, offline PDF invoicing, and customer SMS dispatches.'}
         </p>
 
@@ -547,7 +547,7 @@ export default function Settings() {
               </div>
               <div className="flex items-center gap-2">
                 <CheckIcon className="h-4 w-4 text-purple-400 shrink-0" />
-                <span>Parts Counter POS Cash Register</span>
+                <span>New Part Invoices &amp; Over-The-Counter Sales</span>
               </div>
             </>
           ) : (

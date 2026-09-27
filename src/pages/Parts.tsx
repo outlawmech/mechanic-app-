@@ -1,17 +1,26 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useMemo, type FormEvent } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 import {
   AlertCircleIcon,
   BanknotesIcon,
+  BookOpenIcon,
   BoxIcon,
+  ChatBubbleIcon,
+  CheckIcon,
+  ExternalLinkIcon,
+  FileSpreadsheetIcon,
   MapPinIcon,
+  PackageCheckIcon,
+  PencilIcon,
+  PhoneCallIcon,
   PlusIcon,
+  ScanIcon,
   SearchIcon,
   TrashIcon,
-  ScanIcon,
-  FileSpreadsheetIcon,
+  TruckIcon,
+  UsersIcon,
 } from '../components/icons';
-import { Link } from 'react-router-dom';
 import {
   Button,
   Card,
@@ -23,14 +32,20 @@ import {
   Select,
   Spinner,
 } from '../components/ui';
+import { useShopSettings } from '../lib/settings';
 import { useAsync } from '../lib/hooks';
-import { money, num, round2 } from '../lib/format';
+import { money, num, round2, fullName } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
-import type { Part } from '../types';
-
 import { cacheLocal, getCachedLocal, safeFetchWithCache, enqueueOfflineAction } from '../lib/offlineSync';
+import { getPriceBookStats, lookupPriceBookSku, type PriceBookEntry } from '../lib/priceBooks';
+import type { Customer, Part, SpecialOrder, SpecialOrderStatus } from '../types';
+
 import PartScannerModal from '../components/PartScannerModal';
 import CsvInventoryImporterModal from '../components/CsvInventoryImporterModal';
+import SpecialOrderModal from '../components/SpecialOrderModal';
+import SpecialOrderReceiveModal from '../components/SpecialOrderReceiveModal';
+import SpecialOrderNotifyModal from '../components/SpecialOrderNotifyModal';
+import PriceBookManagerModal from '../components/PriceBookManagerModal';
 
 const CATEGORIES = [
   'General',
@@ -61,16 +76,51 @@ const emptyPart = {
 
 export default function Parts() {
   const toast = useToast();
+  const navigate = useNavigate();
+  const { settings } = useShopSettings();
+
+  // Primary Tab: 'inventory' vs 'special_orders'
+  const [mainTab, setMainTab] = useState<'inventory' | 'special_orders'>('inventory');
+
+  // In-Stock Inventory States
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'low_stock'>('all');
+  const [inventorySubTab, setInventorySubTab] = useState<'all' | 'low_stock'>('all');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [addingPart, setAddingPart] = useState(false);
   const [editingPart, setEditingPart] = useState<Part | null>(null);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const [form, setForm] = useState(emptyPart);
-  const [saving, setSaving] = useState(false);
+  const [savingPart, setSavingPart] = useState(false);
 
+  // Special Orders States
+  const [soSearch, setSoSearch] = useState('');
+  const [soStatusFilter, setSoStatusFilter] = useState<string>('all');
+  const [specialOrderModalOpen, setSpecialOrderModalOpen] = useState(false);
+  const [orderToEdit, setOrderToEdit] = useState<SpecialOrder | null>(null);
+  const [orderToReceive, setOrderToReceive] = useState<SpecialOrder | null>(null);
+  const [orderToNotify, setOrderToNotify] = useState<SpecialOrder | null>(null);
+
+  // Price Books State
+  const [priceBooksOpen, setPriceBooksOpen] = useState(false);
+  const [pbStats, setPbStats] = useState<{ totalBooks: number; totalSkus: number; manufacturers: string[] }>({
+    totalBooks: 0,
+    totalSkus: 0,
+    manufacturers: [],
+  });
+
+  const refreshPbStats = async () => {
+    try {
+      const stats = await getPriceBookStats();
+      setPbStats(stats);
+    } catch {}
+  };
+
+  useMemo(() => {
+    refreshPbStats();
+  }, [priceBooksOpen]);
+
+  // Load In-Stock Parts
   const { data: parts, error, loading, reload } = useAsync(async () => {
     return safeFetchWithCache<Part[]>(
       'parts',
@@ -83,12 +133,43 @@ export default function Parts() {
     );
   }, []);
 
-  if (loading) return <Spinner />;
-  if (error) return <ErrorState message={error} />;
+  // Load Special Orders
+  const { data: specialOrders, reload: reloadSpecialOrders } = useAsync(async () => {
+    return safeFetchWithCache<SpecialOrder[]>(
+      'special_orders',
+      async () => {
+        try {
+          const sb = requireSupabase();
+          const res = await sb.from('special_orders').select('*').order('created_at', { ascending: false });
+          if (res.error) throw res.error;
+          return (res.data ?? []) as SpecialOrder[];
+        } catch (e) {
+          console.warn('Special orders fetch remote error:', e);
+          return getCachedLocal<SpecialOrder[]>('special_orders') || [];
+        }
+      },
+      []
+    );
+  }, []);
+
+  // Load Customers for Special Orders dropdown
+  const { data: customers } = useAsync(async () => {
+    return safeFetchWithCache<Customer[]>(
+      'customers',
+      async () => {
+        const sb = requireSupabase();
+        const res = check(await sb.from('customers').select('*').order('first_name'));
+        return (res.data ?? []) as Customer[];
+      },
+      []
+    );
+  }, []);
 
   const allParts = parts ?? [];
+  const allSpecialOrders = specialOrders ?? [];
+  const allCustomers = customers ?? [];
 
-  // Metrics
+  // Metrics for In-Stock
   const totalSkus = allParts.length;
   const lowStockCount = allParts.filter(
     (p) => num(p.qty_on_hand) <= num(p.reorder_point) && num(p.reorder_point) > 0
@@ -100,25 +181,73 @@ export default function Parts() {
     allParts.reduce((sum, p) => sum + num(p.sell_price) * num(p.qty_on_hand), 0)
   );
 
-  // Filtered list
-  const filteredParts = allParts.filter((p) => {
-    const q = search.toLowerCase();
-    const matchesSearch =
-      p.name.toLowerCase().includes(q) ||
-      p.sku.toLowerCase().includes(q) ||
-      p.category.toLowerCase().includes(q) ||
-      p.location.toLowerCase().includes(q) ||
-      p.supplier.toLowerCase().includes(q);
+  // Metrics for Special Orders
+  const activeSpecialOrders = allSpecialOrders.filter(
+    (s) => s.status !== 'fulfilled' && s.status !== 'canceled'
+  );
+  const inTransitCount = allSpecialOrders.filter(
+    (s) => s.status === 'ordered' || s.status === 'in_transit'
+  ).length;
+  const readyForPickupCount = allSpecialOrders.filter(
+    (s) => s.status === 'received' || s.status === 'notified'
+  ).length;
+  const fulfilledCount = allSpecialOrders.filter((s) => s.status === 'fulfilled').length;
+  const totalPendingOrderValue = activeSpecialOrders.reduce(
+    (sum, s) => sum + num(s.quantity) * num(s.sell_price),
+    0
+  );
+  const totalUncollectedBalance = activeSpecialOrders.reduce((sum, s) => {
+    const total = num(s.quantity) * num(s.sell_price);
+    const deposit = s.payment_status === 'deposit_paid' ? num(s.deposit_amount) : (s.payment_status === 'paid_in_full' ? total : 0);
+    return sum + Math.max(0, total - deposit);
+  }, 0);
 
-    if (!matchesSearch) return false;
-    if (activeTab === 'low_stock') {
-      return num(p.qty_on_hand) <= num(p.reorder_point) && num(p.reorder_point) > 0;
-    }
-    if (categoryFilter) {
-      return p.category === categoryFilter;
-    }
-    return true;
-  });
+  // Filtered in-stock parts
+  const filteredParts = useMemo(() => {
+    return allParts.filter((p) => {
+      const q = search.toLowerCase();
+      const matchesSearch =
+        p.name.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q) ||
+        p.category.toLowerCase().includes(q) ||
+        p.location.toLowerCase().includes(q) ||
+        p.supplier.toLowerCase().includes(q);
+
+      if (!matchesSearch) return false;
+      if (inventorySubTab === 'low_stock') {
+        return num(p.qty_on_hand) <= num(p.reorder_point) && num(p.reorder_point) > 0;
+      }
+      if (categoryFilter) {
+        return p.category === categoryFilter;
+      }
+      return true;
+    });
+  }, [allParts, search, inventorySubTab, categoryFilter]);
+
+  // Filtered Special Orders
+  const filteredSpecialOrders = useMemo(() => {
+    return allSpecialOrders.filter((s) => {
+      const q = soSearch.toLowerCase();
+      const matchesSearch =
+        (s.order_number || '').toLowerCase().includes(q) ||
+        (s.customer_name || '').toLowerCase().includes(q) ||
+        (s.customer_phone || '').toLowerCase().includes(q) ||
+        (s.part_number || '').toLowerCase().includes(q) ||
+        (s.description || '').toLowerCase().includes(q) ||
+        (s.vendor || '').toLowerCase().includes(q) ||
+        (s.holding_bin || '').toLowerCase().includes(q) ||
+        (s.tracking_number || '').toLowerCase().includes(q) ||
+        (s.purchase_order_number || '').toLowerCase().includes(q);
+
+      if (!matchesSearch) return false;
+      if (soStatusFilter === 'all') return true;
+      if (soStatusFilter === 'in_transit') return s.status === 'ordered' || s.status === 'in_transit';
+      if (soStatusFilter === 'ready') return s.status === 'received' || s.status === 'notified';
+      return s.status === soStatusFilter;
+    });
+  }, [allSpecialOrders, soSearch, soStatusFilter]);
+
+  // ---------------- PART SAVE / ADJUST ----------------
 
   async function handleSavePart(e: FormEvent) {
     e.preventDefault();
@@ -127,7 +256,7 @@ export default function Parts() {
       return;
     }
 
-    setSaving(true);
+    setSavingPart(true);
     const payload = {
       sku: form.sku.trim(),
       name: form.name.trim(),
@@ -222,7 +351,7 @@ export default function Parts() {
       setAddingPart(false);
       setEditingPart(null);
     } finally {
-      setSaving(false);
+      setSavingPart(false);
     }
   }
 
@@ -240,63 +369,47 @@ export default function Parts() {
           payload: { qty_on_hand: newQty },
           matchField: 'id',
           matchValue: part.id,
-          description: `Adjust stock for ${part.name} to ${newQty}`,
+          description: `Adjust stock of ${part.name} to ${newQty}`,
         });
-        part.qty_on_hand = newQty;
-        cacheLocal('parts', allParts);
+        const updatedParts = allParts.map((p) =>
+          p.id === part.id ? { ...p, qty_on_hand: newQty } : p
+        );
+        cacheLocal('parts', updatedParts);
       }
-    } catch (err) {
-      enqueueOfflineAction({
-        table: 'parts',
-        type: 'update',
-        payload: { qty_on_hand: newQty },
-        matchField: 'id',
-        matchValue: part.id,
-        description: `Adjust stock for ${part.name} to ${newQty}`,
-      });
-      part.qty_on_hand = newQty;
-      cacheLocal('parts', allParts);
+      toast(`${part.name} stock: ${newQty}`);
+    } catch (err: any) {
+      toast(errMsg(err), 'error');
     }
   }
 
-  async function deletePart(id: string) {
-    if (!window.confirm('Delete this part from inventory?')) return;
+  async function handleDeletePart(part: Part) {
+    if (!confirm(`Delete part "${part.name}"?`)) return;
     try {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         const sb = requireSupabase();
-        check(await sb.from('parts').delete().eq('id', id));
-        toast('Part deleted');
+        check(await sb.from('parts').delete().eq('id', part.id));
         await reload();
       } else {
         enqueueOfflineAction({
           table: 'parts',
           type: 'delete',
           matchField: 'id',
-          matchValue: id,
-          description: 'Delete part',
+          matchValue: part.id,
+          description: `Delete part ${part.name}`,
         });
-        const remaining = allParts.filter((p) => p.id !== id);
-        cacheLocal('parts', remaining);
-        toast('Part deleted (Saved locally)');
+        const updatedParts = allParts.filter((p) => p.id !== part.id);
+        cacheLocal('parts', updatedParts);
       }
-    } catch (err) {
-      enqueueOfflineAction({
-        table: 'parts',
-        type: 'delete',
-        matchField: 'id',
-        matchValue: id,
-        description: 'Delete part',
-      });
-      const remaining = allParts.filter((p) => p.id !== id);
-      cacheLocal('parts', remaining);
-      toast('Part deleted (Saved offline)');
+      toast('Part deleted');
+    } catch (err: any) {
+      toast(errMsg(err), 'error');
     }
   }
 
   function startEdit(p: Part) {
     setEditingPart(p);
     setForm({
-      sku: p.sku,
+      sku: p.sku || '',
       name: p.name,
       category: p.category || 'General',
       cost_price: String(p.cost_price || ''),
@@ -310,7 +423,155 @@ export default function Parts() {
     setAddingPart(true);
   }
 
-  // Live margin % calculation
+  async function handleAddNewPartFromScanner(sku: string) {
+    const pb = await lookupPriceBookSku(sku);
+    if (pb) {
+      setForm({
+        sku: pb.sku,
+        name: pb.name,
+        category: pb.category || 'General',
+        cost_price: String(pb.cost_price || ''),
+        sell_price: String(pb.sell_price || ''),
+        qty_on_hand: '1',
+        reorder_point: '1',
+        location: '',
+        supplier: pb.brand || pb.manufacturer,
+        notes: pb.superseded_to ? `Supersedes to ${pb.superseded_to}` : '',
+      });
+      toast(`Pre-filled part from ${pb.brand || pb.manufacturer} Price Book!`);
+    } else {
+      setForm({
+        ...emptyPart,
+        sku: sku,
+        qty_on_hand: '1',
+      });
+    }
+    setEditingPart(null);
+    setAddingPart(true);
+  }
+
+  // ---------------- SPECIAL ORDERS HANDLERS ----------------
+
+  async function handleSaveSpecialOrder(order: SpecialOrder) {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        const sb = requireSupabase();
+        const existing = allSpecialOrders.find((s) => s.id === order.id);
+        if (existing) {
+          await sb.from('special_orders').update(order).eq('id', order.id);
+        } else {
+          await sb.from('special_orders').insert(order);
+        }
+      }
+    } catch (e) {
+      console.warn('Special orders remote sync error, persisting locally:', e);
+    }
+    const existingIndex = allSpecialOrders.findIndex((s) => s.id === order.id);
+    let updated: SpecialOrder[];
+    if (existingIndex >= 0) {
+      updated = [...allSpecialOrders];
+      updated[existingIndex] = order;
+    } else {
+      updated = [order, ...allSpecialOrders];
+    }
+    cacheLocal('special_orders', updated);
+    await reloadSpecialOrders();
+  }
+
+  async function handleDeleteSpecialOrder(order: SpecialOrder) {
+    if (!confirm(`Are you sure you want to cancel / delete Special Order "${order.order_number}"?`)) return;
+    try {
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        const sb = requireSupabase();
+        await sb.from('special_orders').delete().eq('id', order.id);
+      }
+    } catch (e) {
+      console.warn('Special orders remote delete error:', e);
+    }
+    const updated = allSpecialOrders.filter((s) => s.id !== order.id);
+    cacheLocal('special_orders', updated);
+    await reloadSpecialOrders();
+    toast(`Special order ${order.order_number} deleted`);
+  }
+
+  async function handleReceiveOrder(
+    orderId: string,
+    holdingBin: string,
+    receiveNotes: string,
+    shouldNotify: boolean
+  ) {
+    const target = allSpecialOrders.find((s) => s.id === orderId);
+    if (!target) return;
+
+    const updatedOrder: SpecialOrder = {
+      ...target,
+      status: 'received',
+      holding_bin: holdingBin || target.holding_bin,
+      received_at: new Date().toISOString(),
+      notes: receiveNotes ? `${target.notes ? `${target.notes}\n` : ''}Received: ${receiveNotes}` : target.notes,
+      updated_at: new Date().toISOString(),
+    };
+
+    await handleSaveSpecialOrder(updatedOrder);
+
+    if (shouldNotify) {
+      setOrderToNotify(updatedOrder);
+    }
+  }
+
+  async function handleMarkNotified(orderId: string) {
+    const target = allSpecialOrders.find((s) => s.id === orderId);
+    if (!target) return;
+
+    const updatedOrder: SpecialOrder = {
+      ...target,
+      status: 'notified',
+      notified_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    await handleSaveSpecialOrder(updatedOrder);
+  }
+
+  async function handleMarkFulfilled(orderId: string) {
+    const target = allSpecialOrders.find((s) => s.id === orderId);
+    if (!target) return;
+
+    const updatedOrder: SpecialOrder = {
+      ...target,
+      status: 'fulfilled',
+      fulfilled_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    await handleSaveSpecialOrder(updatedOrder);
+    toast(`Special order ${target.order_number} marked as fulfilled & picked up!`);
+  }
+
+  function convertToInvoice(so: SpecialOrder) {
+    const params = new URLSearchParams({
+      so_id: so.id,
+      so_num: so.order_number,
+      part_sku: so.part_number,
+      part_name: so.description,
+      qty: String(so.quantity || 1),
+      price: String(so.sell_price || 0),
+      cost: String(so.cost_price || 0),
+      deposit: String(so.deposit_amount || 0),
+    });
+    if (so.customer_id) {
+      params.set('cust_id', so.customer_id);
+    } else if (so.customer_name) {
+      params.set('cust_name', so.customer_name);
+      if (so.customer_phone) params.set('cust_phone', so.customer_phone);
+    }
+    navigate(`/parts/counter?${params.toString()}`);
+  }
+
+  if (loading) return <Spinner />;
+  if (error) return <ErrorState message={error} />;
+
+  // Live margin % calculation for add form
   const formCost = Number(form.cost_price) || 0;
   const formSell = Number(form.sell_price) || 0;
   const marginPct =
@@ -318,39 +579,68 @@ export default function Parts() {
 
   return (
     <div className="space-y-4">
+      {/* Page Title & Action Bar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <PageTitle title="Parts &amp; Inventory" sub={`${totalSkus} SKUs in inventory`} />
-        {!addingPart && (
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setScannerOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition active:scale-95"
+        <PageTitle
+          title="Parts &amp; Inventory"
+          sub={
+            mainTab === 'inventory'
+              ? `${totalSkus} SKUs in catalog · ${money(totalRetailValue)} total value`
+              : `${activeSpecialOrders.length} active customer special orders in pipeline`
+          }
+        />
+
+        <div className="flex flex-wrap items-center gap-2">
+          {mainTab === 'inventory' && !addingPart && (
+            <>
+              <button
+                type="button"
+                onClick={() => setScannerOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition active:scale-95"
+              >
+                <ScanIcon className="h-4 w-4 text-orange-400" />
+                <span>📷 Scan Barcode / OCR</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setCsvOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
+              >
+                <FileSpreadsheetIcon className="h-4 w-4 text-orange-600" />
+                <span>📂 Import CSV</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPriceBooksOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-xs font-bold text-purple-300 shadow-xs hover:bg-purple-500/20 transition"
+              >
+                <BookOpenIcon className="h-4 w-4 text-purple-400" />
+                <span>📖 OEM Price Books {pbStats.totalSkus > 0 ? `(${pbStats.totalSkus.toLocaleString()})` : ''}</span>
+              </button>
+            </>
+          )}
+
+          {mainTab === 'special_orders' && (
+            <Button
+              variant="accent"
+              onClick={() => {
+                setOrderToEdit(null);
+                setSpecialOrderModalOpen(true);
+              }}
+              className="text-xs font-bold"
             >
-              <ScanIcon className="h-4 w-4 text-orange-400" />
-              <span>📷 Scan Barcode / OCR</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCsvOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
-            >
-              <FileSpreadsheetIcon className="h-4 w-4 text-orange-600" />
-              <span>📂 Import CSV</span>
-            </button>
-            <Link
-              to="/parts/counter"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-2 text-xs font-black text-slate-950 shadow-xs hover:bg-orange-400 transition shadow-orange-500/20"
-            >
-              <span>⚡ Parts Counter POS</span>
-            </Link>
-            <Link
-              to="/reports"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50"
-            >
-              <BanknotesIcon className="h-4 w-4 text-emerald-600" />
-              <span>Valuation</span>
-            </Link>
+              <PlusIcon className="h-4 w-4" /> New Special Order
+            </Button>
+          )}
+
+          <Link
+            to="/parts/counter"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-2 text-xs font-black text-slate-950 shadow-xs hover:bg-orange-400 transition shadow-orange-500/20"
+          >
+            <span>⚡ New Part Invoice</span>
+          </Link>
+
+          {mainTab === 'inventory' && !addingPart && (
             <Button
               variant="accent"
               onClick={() => {
@@ -362,365 +652,736 @@ export default function Parts() {
             >
               <PlusIcon className="h-4 w-4" /> Add Part
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Top Metrics Cards */}
-      <div className="grid grid-cols-3 gap-2">
-        <Card className="p-3 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Total SKUs</p>
-          <p className="mt-0.5 text-base font-bold text-slate-900">{totalSkus}</p>
-        </Card>
-        <Card className="p-3 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Low Stock</p>
-          <p
-            className={`mt-0.5 text-base font-bold ${
-              lowStockCount > 0 ? 'text-orange-600 font-extrabold' : 'text-slate-900'
-            }`}
-          >
-            {lowStockCount}
-          </p>
-        </Card>
-        <Card className="p-3 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Stock Value</p>
-          <p className="mt-0.5 text-xs font-bold text-slate-900">{money(totalRetailValue)}</p>
-        </Card>
-      </div>
-
-      {/* Add / Edit Part Form */}
-      {addingPart && (
-        <form
-          onSubmit={handleSavePart}
-          className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-900/10"
+      {/* Main Mode Tabs: In-Stock Inventory vs Special Orders */}
+      <div className="flex rounded-2xl bg-slate-200 p-1">
+        <button
+          type="button"
+          onClick={() => setMainTab('inventory')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-black transition ${
+            mainTab === 'inventory'
+              ? 'bg-white text-slate-950 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
         >
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-            <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">
-              {editingPart ? 'Edit Part' : 'Add New Part to Inventory'}
-            </h3>
-            <button
-              type="button"
-              onClick={() => {
-                setAddingPart(false);
-                setEditingPart(null);
-              }}
-              className="text-xs font-semibold text-slate-400 hover:text-slate-600"
-            >
-              Cancel
-            </button>
-          </div>
+          <BoxIcon className="h-4 w-4 text-orange-500" />
+          <span>In-Stock Inventory</span>
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+            {totalSkus}
+          </span>
+        </button>
 
-          <div className="grid grid-cols-3 gap-2.5">
-            <Field label="Part # / SKU">
-              <Input
-                value={form.sku}
-                onChange={(e) => setForm({ ...form, sku: e.target.value })}
-                placeholder="e.g. WIX-51348"
-              />
-            </Field>
-            <div className="col-span-2">
-              <Field label="Part Name / Description *">
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="e.g. Spin-on Oil Filter"
-                  required
-                />
-              </Field>
-            </div>
-          </div>
+        <button
+          type="button"
+          onClick={() => setMainTab('special_orders')}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-black transition ${
+            mainTab === 'special_orders'
+              ? 'bg-white text-slate-950 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <TruckIcon className="h-4 w-4 text-purple-600" />
+          <span>Special Orders</span>
+          {activeSpecialOrders.length > 0 && (
+            <span className="rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-black text-slate-950 shadow-xs animate-pulse">
+              {activeSpecialOrders.length}
+            </span>
+          )}
+        </button>
+      </div>
 
-          <div className="grid grid-cols-2 gap-2.5">
-            <Field label="Category">
-              <Select
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
+      {/* ======================================================== */}
+      {/* TAB 1: IN-STOCK INVENTORY                                */}
+      {/* ======================================================== */}
+      {mainTab === 'inventory' && (
+        <div className="space-y-4">
+          {/* Top Metrics Cards */}
+          <div className="grid grid-cols-3 gap-2">
+            <Card className="p-3 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Total SKUs</p>
+              <p className="mt-0.5 text-base font-bold text-slate-900">{totalSkus}</p>
+            </Card>
+            <Card className="p-3 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Low Stock</p>
+              <p
+                className={`mt-0.5 text-base font-bold ${
+                  lowStockCount > 0 ? 'text-orange-600 font-extrabold' : 'text-slate-900'
+                }`}
               >
+                {lowStockCount}
+              </p>
+            </Card>
+            <Card className="p-3 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Stock Value</p>
+              <p className="mt-0.5 text-xs font-bold text-slate-900">{money(totalRetailValue)}</p>
+            </Card>
+          </div>
+
+          {/* Add / Edit Part Form */}
+          {addingPart && (
+            <form
+              onSubmit={handleSavePart}
+              className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-900/10"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">
+                  {editingPart ? 'Edit Part' : 'Add New Part to Inventory'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddingPart(false);
+                    setEditingPart(null);
+                  }}
+                  className="text-xs font-semibold text-slate-400 hover:text-slate-600"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2.5">
+                <Field label="Part # / SKU">
+                  <Input
+                    value={form.sku}
+                    onChange={(e) => setForm({ ...form, sku: e.target.value })}
+                    placeholder="e.g. WIX-51348"
+                  />
+                </Field>
+                <div className="col-span-2">
+                  <Field label="Part Name / Description">
+                    <Input
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      placeholder="e.g. Spin-On Oil Filter"
+                      required
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                <Field label="Category">
+                  <Select
+                    value={form.category}
+                    onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  >
+                    {CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Cost Price ($)">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={form.cost_price}
+                    onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </Field>
+                <Field label="Sell Price ($)">
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={form.sell_price}
+                    onChange={(e) => setForm({ ...form, sell_price: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </Field>
+                <Field label="Bin / Shelf">
+                  <Input
+                    value={form.location}
+                    onChange={(e) => setForm({ ...form, location: e.target.value })}
+                    placeholder="e.g. Shelf A-3"
+                  />
+                </Field>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                <Field label="Qty on Hand">
+                  <Input
+                    type="number"
+                    value={form.qty_on_hand}
+                    onChange={(e) => setForm({ ...form, qty_on_hand: e.target.value })}
+                  />
+                </Field>
+                <Field label="Reorder Point">
+                  <Input
+                    type="number"
+                    value={form.reorder_point}
+                    onChange={(e) => setForm({ ...form, reorder_point: e.target.value })}
+                  />
+                </Field>
+                <div className="col-span-2">
+                  <Field label="Supplier / Vendor">
+                    <Input
+                      value={form.supplier}
+                      onChange={(e) => setForm({ ...form, supplier: e.target.value })}
+                      placeholder="e.g. Western Power Sports / NAPA"
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              {/* Margin helper */}
+              {formSell > 0 && (
+                <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-xs">
+                  <span className="text-slate-500">Gross Margin:</span>
+                  <span
+                    className={`font-mono font-bold ${
+                      Number(marginPct) >= 30 ? 'text-emerald-600' : 'text-orange-600'
+                    }`}
+                  >
+                    {marginPct}% ({money(formSell - formCost)} profit/unit)
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setAddingPart(false);
+                    setEditingPart(null);
+                  }}
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" variant="accent" disabled={savingPart} className="text-xs">
+                  {savingPart ? 'Saving...' : editingPart ? 'Update Part' : 'Add to Catalog'}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* Search & Sub-Tabs */}
+          <div className="space-y-2">
+            <div className="relative">
+              <SearchIcon className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by SKU, part name, bin location, vendor..."
+                className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs font-medium shadow-xs ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-orange-400"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex rounded-xl bg-slate-200 p-0.5 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setInventorySubTab('all')}
+                  className={`rounded-lg px-3 py-1 transition ${
+                    inventorySubTab === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'
+                  }`}
+                >
+                  All ({totalSkus})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInventorySubTab('low_stock')}
+                  className={`flex items-center gap-1 rounded-lg px-3 py-1 transition ${
+                    inventorySubTab === 'low_stock' ? 'bg-white text-orange-600 shadow-xs' : 'text-slate-600'
+                  }`}
+                >
+                  <AlertCircleIcon className="h-3 w-3" />
+                  <span>Low Stock ({lowStockCount})</span>
+                </button>
+              </div>
+
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="rounded-xl border-0 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs ring-1 ring-slate-900/10 focus:ring-2 focus:ring-orange-400"
+              >
+                <option value="">All Categories</option>
                 {CATEGORIES.map((c) => (
                   <option key={c} value={c}>
                     {c}
                   </option>
                 ))}
-              </Select>
-            </Field>
-
-            <Field label="Location / Bin / Shelf">
-              <Input
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-                placeholder="e.g. Bin 3B / Truck Shelf 2"
-              />
-            </Field>
+              </select>
+            </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2.5">
-            <Field label="Cost Price ($)">
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.cost_price}
-                onChange={(e) => setForm({ ...form, cost_price: e.target.value })}
-                placeholder="0.00"
-              />
-            </Field>
-            <Field label="Sell Price ($)">
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.sell_price}
-                onChange={(e) => setForm({ ...form, sell_price: e.target.value })}
-                placeholder="0.00"
-              />
-            </Field>
-            <Field label="Gross Margin">
-              <div className="flex h-11 items-center rounded-xl bg-slate-50 px-3 text-xs font-bold text-emerald-700">
-                {marginPct}%
-              </div>
-            </Field>
-          </div>
+          {/* Inventory Parts List */}
+          {filteredParts.length === 0 ? (
+            <EmptyState
+              icon={<BoxIcon className="h-10 w-10 text-slate-400" />}
+              title="No parts found"
+              sub={
+                search || categoryFilter || inventorySubTab === 'low_stock'
+                  ? 'Try adjusting your search query or filters.'
+                  : 'Start tracking your shop inventory, scan barcodes, or import a CSV.'
+              }
+              action={
+                !addingPart ? (
+                  <Button variant="accent" onClick={() => setAddingPart(true)} className="text-xs">
+                    <PlusIcon className="h-4 w-4" /> Add First Part
+                  </Button>
+                ) : undefined
+              }
+            />
+          ) : (
+            <div className="space-y-2">
+              {filteredParts.map((p) => {
+                const isLow = num(p.qty_on_hand) <= num(p.reorder_point) && num(p.reorder_point) > 0;
+                return (
+                  <Card key={p.id} className="p-3 transition hover:shadow-md">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-slate-900 truncate">
+                            {p.sku || 'NO-SKU'}
+                          </span>
+                          <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                            {p.category}
+                          </span>
+                          {p.location && (
+                            <span className="flex items-center gap-0.5 text-[10px] text-slate-500 font-medium">
+                              <MapPinIcon className="h-3 w-3 text-slate-400" />
+                              {p.location}
+                            </span>
+                          )}
+                        </div>
 
-          <div className="grid grid-cols-3 gap-2.5">
-            <Field label="Qty On Hand">
-              <Input
-                type="number"
-                min="0"
-                step="1"
-                value={form.qty_on_hand}
-                onChange={(e) => setForm({ ...form, qty_on_hand: e.target.value })}
-                placeholder="1"
-              />
-            </Field>
-            <Field label="Reorder Point">
-              <Input
-                type="number"
-                min="0"
-                step="1"
-                value={form.reorder_point}
-                onChange={(e) => setForm({ ...form, reorder_point: e.target.value })}
-                placeholder="0"
-              />
-            </Field>
-            <Field label="Vendor / Supplier">
-              <Input
-                value={form.supplier}
-                onChange={(e) => setForm({ ...form, supplier: e.target.value })}
-                placeholder="e.g. NAPA / O'Reilly"
-              />
-            </Field>
-          </div>
+                        <p className="mt-0.5 text-xs font-bold text-slate-800">{p.name}</p>
 
-          <div className="flex gap-2 pt-1">
-            <Button type="submit" variant="accent" disabled={saving} className="flex-1">
-              {saving ? 'Saving…' : editingPart ? 'Update Part' : 'Save to Inventory'}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => {
-                setAddingPart(false);
-                setEditingPart(null);
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
-      )}
+                        <div className="mt-1 flex flex-wrap items-center gap-3 text-[11px] text-slate-500">
+                          <span>
+                            Cost: <strong className="font-mono text-slate-700">{money(p.cost_price)}</strong>
+                          </span>
+                          <span>
+                            Retail: <strong className="font-mono text-slate-900">{money(p.sell_price)}</strong>
+                          </span>
+                          {num(p.sell_price) > 0 && num(p.cost_price) > 0 && (
+                            <span className="text-emerald-700 font-semibold font-mono">
+                              ({(((num(p.sell_price) - num(p.cost_price)) / num(p.sell_price)) * 100).toFixed(0)}% margin)
+                            </span>
+                          )}
+                          {p.supplier && <span className="text-slate-400">· {p.supplier}</span>}
+                        </div>
+                      </div>
 
-      {/* Search & Filter Bar */}
-      <div className="space-y-2">
-        <div className="relative">
-          <SearchIcon className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search parts by SKU, name, bin, vendor…"
-            className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-orange-400"
-          />
-        </div>
+                      {/* Stock Stepper & Quick Actions */}
+                      <div className="flex flex-col items-end gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => adjustStock(p, -1)}
+                            className="grid h-7 w-7 place-items-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 active:scale-95"
+                            title="Decrease quantity"
+                          >
+                            -
+                          </button>
+                          <span
+                            className={`min-w-[2.5rem] text-center font-mono text-xs font-extrabold ${
+                              isLow ? 'text-orange-600' : 'text-slate-900'
+                            }`}
+                          >
+                            {p.qty_on_hand}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => adjustStock(p, 1)}
+                            className="grid h-7 w-7 place-items-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 active:scale-95"
+                            title="Increase quantity"
+                          >
+                            +
+                          </button>
+                        </div>
 
-        <div className="flex gap-1.5 overflow-x-auto pb-1 text-xs">
-          <button
-            onClick={() => {
-              setActiveTab('all');
-              setCategoryFilter('');
-            }}
-            className={`rounded-lg px-3 py-1.5 font-medium transition whitespace-nowrap ${
-              activeTab === 'all' && !categoryFilter
-                ? 'bg-slate-900 text-white'
-                : 'bg-white text-slate-600 ring-1 ring-slate-900/5'
-            }`}
-          >
-            All Parts ({allParts.length})
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab('low_stock');
-              setCategoryFilter('');
-            }}
-            className={`flex items-center gap-1 rounded-lg px-3 py-1.5 font-medium transition whitespace-nowrap ${
-              activeTab === 'low_stock'
-                ? 'bg-orange-500 text-white font-bold'
-                : 'bg-white text-orange-700 ring-1 ring-orange-300'
-            }`}
-          >
-            <AlertCircleIcon className="h-3.5 w-3.5" />
-            Low Stock ({lowStockCount})
-          </button>
-        </div>
-      </div>
-
-      {/* Parts List */}
-      {filteredParts.length === 0 ? (
-        <EmptyState
-          icon={<BoxIcon className="h-8 w-8" />}
-          title={search ? 'No matching parts' : 'No inventory items yet'}
-          sub={
-            search
-              ? 'Try a different part number or description search.'
-              : 'Add stocked parts, fluids, filters, or shop supplies to track inventory.'
-          }
-          action={
-            !addingPart && (
-              <Button variant="accent" onClick={() => setAddingPart(true)}>
-                + Add First Part
-              </Button>
-            )
-          }
-        />
-      ) : (
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {filteredParts.map((part) => {
-            const isLowStock =
-              num(part.qty_on_hand) <= num(part.reorder_point) && num(part.reorder_point) > 0;
-
-            return (
-              <Card key={part.id} className="p-3.5 flex flex-col justify-between">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      {part.sku && (
-                        <span className="font-mono text-[11px] font-bold text-slate-500">
-                          {part.sku}
-                        </span>
-                      )}
-                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
-                        {part.category}
-                      </span>
+                        <div className="flex items-center gap-2 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => startEdit(p)}
+                            className="font-semibold text-slate-500 hover:text-slate-900"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeletePart(p)}
+                            className="text-slate-400 hover:text-red-600"
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-
-                    <p className="mt-0.5 text-sm font-semibold text-slate-900">{part.name}</p>
-
-                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
-                      <span>
-                        Sell: <strong className="text-slate-800">{money(part.sell_price)}</strong>
-                      </span>
-                      {num(part.cost_price) > 0 && (
-                        <span>Cost: {money(part.cost_price)}</span>
-                      )}
-                      {part.location && (
-                        <span className="flex items-center gap-0.5 text-slate-600">
-                          <MapPinIcon className="h-3 w-3 text-slate-400" /> {part.location}
-                        </span>
-                      )}
-                      {part.supplier && <span>Vendor: {part.supplier}</span>}
-                    </div>
-                  </div>
-
-                  {/* Stock Level Badge */}
-                  <div className="shrink-0">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                        isLowStock
-                          ? 'bg-red-100 text-red-700 ring-1 ring-red-400/30'
-                          : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20'
-                      }`}
-                    >
-                      {part.qty_on_hand} in stock
-                    </span>
-                  </div>
-                </div>
-
-                {/* Stock Controls Bar at bottom of card */}
-                <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2 text-xs">
-                  <span className="text-[11px] text-slate-400">
-                    Min alert: {part.reorder_point || 0}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => adjustStock(part, -1)}
-                      className="grid h-6 w-6 place-items-center rounded bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 active:scale-95"
-                      title="Deduct 1"
-                    >
-                      -
-                    </button>
-                    <button
-                      onClick={() => adjustStock(part, 1)}
-                      className="grid h-6 w-6 place-items-center rounded bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 active:scale-95"
-                      title="Add 1"
-                    >
-                      +
-                    </button>
-                    <button
-                      onClick={() => startEdit(part)}
-                      className="ml-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => deletePart(part.id)}
-                      className="text-slate-400 hover:text-red-500 ml-1"
-                      title="Delete part"
-                    >
-                      <TrashIcon className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Smart Camera Barcode / OCR Scanner Modal */}
+      {/* ======================================================== */}
+      {/* TAB 2: SPECIAL ORDERS & VENDOR STAGING                   */}
+      {/* ======================================================== */}
+      {mainTab === 'special_orders' && (
+        <div className="space-y-4">
+          {/* Top KPI Cards for Special Orders */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <Card className="p-3 text-center border-l-4 border-l-amber-500">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Awaiting Arrival</p>
+              <p className="mt-0.5 text-base font-bold text-amber-600">{inTransitCount}</p>
+            </Card>
+            <Card className="p-3 text-center border-l-4 border-l-purple-500">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">In Holding Bins</p>
+              <p className="mt-0.5 text-base font-bold text-purple-600">{readyForPickupCount}</p>
+            </Card>
+            <Card className="p-3 text-center border-l-4 border-l-emerald-500">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Fulfilled</p>
+              <p className="mt-0.5 text-base font-bold text-emerald-600">{fulfilledCount}</p>
+            </Card>
+            <Card className="p-3 text-center border-l-4 border-l-orange-500">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Balance Due</p>
+              <p className="mt-0.5 text-xs font-black text-slate-900">{money(totalUncollectedBalance)}</p>
+            </Card>
+          </div>
+
+          {/* Search & Status Filter Pills */}
+          <div className="space-y-2">
+            <div className="relative">
+              <SearchIcon className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                value={soSearch}
+                onChange={(e) => setSoSearch(e.target.value)}
+                placeholder="Search order #, customer, part #, vendor, holding bin, tracking #..."
+                className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs font-medium shadow-xs ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-orange-400"
+              />
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+              {[
+                { id: 'all', label: `All (${allSpecialOrders.length})` },
+                { id: 'in_transit', label: `🟡 Ordered / In Transit (${inTransitCount})` },
+                { id: 'ready', label: `📦 In Holding Bin (${readyForPickupCount})` },
+                { id: 'notified', label: `📞 Notified (${allSpecialOrders.filter((s) => s.status === 'notified').length})` },
+                { id: 'fulfilled', label: `✅ Fulfilled (${fulfilledCount})` },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setSoStatusFilter(tab.id)}
+                  className={`rounded-xl px-3 py-1.5 font-bold transition shrink-0 ${
+                    soStatusFilter === tab.id
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-white text-slate-600 ring-1 ring-slate-900/5 hover:bg-slate-50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Special Orders List */}
+          {filteredSpecialOrders.length === 0 ? (
+            <EmptyState
+              icon={<TruckIcon className="h-10 w-10 text-slate-400" />}
+              title="No special orders found"
+              sub={
+                soSearch || soStatusFilter !== 'all'
+                  ? 'No special orders match your active filter criteria.'
+                  : 'Order non-stocking parts from WPS, Parts Unlimited, Tucker, or OEM distributors with staged customer holding bins.'
+              }
+              action={
+                <Button
+                  variant="accent"
+                  onClick={() => {
+                    setOrderToEdit(null);
+                    setSpecialOrderModalOpen(true);
+                  }}
+                  className="text-xs font-bold"
+                >
+                  <PlusIcon className="h-4 w-4" /> Create First Special Order
+                </Button>
+              }
+            />
+          ) : (
+            <div className="space-y-3">
+              {filteredSpecialOrders.map((so) => {
+                const totalDue = num(so.quantity) * num(so.sell_price);
+                const deposit = so.payment_status === 'deposit_paid' ? num(so.deposit_amount) : (so.payment_status === 'paid_in_full' ? totalDue : 0);
+                const balanceDue = Math.max(0, totalDue - deposit);
+
+                const getStatusBadge = (st: SpecialOrderStatus) => {
+                  switch (st) {
+                    case 'ordered':
+                      return { label: '🟡 Placed with Vendor', cls: 'bg-amber-100 text-amber-800 border-amber-300' };
+                    case 'in_transit':
+                      return { label: '🚚 In Transit', cls: 'bg-blue-100 text-blue-800 border-blue-300' };
+                    case 'received':
+                      return { label: '📦 In Holding Bin', cls: 'bg-purple-100 text-purple-800 border-purple-300 font-black' };
+                    case 'notified':
+                      return { label: '📞 Customer Notified', cls: 'bg-indigo-100 text-indigo-800 border-indigo-300' };
+                    case 'fulfilled':
+                      return { label: '✅ Fulfilled / Picked Up', cls: 'bg-emerald-100 text-emerald-800 border-emerald-300' };
+                    case 'canceled':
+                      return { label: '❌ Canceled', cls: 'bg-red-100 text-red-800 border-red-300' };
+                  }
+                };
+
+                const badge = getStatusBadge(so.status);
+
+                return (
+                  <Card key={so.id} className="p-4 space-y-3 transition hover:shadow-md border border-slate-200">
+                    {/* Header: Order #, Status & Dates */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-black text-slate-900">{so.order_number}</span>
+                        <span className={`rounded-md border px-2 py-0.5 text-[10px] font-bold ${badge.cls}`}>
+                          {badge.label}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-[11px] text-slate-400">
+                        {so.holding_bin && (
+                          <span className="rounded-lg bg-orange-100 text-orange-950 font-mono font-bold px-2 py-0.5 text-[11px] border border-orange-200">
+                            📍 {so.holding_bin}
+                          </span>
+                        )}
+                        <span>{new Date(so.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+
+                    {/* Customer & Part Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      {/* Customer Info */}
+                      <div className="space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Customer</span>
+                        <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                          <UsersIcon className="h-3.5 w-3.5 text-slate-400" />
+                          <span>{so.customer_name}</span>
+                        </p>
+                        {so.customer_phone && (
+                          <div className="flex items-center gap-2 pt-0.5">
+                            <a
+                              href={`tel:${so.customer_phone}`}
+                              className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-orange-600 hover:underline"
+                            >
+                              <PhoneCallIcon className="h-3 w-3" /> {so.customer_phone}
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => setOrderToNotify(so)}
+                              className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-semibold hover:bg-slate-200"
+                            >
+                              💬 SMS
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Part Details */}
+                      <div className="space-y-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400 block">Part Ordered</span>
+                        <p className="font-mono font-black text-slate-900 text-xs">
+                          {so.part_number} <span className="font-sans font-normal text-slate-600">(Qty: {so.quantity})</span>
+                        </p>
+                        <p className="text-slate-600 truncate">{so.description}</p>
+                      </div>
+                    </div>
+
+                    {/* Logistics, PO & Tracking */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span>
+                          Supplier: <strong>{so.vendor || 'Distributor'}</strong>
+                        </span>
+                        {so.purchase_order_number && (
+                          <span className="font-mono text-[11px]">
+                            PO: <strong>{so.purchase_order_number}</strong>
+                          </span>
+                        )}
+                        {so.tracking_number && (
+                          <a
+                            href={`https://www.google.com/search?q=${encodeURIComponent(so.tracking_number)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 font-mono text-[11px] text-orange-600 font-bold hover:underline"
+                          >
+                            <TruckIcon className="h-3.5 w-3.5" />
+                            <span>{so.tracking_number}</span>
+                            <ExternalLinkIcon className="h-3 w-3" />
+                          </a>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-400">Total:</span>
+                        <span className="font-mono font-black text-slate-900">{money(totalDue)}</span>
+                        {deposit > 0 && (
+                          <span className="font-mono text-[11px] text-emerald-700 font-bold">
+                            (Paid: {money(deposit)})
+                          </span>
+                        )}
+                        {balanceDue > 0 && (
+                          <span className="font-mono font-bold text-orange-600">
+                            Due: {money(balanceDue)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Notes if any */}
+                    {so.notes && (
+                      <p className="text-[11px] text-slate-500 italic bg-amber-50/60 p-2 rounded-lg border border-amber-100">
+                        "{so.notes}"
+                      </p>
+                    )}
+
+                    {/* Action Bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                      <div className="flex items-center gap-2">
+                        {/* 1. Receive Part & Bin */}
+                        {so.status !== 'received' && so.status !== 'notified' && so.status !== 'fulfilled' && (
+                          <Button
+                            variant="success"
+                            onClick={() => setOrderToReceive(so)}
+                            className="text-xs py-1.5 px-3 flex items-center gap-1 font-bold"
+                          >
+                            <PackageCheckIcon className="h-3.5 w-3.5" />
+                            <span>Receive &amp; Bin</span>
+                          </Button>
+                        )}
+
+                        {/* 2. Notify Customer */}
+                        {(so.status === 'received' || so.status === 'notified') && (
+                          <Button
+                            variant="accent"
+                            onClick={() => setOrderToNotify(so)}
+                            className="text-xs py-1.5 px-3 flex items-center gap-1 font-bold"
+                          >
+                            <ChatBubbleIcon className="h-3.5 w-3.5" />
+                            <span>📱 Notify Customer</span>
+                          </Button>
+                        )}
+
+                        {/* 3. Convert to Direct Invoice */}
+                        {so.status !== 'fulfilled' && (
+                          <button
+                            type="button"
+                            onClick={() => convertToInvoice(so)}
+                            className="inline-flex items-center gap-1 rounded-xl bg-orange-100 px-3 py-1.5 text-xs font-bold text-orange-950 hover:bg-orange-200 transition"
+                          >
+                            <span>⚡ Bill on Invoice</span>
+                          </button>
+                        )}
+
+                        {/* 4. Fast Mark Fulfilled */}
+                        {(so.status === 'received' || so.status === 'notified') && (
+                          <button
+                            type="button"
+                            onClick={() => handleMarkFulfilled(so.id)}
+                            className="inline-flex items-center gap-1 rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-200"
+                          >
+                            <CheckIcon className="h-3 w-3 text-emerald-600" />
+                            <span>Mark Picked Up</span>
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOrderToEdit(so);
+                            setSpecialOrderModalOpen(true);
+                          }}
+                          className="text-xs font-semibold text-slate-500 hover:text-slate-900"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSpecialOrder(so)}
+                          className="text-slate-400 hover:text-red-600 p-1"
+                        >
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ---------------- MODALS ---------------- */}
+
+      {/* 1. Barcode / OCR Camera Scanner */}
       <PartScannerModal
         isOpen={scannerOpen}
         onClose={() => setScannerOpen(false)}
         parts={allParts}
-        onSelectPart={(part) => {
-          setSearch(part.sku);
-          setEditingPart(part);
-          setForm({
-            sku: part.sku || '',
-            name: part.name || '',
-            category: part.category || 'General',
-            cost_price: String(part.cost_price ?? ''),
-            sell_price: String(part.sell_price ?? ''),
-            qty_on_hand: String(part.qty_on_hand ?? '1'),
-            reorder_point: String(part.reorder_point ?? '0'),
-            location: part.location || '',
-            supplier: part.supplier || '',
-            notes: part.notes || '',
-          });
-          setAddingPart(true);
-        }}
-        onAdjustStock={(part, delta) => adjustStock(part, delta)}
-        onAddNewPart={(sku) => {
-          setEditingPart(null);
-          setForm({ ...emptyPart, sku });
-          setAddingPart(true);
+        onAdjustStock={adjustStock}
+        onAddNewPart={handleAddNewPartFromScanner}
+        onSelectPart={(p) => {
+          startEdit(p);
+          setScannerOpen(false);
         }}
       />
 
-      {/* Bulk CSV Inventory Importer Modal */}
+      {/* 2. CSV Bulk Importer */}
       <CsvInventoryImporterModal
         isOpen={csvOpen}
         onClose={() => setCsvOpen(false)}
         existingParts={allParts}
-        onImportComplete={reload}
+        onImportComplete={async () => {
+          await reload();
+          toast('Inventory import complete!');
+        }}
+      />
+
+      {/* 3. Special Order Create / Edit Modal */}
+      <SpecialOrderModal
+        isOpen={specialOrderModalOpen}
+        onClose={() => {
+          setSpecialOrderModalOpen(false);
+          setOrderToEdit(null);
+        }}
+        orderToEdit={orderToEdit}
+        customers={allCustomers}
+        onSave={handleSaveSpecialOrder}
+      />
+
+      {/* 4. Receive Special Order & Bin Modal */}
+      <SpecialOrderReceiveModal
+        isOpen={!!orderToReceive}
+        onClose={() => setOrderToReceive(null)}
+        order={orderToReceive}
+        onConfirmReceive={handleReceiveOrder}
+      />
+
+      {/* 5. Notify Customer Modal */}
+      <SpecialOrderNotifyModal
+        isOpen={!!orderToNotify}
+        onClose={() => setOrderToNotify(null)}
+        order={orderToNotify}
+        settings={settings}
+        onMarkNotified={handleMarkNotified}
+      />
+
+      {/* 6. OEM Master Price Books Manager */}
+      <PriceBookManagerModal
+        isOpen={priceBooksOpen}
+        onClose={() => setPriceBooksOpen(false)}
+        onBooksChanged={refreshPbStats}
       />
     </div>
   );

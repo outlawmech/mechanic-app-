@@ -513,8 +513,8 @@ export default function Layout() {
                       <BoxIcon className="h-5 w-5" />
                     </span>
                     <div>
-                      <p className="text-xs font-bold text-slate-900">⚡ Parts Counter POS</p>
-                      <p className="text-[10px] text-slate-500">Fast walk-in tickets</p>
+                      <p className="text-xs font-bold text-slate-900">⚡ New Part Invoice</p>
+                      <p className="text-[10px] text-slate-500">Direct parts invoice</p>
                     </div>
                   </button>
 

@@ -1,17 +1,20 @@
-import { useState, useMemo, type FormEvent } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useMemo, useEffect, type FormEvent } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 import {
   ArrowLeftIcon,
   BanknotesIcon,
+  BookOpenIcon,
   BoxIcon,
   CheckIcon,
   CreditCardIcon,
   PlusIcon,
   ReceiptIcon,
+  ScanIcon,
   SearchIcon,
   SmartphoneIcon,
   TrashIcon,
+  TruckIcon,
   UsersIcon,
 } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Select, Spinner, ErrorState } from '../components/ui';
@@ -19,8 +22,10 @@ import { useShopSettings } from '../lib/settings';
 import { useAsync } from '../lib/hooks';
 import { money, num, fullName } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
-import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
-import type { Customer, Part, PaymentMethod } from '../types';
+import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID, getCachedLocal } from '../lib/offlineSync';
+import { searchPriceBooks, lookupPriceBookSku, type PriceBookEntry } from '../lib/priceBooks';
+import type { Customer, Part, PaymentMethod, SpecialOrder } from '../types';
+import PartScannerModal from '../components/PartScannerModal';
 
 interface CounterItem {
   id: string;
@@ -34,8 +39,21 @@ interface CounterItem {
 
 export default function CounterSale() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
   const { settings } = useShopSettings();
+
+  const soId = searchParams.get('so_id');
+  const soPart = searchParams.get('part_sku');
+  const soDesc = searchParams.get('part_name');
+  const soQty = searchParams.get('qty');
+  const soPrice = searchParams.get('price');
+  const soCost = searchParams.get('cost');
+  const soDeposit = searchParams.get('deposit');
+  const soCustId = searchParams.get('cust_id');
+  const soCustName = searchParams.get('cust_name');
+  const soCustPhone = searchParams.get('cust_phone');
+  const soOrderNum = searchParams.get('so_num');
 
   const [customerId, setCustomerId] = useState<string>('');
   const [isWalkIn, setIsWalkIn] = useState(true);
@@ -48,7 +66,36 @@ export default function CounterSale() {
   const [taxRate, setTaxRate] = useState(String(num(settings.default_tax_rate) * 100 || '4'));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [amountTendered, setAmountTendered] = useState('');
+  const [depositCredit, setDepositCredit] = useState(num(soDeposit) || 0);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Auto-populate from Special Order if query params provided
+  useEffect(() => {
+    if (soPart && items.length === 0) {
+      setItems([
+        {
+          id: generateUUID(),
+          sku: soPart,
+          name: soDesc ? `Special Order: ${soDesc}` : `Special Order Part ${soPart}`,
+          quantity: num(soQty) || 1,
+          unit_price: num(soPrice) || 0,
+          cost_price: num(soCost) || 0,
+        },
+      ]);
+      if (soDeposit) {
+        setDepositCredit(num(soDeposit));
+      }
+      if (soCustId) {
+        setIsWalkIn(false);
+        setCustomerId(soCustId);
+      } else if (soCustName) {
+        setIsWalkIn(true);
+        setWalkInName(soCustName);
+        if (soCustPhone) setWalkInPhone(soCustPhone);
+      }
+    }
+  }, [soPart, soDesc, soQty, soPrice, soCost, soCustId, soCustName, soCustPhone, soDeposit]);
 
   // Load Customers & Parts
   const { data, error, loading } = useAsync(async () => {
@@ -73,6 +120,23 @@ export default function CounterSale() {
 
   const customers = data?.customers ?? [];
   const parts = data?.parts ?? [];
+  const [priceBookResults, setPriceBookResults] = useState<PriceBookEntry[]>([]);
+
+  // Search OEM Price Books in parallel
+  useEffect(() => {
+    const q = searchPart.trim();
+    if (q.length < 2) {
+      setPriceBookResults([]);
+      return;
+    }
+    let cancelled = false;
+    searchPriceBooks(q, 6).then((res) => {
+      if (!cancelled) setPriceBookResults(res);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchPart]);
 
   // Filter Parts by search
   const searchedParts = useMemo(() => {
@@ -104,6 +168,29 @@ export default function CounterSale() {
       ]);
     }
     setSearchPart('');
+  }
+
+  function addItemFromPriceBook(pb: PriceBookEntry) {
+    const existingIndex = items.findIndex((it) => it.sku.toUpperCase() === pb.sku.toUpperCase());
+    if (existingIndex >= 0) {
+      const updated = [...items];
+      updated[existingIndex].quantity += 1;
+      setItems(updated);
+    } else {
+      setItems([
+        ...items,
+        {
+          id: generateUUID(),
+          sku: pb.sku,
+          name: pb.name,
+          quantity: 1,
+          unit_price: pb.sell_price,
+          cost_price: pb.cost_price,
+        },
+      ]);
+    }
+    setSearchPart('');
+    toast(`Added ${pb.sku} from ${pb.brand || pb.manufacturer} Price Book!`);
   }
 
   function addCustomItem() {
@@ -142,11 +229,13 @@ export default function CounterSale() {
     const disc = (rawSubtotal * num(discountPct)) / 100;
     const subtotal = Math.max(0, rawSubtotal - disc);
     const tax = (subtotal * num(taxRate)) / 100;
-    const total = subtotal + tax;
+    const grossTotal = subtotal + tax;
+    const depositApplied = Math.min(grossTotal, num(depositCredit));
+    const total = Math.max(0, grossTotal - depositApplied);
     const changeDue = Math.max(0, num(amountTendered) - total);
 
-    return { rawSubtotal, disc, subtotal, tax, total, changeDue };
-  }, [items, discountPct, taxRate, amountTendered]);
+    return { rawSubtotal, disc, subtotal, tax, grossTotal, depositApplied, total, changeDue };
+  }, [items, discountPct, taxRate, depositCredit, amountTendered]);
 
   async function handleCheckout(e: FormEvent) {
     e.preventDefault();
@@ -179,15 +268,15 @@ export default function CounterSale() {
         }
       }
 
-      const invNumber = `POS-${Date.now().toString().slice(-4)}`;
+      const invNumber = `INV-P${Date.now().toString().slice(-4)}`;
 
       // 1. Create Work Order under the hood for clean multi-line item storage
       const woRes = check(
         await sb.from('work_orders').insert({
-          number: `OTC-${Date.now().toString().slice(-4)}`,
+          number: `PRT-${Date.now().toString().slice(-4)}`,
           customer_id: buyerId,
           status: 'completed',
-          notes: `Parts Counter Sale · Paid via ${paymentMethod.toUpperCase()}`,
+          notes: `Part Invoice · Paid via ${paymentMethod.toUpperCase()}${soOrderNum ? ` · Ref: ${soOrderNum}` : ''}`,
         }).select('id').single()
       );
       const woId = woRes.data?.id || '';
@@ -216,7 +305,7 @@ export default function CounterSale() {
           total: totals.total,
           status: 'paid',
           paid_at: new Date().toISOString(),
-          notes: `Over-the-counter parts invoice. ${isWalkIn ? `Customer: ${walkInName}` : ''}`,
+          notes: `Direct part invoice. ${isWalkIn ? `Customer: ${walkInName}` : ''}${soOrderNum ? ` (Fulfilled ${soOrderNum}${totals.depositApplied > 0 ? `, Deposit credit: ${money(totals.depositApplied)}` : ''})` : ''}`,
           payments: [
             {
               id: generateUUID(),
@@ -229,7 +318,26 @@ export default function CounterSale() {
         }).select('id').single()
       );
 
-      // 4. Auto-deduct inventory quantities for cataloged parts
+      // 4. If special order, mark as fulfilled
+      if (soId) {
+        try {
+          await sb.from('special_orders').update({
+            status: 'fulfilled',
+            fulfilled_at: new Date().toISOString(),
+          }).eq('id', soId);
+        } catch (e) {
+          console.warn('Could not update remote special order:', e);
+        }
+        const cachedSo = getCachedLocal<SpecialOrder[]>('special_orders') || [];
+        const updatedSo = cachedSo.map((s) =>
+          s.id === soId
+            ? { ...s, status: 'fulfilled' as const, fulfilled_at: new Date().toISOString() }
+            : s
+        );
+        cacheLocal('special_orders', updatedSo);
+      }
+
+      // 5. Auto-deduct inventory quantities for cataloged parts
       for (const it of items) {
         if (it.part_id) {
           const matchedPart = parts.find((p) => p.id === it.part_id);
@@ -240,7 +348,7 @@ export default function CounterSale() {
         }
       }
 
-      toast(`Parts sale complete! Receipt #${invNumber}`);
+      toast(`Part invoice complete! Invoice #${invNumber}`);
       if (invRes.data?.id) {
         navigate(`/invoices/${invRes.data.id}`);
       } else {
@@ -268,11 +376,34 @@ export default function CounterSale() {
             <ArrowLeftIcon className="h-4 w-4" />
           </Link>
           <PageTitle
-            title="⚡ Parts Counter POS"
-            sub="Fast 30-second over-the-counter sale with live inventory stock deduction"
+            title="⚡ New Part Invoice"
+            sub="Fast direct over-the-counter parts invoice with live stock deduction"
           />
         </div>
       </div>
+
+      {soOrderNum && (
+        <div className="flex items-center justify-between rounded-2xl border border-orange-500/30 bg-orange-500/10 p-4 text-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-500 text-slate-950 font-black">
+              <TruckIcon className="h-4 w-4" />
+            </span>
+            <div>
+              <p className="font-bold text-slate-900">
+                Fulfilling Special Order <span className="font-mono text-orange-600">{soOrderNum}</span>
+              </p>
+              <p className="text-slate-600">
+                Customer: <strong>{soCustName || 'Registered Account'}</strong> · Part: <strong>{soPart}</strong> ({soDesc})
+              </p>
+            </div>
+          </div>
+          {num(soDeposit) > 0 && (
+            <span className="rounded-lg bg-emerald-100 px-2.5 py-1 font-mono font-bold text-emerald-800">
+              Deposit: {money(soDeposit)}
+            </span>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleCheckout} className="grid grid-cols-1 gap-6 lg:grid-cols-12">
         {/* Left 7 Cols: Part Scanning & Cart */}
@@ -349,19 +480,30 @@ export default function CounterSale() {
               </button>
             </div>
 
-            <div className="relative">
-              <SearchIcon className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
-              <input
-                type="text"
-                value={searchPart}
-                onChange={(e) => setSearchPart(e.target.value)}
-                placeholder="Search SKU, Part Name, Spark Plug, Oil..."
-                className="h-10 w-full rounded-xl bg-slate-50 pl-10 pr-4 text-xs font-medium ring-1 ring-slate-900/10 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <SearchIcon className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchPart}
+                  onChange={(e) => setSearchPart(e.target.value)}
+                  placeholder="Search SKU, Part Name, Spark Plug, Oil..."
+                  className="h-10 w-full rounded-xl bg-slate-50 pl-10 pr-4 text-xs font-medium ring-1 ring-slate-900/10 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setScannerOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white hover:bg-slate-800 transition active:scale-95 shrink-0 shadow-xs"
+              >
+                <ScanIcon className="h-4 w-4 text-orange-400" />
+                <span>📷 Scan</span>
+              </button>
             </div>
 
-            {searchedParts.length > 0 && (
-              <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white shadow-md">
+            {(searchedParts.length > 0 || priceBookResults.length > 0) && (
+              <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+                {/* 1. In-Stock Matches */}
                 {searchedParts.map((p) => (
                   <button
                     key={p.id}
@@ -370,14 +512,43 @@ export default function CounterSale() {
                     className="flex w-full items-center justify-between p-2.5 text-left text-xs transition hover:bg-orange-50"
                   >
                     <div>
-                      <p className="font-bold text-slate-900">{p.name}</p>
-                      <p className="font-mono text-[10px] text-slate-500">
-                        SKU: {p.sku} · Qty on hand: <strong className={num(p.qty_on_hand) > 0 ? 'text-emerald-700' : 'text-red-600'}>{p.qty_on_hand}</strong>
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono font-bold text-slate-900">{p.sku}</span>
+                        <span className="rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.2">
+                          In Stock ({p.qty_on_hand})
+                        </span>
+                      </div>
+                      <p className="text-slate-700 text-xs truncate max-w-xs">{p.name}</p>
                     </div>
                     <span className="font-mono font-black text-slate-900">{money(p.sell_price)}</span>
                   </button>
                 ))}
+
+                {/* 2. OEM Price Book Matches (Non-Stocking) */}
+                {priceBookResults
+                  .filter((pb) => !searchedParts.some((sp) => sp.sku.toLowerCase() === pb.sku.toLowerCase()))
+                  .map((pb, idx) => (
+                    <button
+                      key={`pb-${idx}`}
+                      type="button"
+                      onClick={() => addItemFromPriceBook(pb)}
+                      className="flex w-full items-center justify-between p-2.5 text-left text-xs transition hover:bg-purple-50 bg-slate-50/50"
+                    >
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-slate-900">{pb.sku}</span>
+                          <span className="rounded bg-purple-100 text-purple-800 text-[10px] font-bold px-1.5 py-0.2 flex items-center gap-0.5">
+                            <BookOpenIcon className="h-2.5 w-2.5" /> {pb.brand || pb.manufacturer}
+                          </span>
+                        </div>
+                        <p className="text-slate-600 text-xs truncate max-w-xs">{pb.name}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-mono font-black text-purple-900 block">{money(pb.sell_price)}</span>
+                        <span className="text-[10px] text-slate-400">OEM Price</span>
+                      </div>
+                    </button>
+                  ))}
               </div>
             )}
           </Card>
@@ -385,7 +556,7 @@ export default function CounterSale() {
           {/* Selected Cart Items */}
           <div className="space-y-2">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
-              Counter Ticket Items ({items.length})
+              Part Invoice Items ({items.length})
             </h3>
 
             {items.length === 0 ? (
@@ -491,6 +662,13 @@ export default function CounterSale() {
                 <span className="font-mono font-bold text-white">{money(totals.tax)}</span>
               </div>
 
+              {totals.depositApplied > 0 && (
+                <div className="flex justify-between text-emerald-400 font-semibold border-t border-slate-800 pt-1">
+                  <span>Special Order Deposit Credit:</span>
+                  <span className="font-mono font-bold">- {money(totals.depositApplied)}</span>
+                </div>
+              )}
+
               <div className="flex justify-between border-t border-slate-800 pt-2 text-base font-black">
                 <span className="text-white">Total Due:</span>
                 <span className="font-mono text-orange-400 text-xl">{money(totals.total)}</span>
@@ -554,6 +732,38 @@ export default function CounterSale() {
           </Card>
         </div>
       </form>
+
+      {/* Barcode & OCR Scanner Modal for Direct Part Invoicing */}
+      <PartScannerModal
+        isOpen={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        parts={parts}
+        onSelectPart={(p) => {
+          addItemFromPart(p);
+          setScannerOpen(false);
+          toast(`Added ${p.sku} to invoice!`);
+        }}
+        onAddNewPart={async (sku) => {
+          const pb = await lookupPriceBookSku(sku);
+          if (pb) {
+            addItemFromPriceBook(pb);
+          } else {
+            setItems([
+              ...items,
+              {
+                id: generateUUID(),
+                sku: sku,
+                name: `Scanned Part ${sku}`,
+                quantity: 1,
+                unit_price: 25.0,
+                cost_price: 15.0,
+              },
+            ]);
+            toast(`Added scanned part ${sku} to invoice`);
+          }
+          setScannerOpen(false);
+        }}
+      />
     </div>
   );
 }

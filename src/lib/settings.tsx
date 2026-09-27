@@ -24,20 +24,26 @@ export const DEFAULT_SETTINGS: ShopSettings = {
   dealership_freight_fee: 350,
 };
 
-const STORAGE_KEY = 'outlaw_shop_settings';
+const BASE_STORAGE_KEY = 'outlaw_shop_settings';
 const TIER_KEY = 'outlaw_active_tier';
 
-export function getLocalSettings(): ShopSettings {
+export function getUserSettingsKey(userId?: string | null): string {
+  return userId ? `${BASE_STORAGE_KEY}_${userId}` : BASE_STORAGE_KEY;
+}
+
+export function getLocalSettings(userId?: string | null): ShopSettings {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const key = getUserSettingsKey(userId);
+    const raw = localStorage.getItem(key);
     if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
   } catch {}
   return DEFAULT_SETTINGS;
 }
 
-export function saveLocalSettings(s: ShopSettings): void {
+export function saveLocalSettings(s: ShopSettings, userId?: string | null): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    const key = getUserSettingsKey(userId);
+    localStorage.setItem(key, JSON.stringify(s));
     localStorage.setItem(TIER_KEY, s.enable_dealership_mode ? 'dealer' : 'solo');
   } catch {}
 }
@@ -59,35 +65,50 @@ const ShopSettingsContext = createContext<ShopSettingsContextType>({
 export function ShopSettingsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [settings, setSettings] = useState<ShopSettings>(() => {
-    const local = getLocalSettings();
-    if (user?.user_metadata) {
-      const userMetaDms = user.user_metadata.enable_dealership_mode;
-      const isDealer = typeof userMetaDms === 'boolean' ? userMetaDms : local.enable_dealership_mode;
-      return {
-        ...local,
-        shop_name: user.user_metadata.shop_name || local.shop_name,
-        enable_dealership_mode: Boolean(isDealer),
-      };
-    }
-    return local;
+    return getLocalSettings(user?.id);
   });
   const [loading, setLoading] = useState(true);
 
+  // When active user account changes, immediately switch to that user's scoped settings
+  useEffect(() => {
+    if (!user) {
+      setSettings(DEFAULT_SETTINGS);
+      setLoading(false);
+      return;
+    }
+
+    const userLocal = getLocalSettings(user.id);
+    const userMetaShopName = user.user_metadata?.shop_name;
+    const userMetaDms = user.user_metadata?.enable_dealership_mode;
+
+    setSettings({
+      ...userLocal,
+      shop_name: userMetaShopName || userLocal.shop_name || DEFAULT_SETTINGS.shop_name,
+      enable_dealership_mode: typeof userMetaDms === 'boolean' ? userMetaDms : userLocal.enable_dealership_mode,
+    });
+
+    load();
+  }, [user?.id]);
+
   async function load() {
+    if (!user) {
+      setSettings(DEFAULT_SETTINGS);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     try {
       const sb = requireSupabase();
-      let query = sb.from('shop_settings').select('*');
-      if (user) {
-        query = query.or(`user_id.eq.${user.id},id.eq.${user.id}`);
-      } else {
-        query = query.eq('id', 'default');
-      }
+      const res = await sb
+        .from('shop_settings')
+        .select('*')
+        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+        .limit(1);
 
-      const res = await query.limit(1);
       const settingData = res.data && res.data[0] ? res.data[0] : null;
 
       if (settingData) {
-        // If user metadata explicitly specifies dealership mode (e.g. from recent signup), respect it
         let isDealer = Boolean(settingData.enable_dealership_mode);
         if (typeof user?.user_metadata?.enable_dealership_mode === 'boolean') {
           isDealer = user.user_metadata.enable_dealership_mode;
@@ -99,8 +120,8 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
           enable_dealership_mode: isDealer,
         };
         setSettings(loaded);
-        saveLocalSettings(loaded);
-      } else if (user) {
+        saveLocalSettings(loaded, user.id);
+      } else {
         const defaultShopName = user.user_metadata?.shop_name || DEFAULT_SETTINGS.shop_name;
         const isDealer = Boolean(user.user_metadata?.enable_dealership_mode);
         const initial: ShopSettings = {
@@ -111,9 +132,9 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
           email: user.email || DEFAULT_SETTINGS.email,
         };
         setSettings(initial);
-        saveLocalSettings(initial);
+        saveLocalSettings(initial, user.id);
 
-        // Auto-create initial row in Supabase
+        // Auto-create initial row in Supabase scoped to this user
         try {
           await sb.from('shop_settings').upsert({
             id: user.id,
@@ -140,14 +161,10 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  useEffect(() => {
-    load();
-  }, [user?.id]);
-
   async function updateSettings(newSettings: Partial<ShopSettings>): Promise<ShopSettings> {
-    const updated: ShopSettings = { ...settings, ...newSettings };
+    const updated: ShopSettings = { ...settings, ...newSettings, updated_at: new Date().toISOString() };
     setSettings(updated);
-    saveLocalSettings(updated);
+    saveLocalSettings(updated, user?.id);
 
     try {
       const sb = requireSupabase();
