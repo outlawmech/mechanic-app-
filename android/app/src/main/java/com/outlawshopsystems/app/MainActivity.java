@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CameraMetadata;
 import android.os.Build;
 import android.os.Bundle;
 import android.print.PrintAttributes;
@@ -75,7 +76,7 @@ public class MainActivity extends BridgeActivity {
                             Boolean flashAvailable = chars.get(CameraCharacteristics.FLASH_INFO_AVAILABLE);
                             Integer lensFacing = chars.get(CameraCharacteristics.LENS_FACING);
                             if (flashAvailable != null && flashAvailable &&
-                                lensFacing != null && lensFacing == CameraCharacteristics.LENS_FACING_BACK) {
+                                (lensFacing == null || lensFacing == CameraMetadata.LENS_FACING_BACK || lensFacing == 1)) {
                                 cameraManager.setTorchMode(id, enabled);
                                 return true;
                             }
