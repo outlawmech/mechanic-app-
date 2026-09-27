@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Outlaw Shop Systems</string>
+    <string name="title_activity_main">Outlaw Shop Systems</string>
+    <string name="package_name">com.outlawshopsystems.app</string>
+    <string name="custom_url_scheme">com.outlawshopsystems.app</string>
+</resources>
