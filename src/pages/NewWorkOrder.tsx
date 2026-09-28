@@ -33,7 +33,10 @@ export default function NewWorkOrder() {
 
   const [customerId, setCustomerId] = useState(search.get('customer') ?? '');
   const [vehicleId, setVehicleId] = useState(search.get('vehicle') ?? '');
-  const [scheduled, setScheduled] = useState(todayISO());
+  const requestedDate = search.get('scheduled');
+  const [scheduled, setScheduled] = useState(
+    requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : todayISO()
+  );
   const [mileageOrHours, setMileageOrHours] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);

@@ -524,13 +524,17 @@ export default function Parts() {
         const sb = requireSupabase();
         const existing = allSpecialOrders.find((s) => s.id === order.id);
         if (existing) {
-          await sb.from('special_orders').update(order).eq('id', order.id);
+          const result = check(await sb.from('special_orders').update(order).eq('id', order.id).select('id').maybeSingle());
+          if (!result.data?.id) throw new Error('Supabase did not confirm the special order update.');
         } else {
-          await sb.from('special_orders').insert(order);
+          const result = check(await sb.from('special_orders').insert(order).select('id').single());
+          if (!result.data?.id) throw new Error('Supabase did not confirm the special order insert.');
         }
       }
     } catch (e) {
-      console.warn('Special orders remote sync error, persisting locally:', e);
+      // A failed online write must not be presented as a saved order.
+      console.error('Special order save failed:', e);
+      throw e;
     }
     const existingIndex = allSpecialOrders.findIndex((s) => s.id === order.id);
     let updated: SpecialOrder[];

@@ -3,7 +3,6 @@ name: Build Outlaw Android APK
 on:
   push:
     branches:
-      - 'arena/*'
       - main
   workflow_dispatch:
 
@@ -68,26 +67,6 @@ jobs:
           mkdir -p output
           cp android/app/build/outputs/apk/debug/app-debug.apk output/OutlawShopSystems-v1.0.apk
 
-      - name: Upload APK to Supabase Public Storage
-        run: |
-          echo "Uploading OutlawShopSystems-v1.0.apk to Supabase Storage..."
-          HTTP_STATUS=$(curl -s -o /tmp/supabase_res.json -w "%{http_code}" -X POST "https://wlacgguhevtygqvckoen.supabase.co/storage/v1/object/apks/OutlawShopSystems.apk" \
-            -H "apikey: sb_publishable_3Bh_pQwFwpSOvCbYyZjxyw_EstlwMfw" \
-            -H "Authorization: Bearer sb_publishable_3Bh_pQwFwpSOvCbYyZjxyw_EstlwMfw" \
-            -H "Content-Type: application/vnd.android.package-archive" \
-            -H "x-upsert: true" \
-            --data-binary "@output/OutlawShopSystems-v1.0.apk")
-          echo "Supabase HTTP response status: $HTTP_STATUS"
-          cat /tmp/supabase_res.json || true
-          if [ "$HTTP_STATUS" -ne 200 ] && [ "$HTTP_STATUS" -ne 201 ]; then
-            echo "Retrying via PUT upsert..."
-            curl -s -X PUT "https://wlacgguhevtygqvckoen.supabase.co/storage/v1/object/apks/OutlawShopSystems.apk" \
-              -H "apikey: sb_publishable_3Bh_pQwFwpSOvCbYyZjxyw_EstlwMfw" \
-              -H "Authorization: Bearer sb_publishable_3Bh_pQwFwpSOvCbYyZjxyw_EstlwMfw" \
-              -H "Content-Type: application/vnd.android.package-archive" \
-              --data-binary "@output/OutlawShopSystems-v1.0.apk"
-          fi
-
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -97,7 +76,7 @@ jobs:
 
       - name: Create or Update GitHub Release with APK
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/heads/arena') || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         with:
           tag_name: android-apk-latest
           name: "Outlaw Shop Systems Android App (Latest APK)"

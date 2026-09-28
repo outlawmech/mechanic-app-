@@ -16,9 +16,9 @@ import { Button, Card, Field, Input } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { redeemActivationCode, STRIPE_PAYMENT_URL } from '../lib/subscription';
 import { saveLocalSettings, DEFAULT_SETTINGS } from '../lib/settings';
+import { ANDROID_APK_DOWNLOAD_URL } from '../lib/supabase';
 
-const APK_PUBLIC_DOWNLOAD_URL =
-  'https://wlacgguhevtygqvckoen.supabase.co/storage/v1/object/public/apks/OutlawShopSystems.apk';
+const APK_PUBLIC_DOWNLOAD_URL = ANDROID_APK_DOWNLOAD_URL;
 
 export default function Auth() {
   const { signIn, signUp } = useAuth();
