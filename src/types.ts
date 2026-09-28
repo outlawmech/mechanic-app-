@@ -71,6 +71,10 @@ export type WorkOrder = {
   signed_at?: string | null;
   created_at: string;
   completed_at: string | null;
+  internal_type?: 'pdi' | 'rigging' | null;
+  unit_id?: string | null;
+  buyer_order_id?: string | null;
+  internal_closed_at?: string | null;
 };
 
 export type WorkItem = {
@@ -148,6 +152,7 @@ export type ShopSettings = {
   email: string;
   address: string;
   default_labor_rate: number | string;
+  internal_labor_cost_rate?: number | string;
   default_tax_rate: number | string;
   invoice_notes: string;
   logo_url?: string;
@@ -183,6 +188,8 @@ export type DealershipUnit = {
   engine_info?: string;
   engine_serial?: string;
   cost_price: number | string;
+  base_cost_price?: number | string;
+  internal_cost_total?: number | string;
   msrp_price: number | string;
   sale_price: number | string;
   status: UnitStatus;
@@ -304,4 +311,3 @@ export type SpecialOrder = {
   created_at: string;
   updated_at?: string;
 };
-

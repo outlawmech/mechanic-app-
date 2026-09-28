@@ -39,7 +39,7 @@ import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
 import { decodeVehicleVIN } from '../lib/vinDecoder';
 import { useShopSettings } from '../lib/settings';
-import type { DealershipUnit, BuyersOrderFull, UnitCondition, UnitStatus, VehicleType } from '../types';
+import type { DealershipUnit, BuyersOrderFull, UnitCondition, UnitStatus, VehicleType, WorkOrder } from '../types';
 
 const emptyUnit = {
   stock_number: '',
@@ -90,23 +90,27 @@ export default function Sales() {
       'dealership_sales_data',
       async () => {
         const sb = requireSupabase();
-        const [unitsRes, dealsRes] = await Promise.all([
+        const [unitsRes, dealsRes, internalRes] = await Promise.all([
           sb.from('dealership_units').select('*').order('created_at', { ascending: false }),
           sb.from('buyers_orders').select('*, customer:customers(*)').order('created_at', { ascending: false }),
+          sb.from('work_orders').select('id, number, unit_id, internal_type, status, internal_closed_at').not('internal_type', 'is', null),
         ]);
         check(unitsRes);
         check(dealsRes);
+        check(internalRes);
         return {
           units: (unitsRes.data ?? []) as DealershipUnit[],
           deals: (dealsRes.data ?? []) as BuyersOrderFull[],
+          internalOrders: (internalRes.data ?? []) as WorkOrder[],
         };
       },
-      { units: [], deals: [] }
+      { units: [], deals: [], internalOrders: [] }
     );
   }, []);
 
   const allUnits = data?.units ?? [];
   const allDeals = data?.deals ?? [];
+  const internalOrders = data?.internalOrders ?? [];
 
   // Metrics Calculations
   const inStockUnits = allUnits.filter((u) => u.status === 'in_stock' || u.status === 'sale_pending');
@@ -202,7 +206,8 @@ export default function Sales() {
       mileage_or_hours: form.mileage_or_hours.trim(),
       engine_info: form.engine_info.trim(),
       engine_serial: form.engine_serial.trim(),
-      cost_price: num(form.cost_price),
+      base_cost_price: num(form.cost_price),
+      cost_price: num(form.cost_price) + num(editingUnit?.internal_cost_total),
       msrp_price: num(form.msrp_price),
       sale_price: num(form.sale_price) || num(form.msrp_price),
       status: editingUnit ? editingUnit.status : ('in_stock' as UnitStatus),
@@ -294,67 +299,21 @@ export default function Sales() {
 
   // 1-Tap PDI Dispatch (Creates an Uncrate / Assembly / PDI Work Order for the shop techs)
   async function dispatchPDIWorkOrder(unit: DealershipUnit) {
+    const existing = internalOrders.find((ro) => ro.unit_id === unit.id && ro.internal_type === 'pdi');
+    if (existing) {
+      navigate(`/work/${existing.id}`);
+      return;
+    }
     if (!window.confirm(`Create a PDI & Assembly Repair Order for ${unit.year} ${unit.make} ${unit.model}?`)) return;
 
     try {
-      const sb = requireSupabase();
-      const woNumber = `RO-${Date.now().toString().slice(-4)}`;
-      const woPayload = {
-        number: woNumber,
-        status: 'open',
-        notes: `PRE-DELIVERY INSPECTION & ASSEMBLY (PDI)\nStock #: ${unit.stock_number}\nVIN: ${unit.vin}\nColor: ${unit.color}\nLocation: ${unit.location || 'Showroom'}`,
-        mileage_or_hours: unit.mileage_or_hours || '0.0 hrs',
-      };
-
-      // Find or create Dealer Internal Customer
-      const custRes = await sb.from('customers').select('id').eq('first_name', 'Showroom / Dealership').limit(1);
-      let customerId = custRes.data?.[0]?.id;
-      if (!customerId) {
-        const newCustRes = await sb.from('customers').insert({
-          first_name: 'Showroom / Dealership',
-          last_name: 'Internal Unit',
-          phone: settings.phone || '406-555-0100',
-          email: settings.email || 'sales@outlawshopsystems.com',
-          notes: 'Internal dealership inventory unit',
-        }).select('id').single();
-        customerId = newCustRes.data?.id;
-      }
-
-      const newWo = check(
-        await sb.from('work_orders').insert({
-          ...woPayload,
-          customer_id: customerId,
-        }).select('id').single()
-      );
-
-      const woId = newWo.data?.id;
-      if (woId) {
-        // Add PDI Labor & Prep work items
-        await sb.from('work_items').insert([
-          {
-            work_order_id: woId,
-            kind: 'labor',
-            name: 'Uncrate, Assemble, Battery Prep & Fluid Fill',
-            quantity: 2.0,
-            unit_price: num(settings.default_labor_rate) || 95,
-            sort_order: 1,
-          },
-          {
-            work_order_id: woId,
-            kind: 'labor',
-            name: 'Safety Inspection, Tire Pressure & Test Run',
-            quantity: 0.5,
-            unit_price: num(settings.default_labor_rate) || 95,
-            sort_order: 2,
-          },
-        ]);
-
-        toast(`PDI Work Order created (${woNumber})!`);
-        navigate(`/work/${woId}`);
-      } else {
-        toast(`PDI Work Order created (${woNumber})!`);
-        navigate('/work');
-      }
+      const result = check(await requireSupabase().rpc('dispatch_unit_pdi', {
+        p_unit_id: unit.id,
+        p_labor_rate: num(settings.default_labor_rate) || 95,
+      }));
+      if (!result.data) throw new Error('PDI dispatch did not return a repair order.');
+      toast('PDI repair order ready');
+      navigate(`/work/${result.data}`);
     } catch (err: any) {
       toast(err.message || 'Could not dispatch PDI work order', 'error');
     }
@@ -400,7 +359,7 @@ export default function Sales() {
       mileage_or_hours: u.mileage_or_hours || '',
       engine_info: u.engine_info || '',
       engine_serial: u.engine_serial || '',
-      cost_price: u.cost_price ? String(u.cost_price) : '',
+      cost_price: u.base_cost_price !== undefined ? String(u.base_cost_price) : (u.cost_price ? String(u.cost_price) : ''),
       msrp_price: u.msrp_price ? String(u.msrp_price) : '',
       sale_price: u.sale_price ? String(u.sale_price) : '',
       location: u.location || 'Main Showroom',
@@ -974,6 +933,7 @@ export default function Sales() {
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
               {filteredUnits.map((u) => {
+                const pdi = internalOrders.find((ro) => ro.unit_id === u.id && ro.internal_type === 'pdi');
                 const margin = num(u.sale_price || u.msrp_price) - num(u.cost_price);
                 const marginPct =
                   num(u.sale_price) > 0 ? ((margin / num(u.sale_price)) * 100).toFixed(1) : '0';
@@ -1021,6 +981,10 @@ export default function Sales() {
                         </div>
                         {u.trim && <p className="text-xs text-slate-600 mt-0.5">{u.trim}</p>}
                         {u.color && <p className="text-[11px] text-slate-400">{u.color}</p>}
+                        <p className="mt-1 text-[11px] font-semibold text-slate-600">
+                          PDI: {pdi?.internal_closed_at ? 'closed' : pdi ? pdi.status.replace('_', ' ') : 'not dispatched'}
+                        </p>
+                        {num(u.internal_cost_total) > 0 && <p className="text-[11px] text-slate-600">Base cost {money(u.base_cost_price ?? 0)} + internal work {money(u.internal_cost_total)}</p>}
                       </div>
 
                       {u.vin && (
@@ -1091,7 +1055,7 @@ export default function Sales() {
                         title="Create PDI & Assembly ticket for service shop"
                       >
                         <WrenchIcon className="h-3.5 w-3.5 text-orange-600" />
-                        <span>PDI</span>
+                        <span>{pdi ? 'Open PDI' : 'PDI'}</span>
                       </button>
 
                       <button
