@@ -120,11 +120,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.removeItem('outlaw_shop_settings');
       localStorage.removeItem('outlaw_active_tier');
-      localStorage.removeItem('outlaw_cache_customers');
-      localStorage.removeItem('outlaw_cache_parts');
-      localStorage.removeItem('outlaw_cache_work_orders');
-      localStorage.removeItem('outlaw_cache_invoices');
-      localStorage.removeItem('outlaw_cache_special_orders');
+      // Cached detail views contain customer and financial data too. Clear every
+      // offline snapshot before another account can sign in on this device.
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('outlaw_cache_')) localStorage.removeItem(key);
+      }
     } catch {}
     await sb.auth.signOut();
   }
