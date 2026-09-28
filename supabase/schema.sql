@@ -117,12 +117,21 @@ create table if not exists public.invoices (
   tax_rate      numeric(5,4) not null default 0,
   tax           numeric(12,2) not null default 0,
   total         numeric(12,2) not null default 0,
-  status        text not null default 'unpaid' check (status in ('unpaid','paid','void')),
+  status        text not null default 'unpaid' check (status in ('unpaid','partial','paid','void')),
+  payments      jsonb not null default '[]'::jsonb,
   due_date      date,
   issued_at     timestamptz not null default now(),
   paid_at       timestamptz,
   notes         text not null default ''
 );
+
+alter table public.invoices add column if not exists payments jsonb not null default '[]'::jsonb;
+update public.invoices set payments = '[]'::jsonb where payments is null;
+alter table public.invoices alter column payments set default '[]'::jsonb;
+alter table public.invoices alter column payments set not null;
+alter table public.invoices drop constraint if exists invoices_status_check;
+alter table public.invoices
+  add constraint invoices_status_check check (status in ('unpaid','partial','paid','void'));
 
 -- ---------------- Shop settings & Branding ----------------
 create table if not exists public.shop_settings (
@@ -426,3 +435,92 @@ $$;
 insert into public.activation_codes (code, max_uses, used_count, is_active, description)
 values ('VIP-RIG', 10, 0, true, 'Beta Tester Launch Pass (Max 10)')
 on conflict (code) do nothing;
+
+-- ---------------- Counter sale stock safety ----------------
+-- Atomic stock deduction prevents concurrent counter sales from overselling.
+create or replace function public.decrement_parts_for_counter_sale(p_items jsonb)
+returns void
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  item record;
+  remaining_qty numeric;
+begin
+  if jsonb_typeof(p_items) <> 'array' then
+    raise exception 'Counter-sale stock items must be a JSON array';
+  end if;
+
+  for item in
+    select (entry.value ->> 'part_id')::uuid as part_id,
+           sum((entry.value ->> 'quantity')::numeric) as quantity
+      from jsonb_array_elements(p_items) as entry(value)
+     where entry.value ->> 'part_id' is not null
+     group by (entry.value ->> 'part_id')::uuid
+     order by (entry.value ->> 'part_id')::uuid
+  loop
+    if item.quantity is null or item.quantity <= 0 then
+      raise exception 'Stock deduction quantity must be greater than zero';
+    end if;
+
+    update public.parts
+       set qty_on_hand = qty_on_hand - item.quantity,
+           updated_at = now()
+     where id = item.part_id
+       and qty_on_hand >= item.quantity
+     returning qty_on_hand into remaining_qty;
+
+    if not found then
+      raise exception 'INSUFFICIENT_STOCK: Part % does not have enough quantity on hand', item.part_id;
+    end if;
+  end loop;
+end;
+$$;
+
+revoke all on function public.decrement_parts_for_counter_sale(jsonb) from public;
+grant execute on function public.decrement_parts_for_counter_sale(jsonb) to authenticated;
+
+-- Lock financial line items once any invoice has been issued for a repair order.
+-- Existing records are not changed; only future line-item edits are rejected.
+create or replace function public.reject_work_item_changes_after_invoice()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if tg_op = 'UPDATE' or tg_op = 'DELETE' then
+    if exists (
+      select 1 from public.invoices where work_order_id = old.work_order_id
+    ) then
+      raise exception using
+        errcode = '23514',
+        message = 'INVOICED_WORK_ORDER_ITEMS_LOCKED: this repair order already has an issued invoice; create a separate repair order for additional work';
+    end if;
+  end if;
+
+  if tg_op = 'INSERT' or tg_op = 'UPDATE' then
+    if exists (
+      select 1 from public.invoices where work_order_id = new.work_order_id
+    ) then
+      raise exception using
+        errcode = '23514',
+        message = 'INVOICED_WORK_ORDER_ITEMS_LOCKED: this repair order already has an issued invoice; create a separate repair order for additional work';
+    end if;
+  end if;
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.reject_work_item_changes_after_invoice() from public;
+grant execute on function public.reject_work_item_changes_after_invoice() to authenticated;
+
+drop trigger if exists lock_work_items_after_invoice on public.work_items;
+create trigger lock_work_items_after_invoice
+before insert or update or delete on public.work_items
+for each row execute function public.reject_work_item_changes_after_invoice();

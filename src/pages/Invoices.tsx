@@ -6,6 +6,7 @@ import { useAsync } from '../lib/hooks';
 import { fullName, longDate, money, num } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache } from '../lib/offlineSync';
+import { getInvoiceBalanceDue, getInvoiceEffectiveStatus } from '../lib/invoiceAccounting';
 import type { InvoiceFull } from '../types';
 
 const FILTERS = [
@@ -40,8 +41,10 @@ export default function Invoices() {
     if (!data) return [];
 
     let filtered = data;
-    if (filter !== 'all') {
-      filtered = data.filter((i) => i.status === filter);
+    if (filter === 'unpaid') {
+      filtered = data.filter((invoice) => getInvoiceBalanceDue(invoice) > 0);
+    } else if (filter === 'paid') {
+      filtered = data.filter((invoice) => invoice.status !== 'void' && getInvoiceBalanceDue(invoice) === 0);
     }
 
     const q = searchQuery.trim().toLowerCase();
@@ -60,9 +63,7 @@ export default function Invoices() {
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
 
-  const totalDue = (data ?? [])
-    .filter((i) => i.status === 'unpaid')
-    .reduce((s, i) => s + num(i.total), 0);
+  const totalDue = (data ?? []).reduce((sum, invoice) => sum + getInvoiceBalanceDue(invoice), 0);
 
   return (
     <div className="space-y-4">
@@ -130,7 +131,7 @@ export default function Invoices() {
                 </div>
                 <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5">
                   <span className="text-xs text-slate-500">{longDate(i.issued_at)}</span>
-                  <Badge status={i.status} />
+                  <Badge status={getInvoiceEffectiveStatus(i)} />
                 </div>
               </Card>
             </Link>

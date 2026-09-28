@@ -261,7 +261,7 @@ export default function Schedule() {
                 setQuickFilter('all');
               }}
             >
-              All Upcoming ({allOrders.filter((w) => Boolean(w.scheduled_at)).length})
+              All Scheduled ({allOrders.filter((w) => Boolean(w.scheduled_at)).length})
             </Chip>
           </div>
 

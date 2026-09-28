@@ -83,6 +83,7 @@ export default function Sales() {
   const [form, setForm] = useState(emptyUnit);
   const [decoding, setDecoding] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [unitSaveNotice, setUnitSaveNotice] = useState<{ kind: 'error' | 'pending'; message: string } | null>(null);
 
   const { data, error, loading, reload } = useAsync(async () => {
     return safeFetchWithCache(
@@ -185,6 +186,7 @@ export default function Sales() {
       toast('Make and Model are required', 'error');
       return;
     }
+    setUnitSaveNotice(null);
     setSaving(true);
 
     const unitPayload = {
@@ -208,10 +210,10 @@ export default function Sales() {
       notes: form.notes.trim(),
       // Floorplan financing
       is_floored: Boolean(form.is_floored),
-      floorplan_company: form.floorplan_company.trim() || null,
-      floorplan_balance: form.floorplan_balance ? num(form.floorplan_balance) : (form.is_floored ? num(form.cost_price) : null),
+      floorplan_company: form.floorplan_company.trim(),
+      floorplan_balance: form.floorplan_balance ? num(form.floorplan_balance) : (form.is_floored ? num(form.cost_price) : 0),
       floorplan_curtailment_date: form.floorplan_curtailment_date.trim() || null,
-      floorplan_curtailment_amount: form.floorplan_curtailment_amount ? num(form.floorplan_curtailment_amount) : null,
+      floorplan_curtailment_amount: form.floorplan_curtailment_amount ? num(form.floorplan_curtailment_amount) : 0,
       floorplan_paid_off: Boolean(form.floorplan_paid_off),
       updated_at: new Date().toISOString(),
     };
@@ -220,13 +222,28 @@ export default function Sales() {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         const sb = requireSupabase();
         if (editingUnit) {
-          check(await sb.from('dealership_units').update(unitPayload).eq('id', editingUnit.id));
-          toast('Unit updated');
+          const updateResult = check(
+            await sb.from('dealership_units').update(unitPayload).eq('id', editingUnit.id).select('id').maybeSingle()
+          );
+          if (!updateResult.data?.id) {
+            throw new Error('Supabase did not confirm the showroom unit update. Check your access and try again.');
+          }
         } else {
-          check(await sb.from('dealership_units').insert(unitPayload));
-          toast('Showroom unit added');
+          const duplicateResult = check(
+            await sb.from('dealership_units').select('id').eq('stock_number', unitPayload.stock_number).limit(1)
+          );
+          if ((duplicateResult.data ?? []).length > 0) {
+            throw new Error(`Stock number ${unitPayload.stock_number} already exists. Check the showroom list before trying again.`);
+          }
+          const insertResult = check(
+            await sb.from('dealership_units').insert(unitPayload).select('id, stock_number').single()
+          );
+          if (!insertResult.data?.id) {
+            throw new Error('Supabase did not confirm the showroom unit insert. The unit was not marked as saved.');
+          }
         }
         await reload();
+        toast(editingUnit ? 'Unit updated in Supabase' : 'Showroom unit saved in Supabase');
       } else {
         // Offline handling
         if (editingUnit) {
@@ -242,7 +259,6 @@ export default function Sales() {
             u.id === editingUnit.id ? { ...u, ...unitPayload } : u
           );
           cacheLocal('dealership_sales_data', { units: updated, deals: allDeals });
-          toast('Unit updated (Saved offline)');
         } else {
           const tempId = generateUUID();
           const newUnitData: DealershipUnit = {
@@ -257,15 +273,20 @@ export default function Sales() {
             description: `Add unit ${unitPayload.make} ${unitPayload.model}`,
           });
           cacheLocal('dealership_sales_data', { units: [newUnitData, ...allUnits], deals: allDeals });
-          toast('Unit added (Saved offline)');
         }
+        await reload();
+        const pendingMessage = 'Unit is queued on this device and has not been confirmed in Supabase yet. It will sync when the connection returns.';
+        setUnitSaveNotice({ kind: 'pending', message: pendingMessage });
+        toast(pendingMessage);
       }
 
       setForm(emptyUnit);
       setAddingUnit(false);
       setEditingUnit(null);
-    } catch (err: any) {
-      toast(err.message || 'Failed to save unit', 'error');
+    } catch (err: unknown) {
+      const message = errMsg(err) || 'Failed to save unit.';
+      setUnitSaveNotice({ kind: 'error', message });
+      toast(message, 'error');
     } finally {
       setSaving(false);
     }
@@ -518,6 +539,19 @@ export default function Sales() {
           )}
         </div>
       </div>
+
+      {unitSaveNotice && (
+        <div
+          role={unitSaveNotice.kind === 'error' ? 'alert' : 'status'}
+          className={`rounded-xl border p-3 text-sm font-semibold ${
+            unitSaveNotice.kind === 'error'
+              ? 'border-red-300 bg-red-50 text-red-800'
+              : 'border-amber-300 bg-amber-50 text-amber-900'
+          }`}
+        >
+          {unitSaveNotice.message}
+        </div>
+      )}
 
       {/* Solo Rig Warning Banner if viewing Sales in Solo Mode */}
       {!settings.enable_dealership_mode && (

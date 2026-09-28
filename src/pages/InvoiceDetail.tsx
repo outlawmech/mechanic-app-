@@ -36,6 +36,7 @@ import { check, errMsg, requireSupabase } from '../lib/supabase';
 import type { InvoiceFull, InvoicePayment, PaymentMethod, Vehicle, WorkItem, WorkOrder } from '../types';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
 import { getWorkOrderSignature } from '../lib/photoStorage';
+import { getInvoiceBalanceDue, getInvoicePaidAmount } from '../lib/invoiceAccounting';
 import { printInvoiceDocument } from '../lib/printer';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
@@ -137,19 +138,22 @@ export default function InvoiceDetail() {
   const vInfo = vehicle ? getVehicleTypeInfo(vehicle.type) : null;
   const paymentsList = invoice.payments ?? [];
 
-  // Calculate payments and remaining balance
-  const totalPaid = round2(
-    paymentsList.reduce((sum, p) => sum + num(p.amount), 0) +
-      (paymentsList.length === 0 && invoice.status === 'paid' ? num(invoice.total) : 0)
-  );
-  const balanceDue = Math.max(0, round2(num(invoice.total) - totalPaid));
-  const isFullyPaid = balanceDue <= 0 || invoice.status === 'paid';
+  // Use the same legacy-aware balance calculation as the invoice list and reports.
+  const totalPaid = getInvoicePaidAmount(invoice);
+  const balanceDue = getInvoiceBalanceDue(invoice);
+  const isFullyPaid = balanceDue <= 0;
+  const paymentAmount = Number(payAmount);
+  const paymentAmountValid = Number.isFinite(paymentAmount) && paymentAmount > 0 && paymentAmount <= balanceDue;
 
   async function handleAddPayment(e: React.FormEvent) {
     e.preventDefault();
-    const amountNum = Number(payAmount);
-    if (!amountNum || amountNum <= 0) {
-      toast('Please enter a valid payment amount', 'error');
+    const amountNum = round2(Number(payAmount));
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      toast('Enter a payment greater than $0.00.', 'error');
+      return;
+    }
+    if (amountNum > balanceDue) {
+      toast(`Payment cannot exceed the remaining balance of ${money(balanceDue)}.`, 'error');
       return;
     }
 
@@ -168,48 +172,68 @@ export default function InvoiceDetail() {
     const nextStatus = newTotalPaid >= num(invoice!.total) ? 'paid' : 'partial';
 
     try {
+      let confirmedPayments = nextPayments;
+      let confirmedStatus: InvoiceFull['status'] = nextStatus as InvoiceFull['status'];
+      let confirmedPaidAt = nextStatus === 'paid' ? new Date().toISOString() : null;
+      let savedOffline = false;
+
       if (navigator.onLine) {
-        check(
+        const saveResult = check(
           await requireSupabase()
             .from('invoices')
             .update({
               status: nextStatus,
+              payments: nextPayments,
               paid_at: nextStatus === 'paid' ? new Date().toISOString() : null,
             })
             .eq('id', invoice!.id)
+            .select('id, status, payments, paid_at')
+            .maybeSingle()
         );
+        const savedInvoice = saveResult.data;
+        if (!savedInvoice) {
+          throw new Error('Supabase did not confirm an updated invoice. The payment was not marked as saved. Reload before retrying.');
+        }
+
+        const persistedPayments = (savedInvoice.payments ?? []) as InvoicePayment[];
+        const persistedPayment = persistedPayments.find((payment) => payment.id === newPayment.id);
+        if (!persistedPayment || num(persistedPayment.amount) !== amountNum) {
+          throw new Error('Supabase did not confirm this payment in the invoice history. Reload before retrying.');
+        }
+
+        confirmedPayments = persistedPayments;
+        confirmedStatus = savedInvoice.status as InvoiceFull['status'];
+        confirmedPaidAt = savedInvoice.paid_at;
       } else {
         enqueueOfflineAction({
           table: 'invoices',
           type: 'update',
           payload: {
             status: nextStatus,
+            payments: nextPayments,
             paid_at: nextStatus === 'paid' ? new Date().toISOString() : null,
           },
           matchField: 'id',
           matchValue: invoice!.id,
           description: `Record payment on invoice #${invoice!.number}`,
         });
+        savedOffline = true;
       }
 
-      invoice!.payments = nextPayments;
-      invoice!.status = nextStatus;
-      if (nextStatus === 'paid') {
-        invoice!.paid_at = new Date().toISOString();
-      }
+      invoice!.payments = confirmedPayments;
+      invoice!.status = confirmedStatus;
+      invoice!.paid_at = confirmedPaidAt;
       cacheLocal(`inv_${id}`, data);
       setShowPaymentForm(false);
       setPayAmount('');
       setPayRef('');
-      toast(`Payment of ${money(amountNum)} recorded!`);
-    } catch {
-      invoice!.payments = nextPayments;
-      invoice!.status = nextStatus;
-      cacheLocal(`inv_${id}`, data);
-      setShowPaymentForm(false);
-      setPayAmount('');
-      setPayRef('');
-      toast(`Payment of ${money(amountNum)} recorded (Saved offline)`);
+      toast(
+        savedOffline
+          ? 'Payment saved on this device; database sync is still pending.'
+          : `Payment of ${money(amountNum)} confirmed in the invoice record.`
+      );
+    } catch (err) {
+      toast(errMsg(err) || 'Payment could not be saved.', 'error');
     } finally {
       setActing(false);
     }
@@ -222,26 +246,58 @@ export default function InvoiceDetail() {
     const nextStatus = newTotalPaid >= num(invoice!.total) ? 'paid' : newTotalPaid > 0 ? 'partial' : 'unpaid';
 
     try {
+      let confirmedPayments = nextPayments;
+      let confirmedStatus: InvoiceFull['status'] = nextStatus as InvoiceFull['status'];
+      let confirmedPaidAt = nextStatus === 'paid' ? invoice!.paid_at : null;
+      let savedOffline = false;
+
       if (navigator.onLine) {
-        check(
+        const saveResult = check(
           await requireSupabase()
             .from('invoices')
             .update({
               status: nextStatus,
-              paid_at: nextStatus === 'paid' ? new Date().toISOString() : null,
+              payments: nextPayments,
+              paid_at: confirmedPaidAt,
             })
             .eq('id', invoice!.id)
+            .select('id, status, payments, paid_at')
+            .maybeSingle()
         );
+        const savedInvoice = saveResult.data;
+        if (!savedInvoice) {
+          throw new Error('Supabase did not confirm the invoice update. Reload before trying again.');
+        }
+        const persistedPayments = (savedInvoice.payments ?? []) as InvoicePayment[];
+        if (persistedPayments.some((payment) => payment.id === paymentId)) {
+          throw new Error('Supabase still returned the payment being removed. Reload before trying again.');
+        }
+        confirmedPayments = persistedPayments;
+        confirmedStatus = savedInvoice.status as InvoiceFull['status'];
+        confirmedPaidAt = savedInvoice.paid_at;
+      } else {
+        enqueueOfflineAction({
+          table: 'invoices',
+          type: 'update',
+          payload: {
+            status: nextStatus,
+            payments: nextPayments,
+            paid_at: confirmedPaidAt,
+          },
+          matchField: 'id',
+          matchValue: invoice!.id,
+          description: `Remove payment from invoice #${invoice!.number}`,
+        });
+        savedOffline = true;
       }
-      invoice!.payments = nextPayments;
-      invoice!.status = nextStatus;
+
+      invoice!.payments = confirmedPayments;
+      invoice!.status = confirmedStatus;
+      invoice!.paid_at = confirmedPaidAt;
       cacheLocal(`inv_${id}`, data);
-      toast('Payment removed');
-    } catch {
-      invoice!.payments = nextPayments;
-      invoice!.status = nextStatus;
-      cacheLocal(`inv_${id}`, data);
-      toast('Payment removed');
+      toast(savedOffline ? 'Payment removal queued; database sync is pending.' : 'Payment removed from the invoice record.');
+    } catch (err) {
+      toast(errMsg(err) || 'Payment could not be removed.', 'error');
     }
   }
 
@@ -285,6 +341,11 @@ export default function InvoiceDetail() {
   }
 
   const sortedItems = [...items].sort((a, b) => a.sort_order - b.sort_order);
+  const currentLineItemsSubtotal = round2(
+    sortedItems.reduce((sum, item) => sum + num(item.quantity) * num(item.unit_price), 0)
+  );
+  const invoiceLineItemsMismatch = Boolean(invoice.work_order_id) &&
+    Math.abs(currentLineItemsSubtotal - num(invoice.subtotal)) >= 0.01;
 
   return (
     <div className="space-y-4">
@@ -380,13 +441,18 @@ export default function InvoiceDetail() {
                       type="number"
                       step="0.01"
                       min="0.01"
-                      max={num(invoice.total)}
+                      max={balanceDue}
                       value={payAmount}
                       onChange={(e) => setPayAmount(e.target.value)}
                       placeholder="0.00"
                       className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
                       required
                     />
+                    {payAmount !== '' && !paymentAmountValid && (
+                      <p className="mt-1 text-[10px] font-semibold text-red-600" role="alert">
+                        Enter more than $0 and no more than {money(balanceDue)} due.
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -420,7 +486,7 @@ export default function InvoiceDetail() {
                   />
                 </div>
 
-                <Button type="submit" variant="success" disabled={acting} className="w-full text-xs font-bold">
+                <Button type="submit" variant="success" disabled={acting || !paymentAmountValid} className="w-full text-xs font-bold">
                   <CheckIcon className="h-4 w-4" /> Save Payment
                 </Button>
               </form>
@@ -578,6 +644,15 @@ export default function InvoiceDetail() {
                   {vehicle.plate && <span>{vInfo?.regLabel}: <strong className="font-mono text-slate-700">{vehicle.plate}</strong></span>}
                   {vehicle.engine_info && <span>Engine: <strong className="text-slate-700">{vehicle.engine_info}</strong></span>}
                 </div>
+              </div>
+            )}
+
+            {invoiceLineItemsMismatch && (
+              <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950" role="alert">
+                <p className="font-bold">Repair order items no longer match this issued invoice.</p>
+                <p className="mt-1">
+                  The invoice was issued with a subtotal of {money(invoice.subtotal)}. Its linked repair order now has line items totaling {money(currentLineItemsSubtotal)}. The issued invoice totals and balance have not been changed. Invoiced repair-order line items are locked; record additional work on a separate repair order.
+                </p>
               </div>
             )}
 

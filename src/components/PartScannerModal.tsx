@@ -9,7 +9,6 @@ import { Button, Card, Input } from './ui';
 import type { Part } from '../types';
 import { money, num } from '../lib/format';
 import { lookupPriceBookSku, type PriceBookEntry } from '../lib/priceBooks';
-import { BarcodeEngine } from '../lib/barcodeEngine';
 
 interface PartScannerModalProps {
   isOpen: boolean;
@@ -38,14 +37,16 @@ export default function PartScannerModal({
   const [manualQuery, setManualQuery] = useState('');
   const [engineError, setEngineError] = useState<string | null>(null);
 
-  const barcodeEngineRef = useRef<BarcodeEngine | null>(null);
-
-  // Open one camera stream and start the part barcode reader only after the
-  // video is playing. This avoids a ZXing startup race on Android WebView.
+  // Reuse the app's original on-device barcode reader. This keeps barcode
+  // decoding in the Android/WebView platform and avoids the later ZXing path
+  // that stopped recognizing codes on the user's device.
   useEffect(() => {
     let cancelled = false;
     let stream: MediaStream | null = null;
-    let engine: BarcodeEngine | null = null;
+    let scanInterval: ReturnType<typeof setInterval> | null = null;
+    let detecting = false;
+    let lastValue = '';
+    let lastValueAt = 0;
 
     if (isOpen) {
       setMatchedPart(null);
@@ -85,25 +86,68 @@ export default function PartScannerModal({
           await video.play();
           if (cancelled) return;
 
-          const scanner = new BarcodeEngine({
-            tryHarder: true,
-            onResult: ({ text }) => handleDetectedValue(text),
-            onReady: () => {
-              setEngineError(null);
-              setScannerReady(true);
-            },
-            onError: (err) => {
-              console.warn('Part barcode engine error:', err);
-              setEngineError('The barcode reader could not start. Close this screen and try again.');
-            },
-          });
-          engine = scanner;
-          barcodeEngineRef.current = scanner;
-          void scanner.start(video);
+          const Detector = (window as any).BarcodeDetector;
+          if (!Detector) {
+            setEngineError('This device does not provide the original barcode reader. You can still search by SKU below.');
+            return;
+          }
+
+          const preferredFormats = [
+            'qr_code',
+            'ean_13',
+            'ean_8',
+            'code_128',
+            'code_39',
+            'upc_a',
+            'upc_e',
+          ];
+          let formats = preferredFormats;
+          if (typeof Detector.getSupportedFormats === 'function') {
+            const supportedFormats = await Detector.getSupportedFormats();
+            formats = preferredFormats.filter((format) => supportedFormats.includes(format));
+          }
+          if (!formats.length) {
+            setEngineError('This device does not support the part barcode formats. You can still search by SKU below.');
+            return;
+          }
+
+          const detector = new Detector({ formats });
+          setScannerReady(true);
+          scanInterval = setInterval(async () => {
+            const activeVideo = videoRef.current;
+            if (cancelled || detecting || !activeVideo || activeVideo.readyState < 2) return;
+
+            detecting = true;
+            try {
+              const barcodes = await detector.detect(activeVideo);
+              if (cancelled) return;
+              const rawValue = barcodes[0]?.rawValue?.trim();
+              const now = Date.now();
+              if (rawValue && (rawValue !== lastValue || now - lastValueAt >= 2000)) {
+                lastValue = rawValue;
+                lastValueAt = now;
+                handleDetectedValue(rawValue);
+              }
+            } catch (err) {
+              console.warn('Part barcode detection error:', err);
+              if (!cancelled) {
+                setScannerReady(false);
+                setEngineError('The barcode reader hit a decoding error. Reopen the scanner or search by SKU below.');
+              }
+              if (scanInterval !== null) clearInterval(scanInterval);
+              scanInterval = null;
+            } finally {
+              detecting = false;
+            }
+          }, 450);
         } catch (err) {
           if (cancelled) return;
-          console.warn('Part scanner camera error:', err);
-          setCameraError('Camera could not start. Check the app camera permission, then reopen the scanner.');
+          console.warn('Part scanner startup error:', err);
+          if (videoRef.current && videoRef.current.readyState >= 2) {
+            setEngineError('The barcode reader could not start on this device. You can still search by SKU below.');
+          } else {
+            setCameraError('Camera could not start. Check the app camera permission, then reopen the scanner.');
+          }
         }
       };
 
@@ -112,8 +156,7 @@ export default function PartScannerModal({
 
     return () => {
       cancelled = true;
-      engine?.stop();
-      if (barcodeEngineRef.current === engine) barcodeEngineRef.current = null;
+      if (scanInterval !== null) clearInterval(scanInterval);
       if (videoRef.current) {
         videoRef.current.pause();
         videoRef.current.srcObject = null;

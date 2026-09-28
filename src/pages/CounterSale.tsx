@@ -64,7 +64,8 @@ export default function CounterSale() {
   const [searchPart, setSearchPart] = useState('');
   const [items, setItems] = useState<CounterItem[]>([]);
   const [discountPct, setDiscountPct] = useState('0');
-  const [taxRate, setTaxRate] = useState(String(num(settings.default_tax_rate) * 100 || '4'));
+  const [cartError, setCartError] = useState<string | null>(null);
+  const [taxRate, setTaxRate] = useState(() => String(num(settings.default_tax_rate) * 100));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [amountTendered, setAmountTendered] = useState('');
   const [depositCredit, setDepositCredit] = useState(num(soDeposit) || 0);
@@ -126,6 +127,19 @@ export default function CounterSale() {
   const parts = data?.parts ?? [];
   const [priceBookResults, setPriceBookResults] = useState<PriceBookEntry[]>([]);
 
+  const discountValue = Number(discountPct);
+  const discountValid = discountPct.trim() !== '' && Number.isFinite(discountValue) && discountValue >= 0 && discountValue <= 100;
+  const cartLinesValid = items.every((item) =>
+    Number.isFinite(item.quantity) && item.quantity > 0 && Number.isFinite(item.unit_price) && item.unit_price >= 0
+  );
+  const taxRateValid = Number.isFinite(Number(taxRate)) && Number(taxRate) >= 0;
+  const stockInvalidItem = items.find((item) => {
+    if (!item.part_id) return false;
+    const part = parts.find((candidate) => candidate.id === item.part_id);
+    return !part || item.quantity <= 0 || item.quantity > num(part.qty_on_hand);
+  });
+  const checkoutValid = items.length > 0 && discountValid && cartLinesValid && taxRateValid && !stockInvalidItem && !saving;
+
   // Search OEM Price Books in parallel
   useEffect(() => {
     const q = searchPart.trim();
@@ -151,11 +165,20 @@ export default function CounterSale() {
       .slice(0, 6);
   }, [parts, searchPart]);
 
-  function addItemFromPart(p: Part) {
+  function addItemFromPart(p: Part): boolean {
+    const available = Math.max(0, num(p.qty_on_hand));
     const existingIndex = items.findIndex((it) => it.part_id === p.id);
+    const nextQuantity = existingIndex >= 0 ? items[existingIndex].quantity + 1 : 1;
+    if (nextQuantity > available) {
+      setCartError(`Only ${available} ${p.sku} in stock; this sale cannot exceed that quantity.`);
+      toast(`Only ${available} ${p.sku} in stock.`, 'error');
+      return false;
+    }
+
+    setCartError(null);
     if (existingIndex >= 0) {
       const updated = [...items];
-      updated[existingIndex].quantity += 1;
+      updated[existingIndex].quantity = nextQuantity;
       setItems(updated);
     } else {
       setItems([
@@ -172,9 +195,11 @@ export default function CounterSale() {
       ]);
     }
     setSearchPart('');
+    return true;
   }
 
   function addItemFromPriceBook(pb: PriceBookEntry) {
+    setCartError(null);
     const existingIndex = items.findIndex((it) => it.sku.toUpperCase() === pb.sku.toUpperCase());
     if (existingIndex >= 0) {
       const updated = [...items];
@@ -212,13 +237,33 @@ export default function CounterSale() {
   }
 
   function updateItemQty(index: number, newQty: number) {
+    const item = items[index];
+    if (!item) return;
     if (newQty <= 0) {
       setItems(items.filter((_, i) => i !== index));
-    } else {
-      const updated = [...items];
-      updated[index].quantity = newQty;
-      setItems(updated);
+      setCartError(null);
+      return;
     }
+
+    if (!Number.isFinite(newQty)) {
+      setCartError('Quantity must be a valid number.');
+      return;
+    }
+
+    if (item.part_id) {
+      const part = parts.find((candidate) => candidate.id === item.part_id);
+      const available = part ? Math.max(0, num(part.qty_on_hand)) : 0;
+      if (!part || newQty > available) {
+        setCartError(`Only ${available} ${item.sku} in stock; this sale cannot exceed that quantity.`);
+        toast(`Only ${available} ${item.sku} in stock.`, 'error');
+        return;
+      }
+    }
+
+    setCartError(null);
+    const updated = [...items];
+    updated[index].quantity = newQty;
+    setItems(updated);
   }
 
   function updateItemPrice(index: number, price: number) {
@@ -230,7 +275,8 @@ export default function CounterSale() {
   // Calculations
   const totals = useMemo(() => {
     const rawSubtotal = items.reduce((sum, it) => sum + it.quantity * it.unit_price, 0);
-    const disc = (rawSubtotal * num(discountPct)) / 100;
+    const appliedDiscountPct = discountValid ? discountValue : 0;
+    const disc = (rawSubtotal * appliedDiscountPct) / 100;
     const subtotal = Math.max(0, rawSubtotal - disc);
     const tax = (subtotal * num(taxRate)) / 100;
     const grossTotal = subtotal + tax;
@@ -239,7 +285,7 @@ export default function CounterSale() {
     const changeDue = Math.max(0, num(amountTendered) - total);
 
     return { rawSubtotal, disc, subtotal, tax, grossTotal, depositApplied, total, changeDue };
-  }, [items, discountPct, taxRate, depositCredit, amountTendered]);
+  }, [items, discountValid, discountValue, taxRate, depositCredit, amountTendered]);
 
   async function handleCheckout(e: FormEvent) {
     e.preventDefault();
@@ -247,13 +293,76 @@ export default function CounterSale() {
       toast('Please add at least one part to the ticket', 'error');
       return;
     }
+    if (!isWalkIn && !customerId) {
+      toast('Select a customer or choose Walk-In Customer.', 'error');
+      return;
+    }
+    if (!discountValid) {
+      setCartError('Discount must be between 0% and 100%.');
+      toast('Discount must be between 0% and 100%.', 'error');
+      return;
+    }
+    const invalidLine = items.find(
+      (item) => !Number.isFinite(item.quantity) || item.quantity <= 0 ||
+        !Number.isFinite(item.unit_price) || item.unit_price < 0
+    );
+    if (invalidLine) {
+      setCartError('Each item must have a positive quantity and a valid, non-negative price.');
+      toast('Check item quantities and prices before checkout.', 'error');
+      return;
+    }
+    if (stockInvalidItem) {
+      const part = parts.find((candidate) => candidate.id === stockInvalidItem.part_id);
+      const available = part ? num(part.qty_on_hand) : 0;
+      setCartError(`Only ${available} ${stockInvalidItem.sku} in stock; reduce the quantity before checkout.`);
+      toast('A cart quantity is higher than current stock.', 'error');
+      return;
+    }
+    if (!Number.isFinite(Number(taxRate)) || Number(taxRate) < 0) {
+      setCartError('Enter a valid, non-negative sales-tax rate.');
+      toast('Enter a valid sales-tax rate.', 'error');
+      return;
+    }
+
+    setCartError(null);
     setSaving(true);
+    const sb = requireSupabase();
+    let createdWorkOrderId: string | null = null;
+    let createdInvoiceId: string | null = null;
+    let specialOrderSyncWarning: string | null = null;
 
     try {
-      const sb = requireSupabase();
+      // Recheck stock immediately before checkout so a stale search result cannot
+      // sell more than is currently available.
+      const requestedStock = new Map<string, number>();
+      for (const item of items) {
+        if (item.part_id) {
+          requestedStock.set(item.part_id, (requestedStock.get(item.part_id) || 0) + item.quantity);
+        }
+      }
+      let freshStockRows: Array<Pick<Part, 'id' | 'sku' | 'qty_on_hand'>> = [];
+      if (requestedStock.size > 0) {
+        const stockRes = check(
+          await sb.from('parts').select('id, sku, qty_on_hand').in('id', [...requestedStock.keys()])
+        );
+        freshStockRows = (stockRes.data ?? []) as Array<Pick<Part, 'id' | 'sku' | 'qty_on_hand'>>;
+        const currentStock = new Map(freshStockRows.map((part) => [part.id, part]));
+        for (const [partId, requestedQty] of requestedStock) {
+          const part = currentStock.get(partId);
+          const available = part ? num(part.qty_on_hand) : 0;
+          if (!part || requestedQty > available) {
+            const sku = part?.sku || items.find((item) => item.part_id === partId)?.sku || 'Part';
+            const message = `${sku}: only ${available} in stock; requested quantity is ${requestedQty}.`;
+            setCartError(message);
+            toast(message, 'error');
+            return;
+          }
+        }
+      }
+
       let buyerId = customerId;
 
-      // If walk-in, find or create Walk-in Customer record
+      // If walk-in, find or create Walk-in Customer record.
       if (isWalkIn) {
         const existingWalkin = customers.find((c) => c.first_name === 'Walk-In');
         if (existingWalkin) {
@@ -273,8 +382,10 @@ export default function CounterSale() {
       }
 
       const invNumber = `INV-P${Date.now().toString().slice(-4)}`;
+      const invoiceId = generateUUID();
+      const paidAt = new Date().toISOString();
 
-      // 1. Create Work Order under the hood for clean multi-line item storage
+      // 1. Create a completed work order to hold the sale's line items.
       const woRes = check(
         await sb.from('work_orders').insert({
           number: `PRT-${Date.now().toString().slice(-4)}`,
@@ -283,83 +394,126 @@ export default function CounterSale() {
           notes: `Part Invoice · Paid via ${paymentMethod.toUpperCase()}${soOrderNum ? ` · Ref: ${soOrderNum}` : ''}`,
         }).select('id').single()
       );
-      const woId = woRes.data?.id || '';
+      const woId = woRes.data?.id;
+      if (!woId) throw new Error('Could not create the sale record.');
+      createdWorkOrderId = woId;
 
-      // 2. Insert Work Items for the parts
-      const workItemRows = items.map((it, idx) => ({
+      // 2. Save sale line items using the schema's description column.
+      const workItemRows = items.map((item, idx) => ({
         work_order_id: woId,
+        part_id: item.part_id || null,
         kind: 'part',
-        name: it.name,
-        quantity: it.quantity,
-        unit_price: it.unit_price,
-        cost_price: it.cost_price,
+        description: item.sku ? `${item.sku} — ${item.name}` : item.name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
         sort_order: idx + 1,
       }));
-      await sb.from('work_items').insert(workItemRows);
+      const savedWorkItems = check(
+        await sb.from('work_items').insert(workItemRows).select('id, description, quantity, unit_price')
+      );
+      if ((savedWorkItems.data ?? []).length !== workItemRows.length) {
+        throw new Error('Supabase did not confirm every invoice line item. The sale was stopped before creating the invoice.');
+      }
 
-      // 3. Create Paid Invoice
-      const invRes = check(
+      // 3. Save the invoice and its payment history together.
+      check(
         await sb.from('invoices').insert({
+          id: invoiceId,
           number: invNumber,
           customer_id: buyerId,
           work_order_id: woId,
           subtotal: totals.subtotal,
-          tax_rate: num(taxRate) / 100,
+          tax_rate: Number(taxRate) / 100,
           tax: totals.tax,
           total: totals.total,
           status: 'paid',
-          paid_at: new Date().toISOString(),
+          paid_at: paidAt,
           notes: `Direct part invoice. ${isWalkIn ? `Customer: ${walkInName}` : ''}${soOrderNum ? ` (Fulfilled ${soOrderNum}${totals.depositApplied > 0 ? `, Deposit credit: ${money(totals.depositApplied)}` : ''})` : ''}`,
-          payments: [
-            {
-              id: generateUUID(),
-              invoice_id: '',
-              amount: totals.total,
-              method: paymentMethod,
-              created_at: new Date().toISOString(),
-            },
-          ],
-        }).select('id').single()
+          payments: [{
+            id: generateUUID(),
+            invoice_id: invoiceId,
+            amount: totals.total,
+            method: paymentMethod,
+            created_at: paidAt,
+          }],
+        })
       );
+      createdInvoiceId = invoiceId;
 
-      // 4. If special order, mark as fulfilled
+      // 4. Deduct all catalog stock atomically. If stock changed during checkout,
+      // the database rejects the deduction and this incomplete sale is cleaned up.
+      if (requestedStock.size > 0) {
+        check(await sb.rpc('decrement_parts_for_counter_sale', {
+          p_items: [...requestedStock.entries()].map(([part_id, quantity]) => ({ part_id, quantity })),
+        }));
+
+        const currentStock = new Map(freshStockRows.map((part) => [part.id, num(part.qty_on_hand)]));
+        const updatedParts = parts.map((part) => {
+          const requested = requestedStock.get(part.id) || 0;
+          return requested
+            ? { ...part, qty_on_hand: Math.max(0, (currentStock.get(part.id) ?? num(part.qty_on_hand)) - requested) }
+            : part;
+        });
+        cacheLocal('parts', updatedParts);
+        cacheLocal('counter_parts_cache', updatedParts);
+      }
+
+      // 5. Link the paid checkout back to its special order. If this secondary
+      // update fails, keep the completed invoice and report the sync problem; do
+      // not delete or roll back a sale that has already been paid.
       if (soId) {
+        const fulfilledAt = new Date().toISOString();
+        const specialOrderUpdate = {
+          status: 'fulfilled' as const,
+          fulfilled_at: fulfilledAt,
+          payment_status: 'paid_in_full' as const,
+          work_order_id: woId,
+          updated_at: fulfilledAt,
+        };
         try {
-          await sb.from('special_orders').update({
-            status: 'fulfilled',
-            fulfilled_at: new Date().toISOString(),
-          }).eq('id', soId);
-        } catch (e) {
-          console.warn('Could not update remote special order:', e);
-        }
-        const cachedSo = getCachedLocal<SpecialOrder[]>('special_orders') || [];
-        const updatedSo = cachedSo.map((s) =>
-          s.id === soId
-            ? { ...s, status: 'fulfilled' as const, fulfilled_at: new Date().toISOString() }
-            : s
-        );
-        cacheLocal('special_orders', updatedSo);
-      }
-
-      // 5. Auto-deduct inventory quantities for cataloged parts
-      for (const it of items) {
-        if (it.part_id) {
-          const matchedPart = parts.find((p) => p.id === it.part_id);
-          if (matchedPart) {
-            const newQty = Math.max(0, num(matchedPart.qty_on_hand) - it.quantity);
-            await sb.from('parts').update({ qty_on_hand: newQty }).eq('id', it.part_id);
+          const soUpdate = check(
+            await sb.from('special_orders')
+              .update(specialOrderUpdate)
+              .eq('id', soId)
+              .select('id, status, payment_status, work_order_id')
+              .maybeSingle()
+          );
+          if (!soUpdate.data || soUpdate.data.status !== 'fulfilled' || soUpdate.data.payment_status !== 'paid_in_full') {
+            throw new Error('Supabase did not confirm the special order payment update.');
           }
+          const cachedSo = getCachedLocal<SpecialOrder[]>('special_orders') || [];
+          cacheLocal('special_orders', cachedSo.map((order) =>
+            order.id === soId ? { ...order, ...specialOrderUpdate } : order
+          ));
+        } catch (orderError) {
+          specialOrderSyncWarning = errMsg(orderError);
+          console.error('Could not sync paid checkout to special order:', orderError);
         }
       }
 
-      toast(`Part invoice complete! Invoice #${invNumber}`);
-      if (invRes.data?.id) {
-        navigate(`/invoices/${invRes.data.id}`);
+      if (specialOrderSyncWarning) {
+        toast(`Invoice #${invNumber} is paid, but the special-order record needs syncing: ${specialOrderSyncWarning}`, 'error');
       } else {
-        navigate('/invoices');
+        toast(`Part invoice complete! Invoice #${invNumber}`);
       }
+      navigate(`/invoices/${invoiceId}`);
     } catch (err: any) {
-      toast(err.message || 'Checkout failed', 'error');
+      // A failed/oversold checkout must not leave a paid invoice behind.
+      if (createdInvoiceId) {
+        const cleanupInvoice = await sb.from('invoices').delete().eq('id', createdInvoiceId);
+        if (cleanupInvoice.error) console.error('Could not remove incomplete counter invoice:', cleanupInvoice.error);
+      }
+      if (createdWorkOrderId) {
+        const cleanupWorkOrder = await sb.from('work_orders').delete().eq('id', createdWorkOrderId);
+        if (cleanupWorkOrder.error) console.error('Could not remove incomplete counter work order:', cleanupWorkOrder.error);
+      }
+      const message = err?.message || 'Checkout failed';
+      setCartError(message.includes('INSUFFICIENT_STOCK')
+        ? 'Stock changed during checkout. Please review the current quantity and try again.'
+        : message);
+      toast(message.includes('INSUFFICIENT_STOCK')
+        ? 'Stock changed during checkout; no sale was completed.'
+        : message, 'error');
     } finally {
       setSaving(false);
     }
@@ -602,6 +756,23 @@ export default function CounterSale() {
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
               Part Invoice Items ({items.length})
             </h3>
+            {cartError && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700" role="alert">
+                {cartError}
+              </p>
+            )}
+            {!discountValid && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700" role="alert">
+                Discount must be between 0% and 100%.
+              </p>
+            )}
+            {stockInvalidItem && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-semibold text-red-700" role="alert">
+                {parts.some((part) => part.id === stockInvalidItem.part_id)
+                  ? `Only ${num(parts.find((part) => part.id === stockInvalidItem.part_id)?.qty_on_hand)} ${stockInvalidItem.sku} in stock. Reduce the quantity before checkout.`
+                  : `${stockInvalidItem.sku} is no longer in inventory. Remove it or select a current item.`}
+              </p>
+            )}
 
             {items.length === 0 ? (
               <Card className="p-8 text-center text-xs text-slate-400">
@@ -614,7 +785,9 @@ export default function CounterSale() {
                   <div key={it.id} className="flex items-center justify-between p-3 gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold text-slate-900 truncate">{it.name}</p>
-                      <span className="font-mono text-[10px] text-slate-400">{it.sku}</span>
+                      <span className="font-mono text-[10px] text-slate-400">
+                        {it.sku}{it.part_id ? ` · ${num(parts.find((part) => part.id === it.part_id)?.qty_on_hand)} in stock` : ' · non-stock item'}
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -631,7 +804,9 @@ export default function CounterSale() {
                         <button
                           type="button"
                           onClick={() => updateItemQty(idx, it.quantity + 1)}
-                          className="px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-r-lg"
+                          disabled={Boolean(it.part_id && it.quantity >= num(parts.find((part) => part.id === it.part_id)?.qty_on_hand))}
+                          title={it.part_id ? `Available: ${num(parts.find((part) => part.id === it.part_id)?.qty_on_hand)}` : undefined}
+                          className="px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-r-lg disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           +
                         </button>
@@ -687,9 +862,17 @@ export default function CounterSale() {
                 <div className="w-20">
                   <input
                     type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    required
                     value={discountPct}
-                    onChange={(e) => setDiscountPct(e.target.value)}
-                    className="h-7 w-full rounded-md bg-slate-800 px-2 text-right font-mono text-xs text-white ring-1 ring-slate-700"
+                    onChange={(e) => {
+                      setDiscountPct(e.target.value);
+                      setCartError(null);
+                    }}
+                    aria-invalid={!discountValid}
+                    className={`h-7 w-full rounded-md bg-slate-800 px-2 text-right font-mono text-xs text-white ring-1 ${discountValid ? 'ring-slate-700' : 'ring-red-400'}`}
                   />
                 </div>
               </div>
@@ -768,7 +951,7 @@ export default function CounterSale() {
             <Button
               type="submit"
               variant="accent"
-              disabled={saving || items.length === 0}
+              disabled={!checkoutValid}
               className="w-full py-3.5 font-black text-sm text-slate-950 shadow-lg shadow-orange-400/20 active:scale-95 transition"
             >
               {saving ? 'Processing Checkout…' : `Complete Sale (${money(totals.total)})`}
@@ -786,7 +969,7 @@ export default function CounterSale() {
             <Button
               type="submit"
               variant="accent"
-              disabled={saving}
+              disabled={!checkoutValid}
               className="py-2.5 px-5 font-black text-xs text-slate-950 shadow-md shadow-orange-500/20 active:scale-95 transition"
             >
               {saving ? 'Processing…' : 'Complete Sale →'}
@@ -801,9 +984,8 @@ export default function CounterSale() {
         onClose={() => setScannerOpen(false)}
         parts={parts}
         onSelectPart={(p) => {
-          addItemFromPart(p);
+          if (addItemFromPart(p)) toast(`Added ${p.sku} to invoice!`);
           setScannerOpen(false);
-          toast(`Added ${p.sku} to invoice!`);
         }}
         onAddNewPart={async (sku) => {
           const pb = await lookupPriceBookSku(sku);

@@ -137,7 +137,7 @@ export type InvoiceFull = Invoice & {
   payments: InvoicePayment[];
 };
 
-export type InvoiceSummary = Pick<Invoice, 'id' | 'number' | 'total' | 'status'>;
+export type InvoiceSummary = Pick<Invoice, 'id' | 'number' | 'subtotal' | 'total' | 'status'>;
 
 export type ShopSettings = {
   id: string;
