@@ -221,6 +221,7 @@ export default function WorkOrderDetail() {
   const subtotal = workOrderEstimate(items);
   const financialItemsLocked = Boolean(invoice);
   const invoiceItemsMismatch = Boolean(invoice) && Math.abs(subtotal - num(invoice?.subtotal)) >= 0.01;
+  const isInternal = Boolean(wo.internal_type);
   const vehicleTypeInfo = wo.vehicle ? getVehicleTypeInfo(wo.vehicle.type) : null;
 
   async function updateStatus(next: WorkOrderStatus) {
@@ -269,6 +270,25 @@ export default function WorkOrderDetail() {
     }
   }
 
+  async function closeInternalOrder() {
+    if (!wo?.internal_type || !wo.unit_id) return;
+    if (!navigator.onLine) {
+      toast('Reconnect before closing an internal order so stock and unit cost update together.', 'error');
+      return;
+    }
+    if (!window.confirm('Close this internal order and post its cost to the showroom unit? This cannot be reopened.')) return;
+    setActing(true);
+    try {
+      const result = check(await requireSupabase().rpc('close_internal_ro', { p_work_order_id: wo.id }));
+      toast(`Internal order closed. ${money(num(result.data))} posted to unit cost.`);
+      await reload();
+    } catch (e) {
+      toast(errMsg(e), 'error');
+    } finally {
+      setActing(false);
+    }
+  }
+
   function handleKindChange(newKind: WorkItem['kind']) {
     setKind(newKind);
     setSelectedPartId('');
@@ -294,6 +314,14 @@ export default function WorkOrderDetail() {
 
   async function addItem(e: FormEvent) {
     e.preventDefault();
+    if (wo?.internal_closed_at) {
+      toast('This internal RO is closed. Create a separate correction order.', 'error');
+      return;
+    }
+    if (isInternal && kind === 'part' && !selectedPartId) {
+      toast('Select a stocked part for internal cost tracking.', 'error');
+      return;
+    }
     if (financialItemsLocked) {
       toast('This repair order has an issued invoice. Its financial line items are locked; record additional work on a separate repair order.', 'error');
       return;
@@ -307,6 +335,7 @@ export default function WorkOrderDetail() {
     const unitPriceNum = Number(price) || 0;
     const newItemPayload = {
       work_order_id: wo!.id,
+      part_id: kind === 'part' && selectedPartId ? selectedPartId : null,
       kind,
       description: desc.trim(),
       quantity: quantityNum,
@@ -320,7 +349,7 @@ export default function WorkOrderDetail() {
         check(await sb.from('work_items').insert(newItemPayload));
 
         // If item was pulled from inventory, deduct stock on hand
-        if (kind === 'part' && selectedPartId) {
+        if (!isInternal && kind === 'part' && selectedPartId) {
           const chosen = inventoryParts.find((p) => p.id === selectedPartId);
           if (chosen) {
             const newStock = Math.max(0, num(chosen.qty_on_hand) - quantityNum);
@@ -395,6 +424,10 @@ export default function WorkOrderDetail() {
   }
 
   async function removeItem(itemId: string) {
+    if (wo?.internal_closed_at) {
+      toast('This internal RO is closed. Create a separate correction order.', 'error');
+      return;
+    }
     if (financialItemsLocked) {
       toast('This repair order has an issued invoice. Its financial line items are locked.', 'error');
       return;
@@ -722,7 +755,23 @@ export default function WorkOrderDetail() {
                   ✓ Mark RO Completed
                 </Button>
               )}
-              {wo.status === 'completed' && !showInvoicePanel && (
+              {isInternal && (
+                <div className="rounded-xl border border-purple-200 bg-purple-50 p-3 text-xs text-purple-900">
+                  <strong>{wo.internal_type === 'pdi' ? 'Internal PDI' : 'Internal Rigging'}</strong>
+                  {' · '}<Link to="/sales" className="underline">Showroom unit</Link>
+                  {wo.buyer_order_id && <>{' · '}<Link to={`/sales/deal/${wo.buyer_order_id}`} className="underline">Buyer’s Order</Link></>}
+                  <p className="mt-1">Service cost posts to the unit on closeout. Customer pricing stays on the Buyer’s Order; no customer invoice is generated.</p>
+                </div>
+              )}
+              {isInternal && wo.internal_closed_at && (
+                <div className="rounded-xl bg-emerald-50 p-3 text-xs font-bold text-emerald-800">Internal order closed · cost posted to showroom unit</div>
+              )}
+              {wo.status === 'completed' && isInternal && !wo.internal_closed_at && (
+                <Button variant="success" className="w-full text-xs font-bold" disabled={acting} onClick={closeInternalOrder}>
+                  Close Internal RO &amp; Post Unit Cost
+                </Button>
+              )}
+              {wo.status === 'completed' && !isInternal && !showInvoicePanel && (
                 <Button
                   variant="accent"
                   className="w-full text-xs font-bold"
@@ -732,7 +781,7 @@ export default function WorkOrderDetail() {
                 </Button>
               )}
 
-              {showInvoicePanel && (
+              {!isInternal && showInvoicePanel && (
                 <Card className="space-y-3 border-orange-300 bg-orange-50/50 p-4">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
                     Generate Customer Invoice

@@ -26,7 +26,7 @@ import { money, num, round2, fullName, shortDate, longDate } from '../lib/format
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
 import { decodeVehicleVIN } from '../lib/vinDecoder';
-import type { BuyersOrderFull, Customer, CustomerWithVehicles, DealershipUnit, PaymentMethod, UnitCondition, BuyersOrderStatus } from '../types';
+import type { BuyersOrderFull, Customer, CustomerWithVehicles, DealershipUnit, PaymentMethod, UnitCondition, BuyersOrderStatus, WorkOrder } from '../types';
 
 export default function BuyersOrderDetail() {
   const { id } = useParams();
@@ -39,6 +39,7 @@ export default function BuyersOrderDetail() {
   const preselectedUnitId = searchParams.get('unit_id');
 
   const [saving, setSaving] = useState(false);
+  const [dispatchingRigging, setDispatchingRigging] = useState(false);
   const [showSignPad, setShowSignPad] = useState(false);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   const [signerName, setSignerName] = useState('');
@@ -102,12 +103,38 @@ export default function BuyersOrderDetail() {
     const units = (unitsRes.data ?? []) as DealershipUnit[];
     const existingOrder = (orderRes.data?.[0] ?? null) as BuyersOrderFull | null;
 
-    return { customers, units, existingOrder };
+    const riggingRes = !isNew
+      ? check(await sb.from('work_orders').select('*').eq('buyer_order_id', id!).eq('internal_type', 'rigging').order('created_at', { ascending: false }))
+      : { data: [] };
+    return { customers, units, existingOrder, riggingOrders: (riggingRes.data ?? []) as WorkOrder[] };
   }, [id, isNew]);
 
   const customers = data?.customers ?? [];
   const units = data?.units ?? [];
   const existingOrder = data?.existingOrder;
+  const riggingOrders = data?.riggingOrders ?? [];
+
+  async function dispatchRigging() {
+    if (!existingOrder?.unit_id || !id) {
+      toast('Save this deal with a showroom unit before dispatching rigging.', 'error');
+      return;
+    }
+    if (!navigator.onLine) {
+      toast('Reconnect before dispatching rigging.', 'error');
+      return;
+    }
+    if (!window.confirm('Create a separate internal rigging RO for this unit and deal?')) return;
+    setDispatchingRigging(true);
+    try {
+      const res = check(await requireSupabase().rpc('dispatch_unit_rigging', { p_buyer_order_id: id }));
+      if (!res.data) throw new Error('Rigging dispatch did not return an RO.');
+      navigate(`/work/${res.data}`);
+    } catch (e) {
+      toast(errMsg(e), 'error');
+    } finally {
+      setDispatchingRigging(false);
+    }
+  }
 
   // If editing an existing deal, populate form
   useEffect(() => {
@@ -397,6 +424,11 @@ export default function BuyersOrderDetail() {
         </div>
 
         <div className="flex items-center gap-2">
+          {!isNew && existingOrder?.unit_id && (
+            <Button type="button" variant="ghost" disabled={dispatchingRigging} onClick={dispatchRigging} className="text-xs font-bold">
+              <WrenchIcon className="h-4 w-4" /> Dispatch Rigging RO
+            </Button>
+          )}
           {!isNew && (
             <Button
               type="button"
@@ -410,6 +442,17 @@ export default function BuyersOrderDetail() {
           )}
         </div>
       </div>
+
+      {!isNew && riggingOrders.length > 0 && (
+        <Card className="space-y-2 p-4 no-print">
+          <h2 className="text-sm font-black text-slate-900">Internal rigging orders</h2>
+          {riggingOrders.map((ro) => (
+            <Link key={ro.id} to={`/work/${ro.id}`} className="flex justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-800 hover:bg-slate-100">
+              <span>{ro.number}</span><span>{ro.internal_closed_at ? 'Closed · cost posted' : ro.status.replace('_', ' ')}</span>
+            </Link>
+          ))}
+        </Card>
+      )}
 
       {/* Main Deal Form */}
       <form onSubmit={handleSaveDeal} className="space-y-6">

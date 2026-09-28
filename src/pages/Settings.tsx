@@ -389,6 +389,18 @@ export default function Settings() {
             </Field>
           </div>
 
+          <Field label="Internal Labor Cost ($/hr)">
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.internal_labor_cost_rate ?? 0}
+              onChange={(e) => setForm({ ...form, internal_labor_cost_rate: e.target.value })}
+              placeholder="0.00"
+            />
+            <p className="mt-1 text-xs text-slate-500">Your cost per technician hour for internal PDI and rigging. This is separate from the customer labor rate.</p>
+          </Field>
+
           <Field label="Invoice Footer Terms &amp; Notes">
             <Textarea
               value={form.invoice_notes}

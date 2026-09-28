@@ -1,406 +1,192 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  BookOpenIcon,
-  BoxIcon,
-  CheckIcon,
-  ClipboardIcon,
-  HelpCircleIcon,
-  MonitorIcon,
-  ReceiptIcon,
-  SmartphoneIcon,
-  SparklesIcon,
-  TagIcon,
-  UsersIcon,
-  WrenchIcon,
-} from '../components/icons';
 import { Card, PageTitle } from '../components/ui';
-import { useShopSettings } from '../lib/settings';
+
+type Topic = {
+  title: string;
+  summary: string;
+  path?: string;
+  steps: string[];
+  notes?: string[];
+};
+
+const topics: Topic[] = [
+  {
+    title: 'Set up your shop', summary: 'Business details, rates, tax, and payment options', path: '/settings',
+    steps: [
+      'Open Settings. Enter your shop name, phone, email, service area, and invoice footer, then save.',
+      'Set your standard hourly labor rate and default sales tax percentage. Enter 0 when your transactions have no sales tax.',
+      'Add any Zelle, Venmo, Cash App, or external payment link you want to show on invoices.',
+      'Select Solo Rig or Dealership mode to show the tools you use.',
+    ],
+    notes: ['Review tax on each document before issuing it. Payment handles do not automatically record a payment in the app.'],
+  },
+  {
+    title: 'Add customers and equipment', summary: 'Create a customer and keep service history together', path: '/customers',
+    steps: [
+      'Open Customers and choose Add Customer. Enter a first name and any available contact details.',
+      'Add a vehicle or piece of equipment with its category, year, make, model, VIN/HIN, and mileage or hours.',
+      'Open the customer record later to edit details, add equipment, or review related work and invoices.',
+    ],
+    notes: ['Check decoded VIN information against the actual unit. Enter missing or incorrect details manually.'],
+  },
+  {
+    title: 'Write a repair order', summary: 'Intake, work, notes, and completion', path: '/work',
+    steps: [
+      'Start a new RO from the customer record or Repair Orders page. Select the customer and equipment when applicable.',
+      'Record the concern and add labor, parts, or fees with the right quantity and rate.',
+      'Use service notes and photos for findings. Capture a customer signature when authorization is needed.',
+      'Choose Start Repair Order when work begins, then Mark RO Completed when it is done.',
+      'For customer work, review the lines and tax before creating an invoice.',
+    ],
+    notes: ['Issued invoices lock the RO’s financial lines. Put additional billable work on a separate RO.', 'For an internal PDI or rigging RO, complete the work and use Close Internal RO. This posts cost to the unit without issuing a customer invoice.'],
+  },
+  {
+    title: 'Invoice and record payments', summary: 'Send bills, take partial payments, print receipts', path: '/invoices',
+    steps: [
+      'Complete a customer RO, open Create & Send Invoice, and check line items, total, and tax before issuing it.',
+      'Open the invoice to share it using your device’s email or messaging options, or select Print / Save PDF.',
+      'After payment is actually received, choose Record Payment, enter the amount and method, then save.',
+      'For a deposit or partial payment, enter only what you received. The unpaid amount remains due.',
+    ],
+    notes: ['Sharing an invoice does not collect or record payment automatically.'],
+  },
+  {
+    title: 'Schedule work', summary: 'Appointments and upcoming jobs', path: '/schedule',
+    steps: [
+      'Open Schedule and choose the calendar or list view.',
+      'Add an appointment with its customer, date, time, and job details.',
+      'Save and confirm it appears on the correct day. Update the appointment when plans change.',
+    ],
+  },
+  {
+    title: 'Manage parts inventory', summary: 'Stock, SKUs, prices, and imports', path: '/parts',
+    steps: [
+      'Open Parts and add an item with its SKU, description, quantity, cost, and selling price.',
+      'Search by SKU or name to find stocked parts for repair orders and counter sales.',
+      'For many parts, use Import CSV and review the imported quantities and prices.',
+      'After a sale, reopen the part to confirm the remaining stock.',
+    ],
+    notes: ['A price book listing does not mean a part is physically in stock.'],
+  },
+  {
+    title: 'Make a counter sale', summary: 'Walk-in parts purchases', path: '/parts/counter',
+    steps: [
+      'Open Parts Counter and select an existing customer or use a walk-in name.',
+      'Search or scan a SKU, add the quantity, and check the price and stock.',
+      'Review the discount, tax, and total, then complete the sale with the correct payment method.',
+      'Open the receipt and verify that payment and stock quantity were recorded.',
+    ],
+  },
+  {
+    title: 'Track a special order', summary: 'Request, receive, bin, and notify', path: '/parts',
+    steps: [
+      'On Parts, switch to Special Orders and choose New Special Order.',
+      'Enter the part, customer, supplier, quantity, and pricing.',
+      'When it arrives, choose Receive & Bin and record where it is held.',
+      'Use Notify Customer to prepare a message; verify it was sent from your messaging app.',
+    ],
+  },
+  {
+    title: 'Add a showroom unit and PDI', summary: 'Dealer inventory and preparation', path: '/sales',
+    steps: [
+      'In Dealership mode, open Sales and choose Add Unit. Enter stock number, year, make, model, cost, and asking price. Add VIN and floorplan details when available.',
+      'Save the unit and verify its stock number and price on the showroom list.',
+      'The PDI button creates an internal repair order with the stock number and two starting labor tasks. Review and adjust work as needed.',
+      'After the technician finishes, mark the RO completed and choose Close Internal RO to post costs to the unit.',
+      'Keep the manufacturer’s PDI form with your normal delivery records.',
+    ],
+    notes: ['PDI closeout uses the internal labor cost rate in Settings and the current cost of stocked parts. It does not create a customer invoice or change the unit’s sale price.'],
+  },
+  {
+    title: 'Create a Buyer’s Order', summary: 'Unit price, fees, trade, accessories, and delivery', path: '/sales',
+    steps: [
+      'Choose Buyer’s Order on a showroom unit, or create a new deal, then select the customer.',
+      'Enter the agreed unit price, freight, prep, documentation fee, installed accessories, trade allowance and payoff, rebates, title fees, and down payment as applicable.',
+      'Review taxable amount, tax, total, and remaining balance before saving.',
+      'After saving a deal linked to a showroom unit, choose Dispatch Rigging RO for buyer-requested work. Service adds stocked parts and labor, then completes and closes that internal RO.',
+      'Capture a signature when needed. Mark Completed & Sold only when the sale is final and the unit is delivered.',
+    ],
+    notes: ['Installed Parts & Accessories is added to unit price. Do not include the same charge in both fields.', 'Rigging tracks service cost; set the customer-facing accessory charge in the Buyer’s Order yourself. A later rigging order can be created for additional requests.'],
+  },
+  {
+    title: 'Review reports', summary: 'Revenue, payments, and outstanding balances', path: '/reports',
+    steps: [
+      'Open Reports and choose the relevant date range.',
+      'Compare revenue and receivables with issued invoices and recorded payments.',
+      'A partial payment reduces the balance; it does not mark the entire invoice paid.',
+    ],
+  },
+  {
+    title: 'Work with a weak connection', summary: 'Local saves and cloud verification',
+    steps: [
+      'Load the app and records you will need while connected when possible.',
+      'If an action says Saved locally or queued, reconnect and allow the app to sync.',
+      'Reopen the record after reconnecting to confirm the change reached your account. Resolve any save error before continuing.',
+    ],
+    notes: ['Offline behavior varies by action and previously loaded data. Do not assume a queued change is already visible on another device.', 'Avoid clearing app storage or uninstalling while work is waiting to sync.'],
+  },
+  {
+    title: 'Print or save a document', summary: 'Invoices and Buyer’s Orders',
+    steps: [
+      'Open the invoice or Buyer’s Order and choose its print action.',
+      'Select a printer or Save as PDF in the device print dialog, when available.',
+      'Preview pages and totals before giving the document to a customer.',
+    ],
+    notes: ['Printing depends on your browser or Android print service and installed printer.'],
+  },
+  {
+    title: 'Troubleshoot a missing record', summary: 'Checks before contacting support',
+    steps: [
+      'Check that you are signed into the right account and using the intended operating mode.',
+      'Clear search text and status filters, then reopen or refresh the page.',
+      'If you worked offline, reconnect and confirm the change synced.',
+      'For billing differences, compare RO lines, invoice totals, recorded payments, and balance.',
+      'When requesting help, include the screen name, record number, expected result, actual result, and an error screenshot.',
+    ],
+  },
+];
 
 export default function Help() {
-  const { settings } = useShopSettings();
-  const [activeTab, setActiveTab] = useState<
-    'solo' | 'dealer' | 'parts' | 'offline' | 'hardware' | 'support'
-  >(settings.enable_dealership_mode ? 'dealer' : 'solo');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [query, setQuery] = useState('');
+  const [openTitle, setOpenTitle] = useState<string | null>('Set up your shop');
+  const filtered = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return term ? topics.filter((topic) => `${topic.title} ${topic.summary} ${topic.steps.join(' ')} ${topic.notes?.join(' ') ?? ''}`.toLowerCase().includes(term)) : topics;
+  }, [query]);
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Top Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <PageTitle
-            title="Shop &amp; Dealership Knowledge Base"
-            sub="No-nonsense operating guides, workflows, and hardware setup built for real shop life."
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            to="/settings"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow hover:bg-slate-800 transition"
-          >
-            <WrenchIcon className="h-4 w-4 text-orange-400" />
-            <span>Shop Settings</span>
-          </Link>
-        </div>
+    <div className="mx-auto max-w-5xl space-y-6 pb-12">
+      <PageTitle title="Help &amp; Knowledge Base" sub="Practical steps for service, parts, billing, and unit sales." />
+      <Card className="space-y-3 p-5 sm:p-6">
+        <label htmlFor="help-search" className="block text-sm font-bold text-slate-900">What do you need to do?</label>
+        <input id="help-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search payments, PDI, special orders…" className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200" />
+        <p className="text-xs leading-relaxed text-slate-600">New here? Set up your shop, add a customer and equipment, write a repair order, complete the work, then invoice and record payment.</p>
+      </Card>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {filtered.map((topic) => {
+          const expanded = openTitle === topic.title || Boolean(query);
+          const id = `help-${topic.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+          return (
+            <Card key={topic.title} className="overflow-hidden p-0">
+              <button type="button" aria-expanded={expanded} aria-controls={id} onClick={() => setOpenTitle(openTitle === topic.title ? null : topic.title)} className="flex w-full items-start justify-between gap-3 p-4 text-left hover:bg-slate-50">
+                <span><span className="block text-sm font-black text-slate-900">{topic.title}</span><span className="mt-1 block text-xs text-slate-600">{topic.summary}</span></span>
+                <span aria-hidden="true" className="text-lg text-slate-500">{expanded ? '−' : '+'}</span>
+              </button>
+              {expanded && <div id={id} className="space-y-3 border-t border-slate-100 px-4 pb-5 pt-4 text-sm text-slate-700">
+                <ol className="list-decimal space-y-2 pl-5 leading-relaxed">{topic.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+                {topic.notes?.map((note) => <p key={note} className="rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-950">{note}</p>)}
+                {topic.path && <Link to={topic.path} className="inline-block rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-700">Open {topic.title} →</Link>}
+              </div>}
+            </Card>
+          );
+        })}
       </div>
-
-      {/* Category Navigation Pills */}
-      <div className="flex overflow-x-auto gap-2 pb-1 scrollbar-none text-xs font-bold">
-        <button
-          type="button"
-          onClick={() => setActiveTab('solo')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 whitespace-nowrap transition ${
-            activeTab === 'solo'
-              ? 'bg-orange-500 text-slate-950 font-black shadow-md shadow-orange-500/20'
-              : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span>🚛 Solo Rig Quick-Start</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('dealer')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 whitespace-nowrap transition ${
-            activeTab === 'dealer'
-              ? 'bg-purple-700 text-white font-black shadow-md shadow-purple-700/20'
-              : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span>🏢 Dealership &amp; DMS</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('parts')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 whitespace-nowrap transition ${
-            activeTab === 'parts'
-              ? 'bg-orange-500 text-slate-950 font-black shadow-md shadow-orange-500/20'
-              : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span>📦 Parts &amp; POS</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('offline')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 whitespace-nowrap transition ${
-            activeTab === 'offline'
-              ? 'bg-orange-500 text-slate-950 font-black shadow-md shadow-orange-500/20'
-              : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span>📶 100% Offline Guide</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('hardware')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 whitespace-nowrap transition ${
-            activeTab === 'hardware'
-              ? 'bg-orange-500 text-slate-950 font-black shadow-md shadow-orange-500/20'
-              : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span>🖨️ Hardware &amp; Printers</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('support')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 whitespace-nowrap transition ${
-            activeTab === 'support'
-              ? 'bg-slate-900 text-white font-black shadow-md'
-              : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'
-          }`}
-        >
-          <span>💬 Direct Founder Support</span>
-        </button>
-      </div>
-
-      {/* TAB 1: SOLO RIG WORKFLOW */}
-      {activeTab === 'solo' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
-          <Card className="p-6 space-y-4 border-l-4 border-l-orange-500">
-            <div className="flex items-center gap-2.5">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-100 text-orange-800 font-bold">
-                1
-              </span>
-              <h3 className="text-base font-black text-slate-900">
-                10-Second Service Call Workflow
-              </h3>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Outlaw Shop Systems is designed to let you handle intake, diagnostic work, customer authorization, and invoicing in seconds from an Android phone or tablet.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 pt-2">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <span className="font-mono text-[10px] font-black uppercase text-orange-600">Step 1</span>
-                <p className="text-xs font-bold text-slate-900">Intake &amp; VIN Decode</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Add customer name and tap <strong>"Decode VIN/HIN"</strong>. NHTSA automatically pulls exact Year, Make, Model, and engine specs.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <span className="font-mono text-[10px] font-black uppercase text-orange-600">Step 2</span>
-                <p className="text-xs font-bold text-slate-900">Open Repair Order</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Tap <strong>"+ Start RO"</strong> directly on the customer vehicle card. Add labor lines and scan parts from truck stock.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <span className="font-mono text-[10px] font-black uppercase text-orange-600">Step 3</span>
-                <p className="text-xs font-bold text-slate-900">Sign-Off on Glass</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Customer signs with their finger on your phone glass. Time, date, and signature are permanently locked into the ticket.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <span className="font-mono text-[10px] font-black uppercase text-orange-600">Step 4</span>
-                <p className="text-xs font-bold text-slate-900">Get Paid 0% Fees</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Tap <strong>"Generate Invoice"</strong>. Text the invoice or print it. Customers can pay via your Zelle, Venmo, Cash App, or credit card link.
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6 space-y-3">
-            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <CheckIcon className="h-4 w-4 text-emerald-500" /> Setting Your Default Labor Rate &amp; Payment Handles
-            </h4>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Go to <strong>Settings</strong> to set your shop hourly rate (e.g. $95/hr or $140/hr) and state sales tax. Add your Zelle phone/email and Venmo username so they print automatically at the bottom of every customer invoice.
-            </p>
-          </Card>
-        </div>
-      )}
-
-      {/* TAB 2: DEALERSHIP DMS */}
-      {activeTab === 'dealer' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
-          <Card className="p-6 space-y-4 border-l-4 border-l-purple-600">
-            <div className="flex items-center gap-2.5">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-purple-100 text-purple-800 font-bold">
-                🏢
-              </span>
-              <h3 className="text-base font-black text-slate-900">
-                Dealership Showroom &amp; Floorplan Operations
-              </h3>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              The Dealership &amp; Multi-Tech DMS transforms Outlaw Shop Systems into a full-scale dealership management suite covering showroom inventory, desking, floorplan lines, and PDI dispatch.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <p className="text-xs font-bold text-slate-900">🏦 Floorplan Financing &amp; Curtailments</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Log floored units with their lender (e.g. Northpoint, Wells Fargo CDF, Octane) and curtailment due date. The dashboard warns you <strong>30 days in advance</strong> before interest spikes.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <p className="text-xs font-bold text-slate-900">📝 1-Page Buyer's Orders</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Desk deals with unit price, freight, dealer prep, doc fees, trade-in equity, lien payoffs, and down payments. Capture buyer e-signatures and print full Bills of Sale.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <p className="text-xs font-bold text-slate-900">⚡ 1-Tap PDI Dispatch</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  When a crate arrives, tap <strong>"Dispatch PDI"</strong> on the unit card to automatically generate an uncrate, assembly, battery prep, and fluid fill Repair Order for your service techs.
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6 space-y-3">
-            <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <TagIcon className="h-4 w-4 text-purple-600" /> Printable Showroom Spec Stickers &amp; Price Tags
-            </h4>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              From the <strong>Showroom Floor</strong> tab (`/sales`), tap the 🏷️ icon on any unit to generate a clean, printable handlebar hangtag or window spec sheet complete with MSRP, VIN, engine specs, and dealer contact info.
-            </p>
-          </Card>
-        </div>
-      )}
-
-      {/* TAB 3: PARTS & POS */}
-      {activeTab === 'parts' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
-          <Card className="p-6 space-y-4 border-l-4 border-l-orange-500">
-            <div className="flex items-center gap-2.5">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-orange-100 text-orange-800 font-bold">
-                📦
-              </span>
-              <h3 className="text-base font-black text-slate-900">
-                Parts Department &amp; POS Register
-              </h3>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Engineered for fast counter sales, mobile truck stock, and multi-thousand SKU dealership inventories.
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <p className="text-xs font-bold text-slate-900">📖 OEM Master Price Books</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Upload master price files directly from <strong>Suzuki Connect, Honda iN, Polaris DEX, Yamaha YDS, or WPS</strong>. Look up 100,000+ manufacturer parts offline with zero manual typing.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <p className="text-xs font-bold text-slate-900">📷 Part Barcode Scanner</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Tap <strong>"Scan SKU"</strong> and center a part barcode or QR code in the camera frame to look up the item.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <p className="text-xs font-bold text-slate-900">📂 Bulk CSV Migration</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Tap <strong>"📂 Import CSV"</strong> to migrate your entire inventory from Lightspeed, CDK, DealerTrack, QuickBooks, or Excel in seconds with duplicate protection.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <p className="text-xs font-bold text-slate-900">⚡ New Part Invoice</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Use <strong>New Part Invoice</strong> (`/parts/counter`) to ring up walk-in retail sales, calculate change, apply discounts, and print/text receipts in 30 seconds.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <p className="text-xs font-bold text-slate-900">🚚 Special Orders &amp; Bin Staging</p>
-                <p className="text-[11px] text-slate-500 leading-snug">
-                  Track non-stock parts ordered from WPS, Parts Unlimited, Tucker, or OEMs. Assign holding bins (`Bin SO-1`), track shipments, send 1-tap arrival SMS notifications, and convert directly to invoices.
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* TAB 4: OFFLINE MODE */}
-      {activeTab === 'offline' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
-          <Card className="p-6 space-y-4 border-l-4 border-l-emerald-500">
-            <div className="flex items-center gap-2.5">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-100 text-emerald-800 font-bold">
-                📶
-              </span>
-              <h3 className="text-base font-black text-slate-900">
-                100% Offline Capability: How It Works
-              </h3>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Most software breaks when cell signal drops in a steel pole barn or out on a forest service road. Outlaw Shop Systems has an embedded offline database running right on your phone or laptop.
-            </p>
-
-            <div className="space-y-3 text-xs text-slate-700 leading-relaxed pt-1">
-              <div className="flex items-start gap-2.5">
-                <CheckIcon className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <p>
-                  <strong>All Read &amp; Write Operations are Local:</strong> You can create repair orders, look up parts, desk deals, and write invoices with zero internet connection.
-                </p>
-              </div>
-
-              <div className="flex items-start gap-2.5">
-                <CheckIcon className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <p>
-                  <strong>Automatic Cloud Sync:</strong> The moment your phone picks up Wi-Fi or LTE, the app automatically syncs all queued changes to your cloud database in the background.
-                </p>
-              </div>
-
-              <div className="flex items-start gap-2.5">
-                <CheckIcon className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                <p>
-                  <strong>Network Status Indicator:</strong> The header badge displays your live connection status and shows any items queued for synchronization.
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* TAB 5: HARDWARE & PRINTERS */}
-      {activeTab === 'hardware' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
-          <Card className="p-6 space-y-4 border-l-4 border-l-blue-600">
-            <div className="flex items-center gap-2.5">
-              <span className="grid h-8 w-8 place-items-center rounded-xl bg-blue-100 text-blue-800 font-bold">
-                🖨️
-              </span>
-              <h3 className="text-base font-black text-slate-900">
-                Hardware, Printers &amp; Truck Mounts
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 text-xs">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
-                <p className="font-bold text-slate-900">📱 Mobile Android APK Printing</p>
-                <p className="text-slate-600 leading-relaxed">
-                  The Android app connects directly to Android Print Services. Any Wi-Fi, Bluetooth, or Mopria-compatible mobile printer (Brother PocketJet, HP OfficeJet 250, Canon Pixma) prints standard 8.5" x 11" invoices with one tap.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
-                <p className="font-bold text-slate-900">🖥️ Desktop &amp; Dealership Laser Printers</p>
-                <p className="text-slate-600 leading-relaxed">
-                  Invoices and Buyer's Orders are formatted with clean, compact CSS designed to fit on a single crisp sheet of paper without awkward orphan pages or spilled margins.
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* TAB 6: DIRECT SUPPORT */}
-      {activeTab === 'support' && (
-        <div className="space-y-4 animate-in fade-in duration-150">
-          <Card className="p-6 space-y-4 border-l-4 border-l-slate-900 bg-gradient-to-br from-slate-900 to-slate-950 text-white shadow-xl">
-            <div className="flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-orange-500 text-slate-950 font-black shadow-md shadow-orange-500/20">
-                ⚡
-              </span>
-              <div>
-                <h3 className="text-lg font-black text-white">Direct Founder &amp; Tech Support</h3>
-                <p className="text-xs text-orange-400 font-semibold">
-                  Built by a mechanic with 17 years in the bays.
-                </p>
-              </div>
-            </div>
-
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Have a feature request, need help migrating your dealership data from an older DMS, or found something you'd like adjusted? You have direct access to support.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs">
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-orange-400">Direct Email</p>
-                <p className="font-bold text-white text-sm">service@outlawshopsystems.com</p>
-                <p className="text-[11px] text-slate-400">Fast response from real shop techs.</p>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-orange-400">System Information</p>
-                <p className="font-bold text-white text-sm">Outlaw Shop Systems v0.1.0</p>
-                <p className="text-[11px] text-slate-400">
-                  {settings.enable_dealership_mode ? '🏢 Dealership DMS Edition' : '🚛 Solo Rig Edition'}
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
+      {filtered.length === 0 && <Card className="p-5 text-sm text-slate-600">No matching topic. Try a shorter term such as “invoice” or “part.”</Card>}
+      <Card className="space-y-2 p-5">
+        <h2 className="text-sm font-black text-slate-900">Still stuck?</h2>
+        <p className="text-xs leading-relaxed text-slate-600">Email the screen name, record number, what you expected, what happened, and a screenshot to <a className="font-bold text-orange-700 underline" href="mailto:service@outlawshopsystems.com">service@outlawshopsystems.com</a>. Leave passwords and payment details out of screenshots.</p>
+      </Card>
     </div>
   );
 }
