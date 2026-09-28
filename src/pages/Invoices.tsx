@@ -8,6 +8,7 @@ import { check, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache } from '../lib/offlineSync';
 import { getInvoiceBalanceDue, getInvoiceEffectiveStatus } from '../lib/invoiceAccounting';
 import type { InvoiceFull } from '../types';
+import { useShopSettings } from '../lib/settings';
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -18,6 +19,7 @@ const FILTERS = [
 type FilterId = (typeof FILTERS)[number]['id'];
 
 export default function Invoices() {
+  const { settings } = useShopSettings();
   const [filter, setFilter] = useState<FilterId>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -73,9 +75,9 @@ export default function Invoices() {
           sub={totalDue > 0 ? `${money(totalDue)} outstanding receivables` : `${data?.length ?? 0} total invoices`}
         />
         <div className={ACTION_GRID_CLS}>
-          <Link to="/parts/counter" className={actionBtnCls('accent')}>
+          {settings.enable_dealership_mode && <Link to="/parts/counter" className={actionBtnCls('accent')}>
             <span>⚡ New Part Invoice</span>
-          </Link>
+          </Link>}
           <Link to="/reports" className={actionBtnCls('primary')}>
             <BanknotesIcon className="h-4 w-4 text-orange-400" />
             <span>Financials &amp; Reports</span>
@@ -112,7 +114,7 @@ export default function Invoices() {
           sub={
             searchQuery
               ? `No invoices match "${searchQuery}". Try searching by customer name or invoice number.`
-              : 'Generate an invoice directly from any completed repair order.'
+              : 'Generate an invoice directly from any completed work order.'
           }
         />
       ) : (

@@ -63,7 +63,7 @@ export async function saveWorkOrderPhoto(photo: WorkOrderPhoto): Promise<void> {
         table: 'work_order_photos',
         type: 'insert',
         payload: photo,
-        description: `Upload photo for RO`,
+        description: `Upload photo for WO`,
       });
     }
   } else {
@@ -71,7 +71,7 @@ export async function saveWorkOrderPhoto(photo: WorkOrderPhoto): Promise<void> {
       table: 'work_order_photos',
       type: 'insert',
       payload: photo,
-      description: `Upload photo for RO`,
+      description: `Upload photo for WO`,
     });
   }
 }

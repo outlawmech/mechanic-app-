@@ -304,15 +304,15 @@ export default function Sales() {
       navigate(`/work/${existing.id}`);
       return;
     }
-    if (!window.confirm(`Create a PDI & Assembly Repair Order for ${unit.year} ${unit.make} ${unit.model}?`)) return;
+    if (!window.confirm(`Create a PDI & Assembly Work Order for ${unit.year} ${unit.make} ${unit.model}?`)) return;
 
     try {
       const result = check(await requireSupabase().rpc('dispatch_unit_pdi', {
         p_unit_id: unit.id,
         p_labor_rate: num(settings.default_labor_rate) || 95,
       }));
-      if (!result.data) throw new Error('PDI dispatch did not return a repair order.');
-      toast('PDI repair order ready');
+      if (!result.data) throw new Error('PDI dispatch did not return a work order.');
+      toast('PDI work order ready');
       navigate(`/work/${result.data}`);
     } catch (err: any) {
       toast(err.message || 'Could not dispatch PDI work order', 'error');

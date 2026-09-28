@@ -11,11 +11,11 @@ import { useShopSettings } from '../lib/settings';
 import type { WorkOrderFull } from '../types';
 
 const FILTERS = [
-  { id: 'active', label: 'Active ROs' },
+  { id: 'active', label: 'Active WOs' },
   { id: 'open', label: 'Open' },
   { id: 'in_progress', label: 'In Progress' },
   { id: 'completed', label: 'Completed' },
-  { id: 'all', label: 'All ROs' },
+  { id: 'all', label: 'All WOs' },
 ] as const;
 
 type FilterId = (typeof FILTERS)[number]['id'];
@@ -81,8 +81,8 @@ export default function WorkOrders() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageTitle
-          title={isDms ? 'Service Department (RO)' : 'Repair Orders (RO)'}
-          sub={`${data?.length ?? 0} total repair orders`}
+          title={isDms ? 'Service Department (WO)' : 'Work Orders (WO)'}
+          sub={`${data?.length ?? 0} total work orders`}
         />
         <div className={ACTION_GRID_CLS}>
           <Link to="/schedule" className={actionBtnCls('ghost')}>
@@ -91,7 +91,7 @@ export default function WorkOrders() {
           </Link>
           <Link to="/work/new" className={actionBtnCls('accent')}>
             <PlusIcon className="h-4 w-4" />
-            <span>+ New RO</span>
+            <span>+ New WO</span>
           </Link>
         </div>
       </div>
@@ -104,7 +104,7 @@ export default function WorkOrders() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search RO #, customer name, vehicle, plate, part…"
+            placeholder="Search WO #, customer name, vehicle, plate, part…"
             className="h-10 w-full rounded-xl bg-white pl-10 pr-4 text-xs shadow-sm ring-1 ring-slate-900/10 focus:outline-none focus:ring-2 focus:ring-orange-400"
           />
         </div>
@@ -121,13 +121,13 @@ export default function WorkOrders() {
       {list.length === 0 ? (
         <EmptyState
           icon={<ClipboardIcon className="h-8 w-8" />}
-          title={searchQuery ? 'No matching repair orders' : 'No repair orders found'}
+          title={searchQuery ? 'No matching work orders' : 'No work orders found'}
           sub={
             searchQuery
-              ? `No repair orders match "${searchQuery}". Try searching by customer name, RO number, or vehicle.`
+              ? `No work orders match "${searchQuery}". Try searching by customer name, WO number, or vehicle.`
               : filter === 'all'
-                ? 'Create your first repair order to get started.'
-                : 'No repair orders match this status filter.'
+                ? 'Create your first work order to get started.'
+                : 'No work orders match this status filter.'
           }
           action={
             !searchQuery && (
@@ -135,7 +135,7 @@ export default function WorkOrders() {
                 to="/work/new"
                 className="inline-flex rounded-xl bg-orange-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-orange-300"
               >
-                + New Repair Order
+                + New Work Order
               </Link>
             )
           }
@@ -148,7 +148,7 @@ export default function WorkOrders() {
         </div>
       )}
 
-      <Fab to="/work/new" label="New Repair Order" />
+      <Fab to="/work/new" label="New Work Order" />
     </div>
   );
 }

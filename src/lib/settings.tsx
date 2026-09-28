@@ -51,6 +51,9 @@ export function saveLocalSettings(s: ShopSettings, userId?: string | null): void
 
 interface ShopSettingsContextType {
   settings: ShopSettings;
+  shopId: string | null;
+  memberRole: 'owner' | 'staff';
+  memberName: string;
   loading: boolean;
   updateSettings: (newSettings: Partial<ShopSettings>) => Promise<ShopSettings>;
   reloadSettings: () => Promise<void>;
@@ -58,6 +61,9 @@ interface ShopSettingsContextType {
 
 const ShopSettingsContext = createContext<ShopSettingsContextType>({
   settings: DEFAULT_SETTINGS,
+  shopId: null,
+  memberRole: 'owner',
+  memberName: '',
   loading: false,
   updateSettings: async (s) => ({ ...DEFAULT_SETTINGS, ...s }),
   reloadSettings: async () => {},
@@ -69,11 +75,17 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
     return getLocalSettings(user?.id);
   });
   const [loading, setLoading] = useState(true);
+  const [shopId, setShopId] = useState<string | null>(null);
+  const [memberRole, setMemberRole] = useState<'owner' | 'staff'>('owner');
+  const [memberName, setMemberName] = useState('');
 
   // When active user account changes, immediately switch to that user's scoped settings
   useEffect(() => {
     if (!user) {
       setSettings(DEFAULT_SETTINGS);
+      setShopId(null);
+      setMemberRole('owner');
+      setMemberName('');
       setLoading(false);
       return;
     }
@@ -101,17 +113,24 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     try {
       const sb = requireSupabase();
+      const { data: membership, error: memberError } = await sb.from('shop_members')
+        .select('shop_id, role, display_name').eq('member_id', user.id).maybeSingle();
+      if (memberError && !['42P01', 'PGRST205'].includes(memberError.code)) throw memberError;
+      const ownerId = membership?.shop_id || user.id;
+      setShopId(ownerId);
+      setMemberRole(membership?.role === 'staff' ? 'staff' : 'owner');
+      setMemberName(membership?.display_name || user.email?.split('@')[0] || 'Shop owner');
       const res = await sb
         .from('shop_settings')
         .select('*')
-        .or(`user_id.eq.${user.id},id.eq.${user.id}`)
+        .eq('user_id', ownerId)
         .limit(1);
 
       const settingData = res.data && res.data[0] ? res.data[0] : null;
 
       if (settingData) {
         let isDealer = Boolean(settingData.enable_dealership_mode);
-        if (typeof user?.user_metadata?.enable_dealership_mode === 'boolean') {
+        if (ownerId === user.id && typeof user?.user_metadata?.enable_dealership_mode === 'boolean') {
           isDealer = user.user_metadata.enable_dealership_mode;
         }
 
@@ -123,6 +142,7 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
         setSettings(loaded);
         saveLocalSettings(loaded, user.id);
       } else {
+        if (ownerId !== user.id) throw new Error('Your shop settings could not be loaded.');
         const defaultShopName = user.user_metadata?.shop_name || DEFAULT_SETTINGS.shop_name;
         const isDealer = Boolean(user.user_metadata?.enable_dealership_mode);
         const initial: ShopSettings = {
@@ -163,6 +183,7 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
   }
 
   async function updateSettings(newSettings: Partial<ShopSettings>): Promise<ShopSettings> {
+    if (memberRole === 'staff') throw new Error('Only the shop owner can change shop settings.');
     const updated: ShopSettings = { ...settings, ...newSettings, updated_at: new Date().toISOString() };
     setSettings(updated);
     saveLocalSettings(updated, user?.id);
@@ -213,6 +234,9 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
     <ShopSettingsContext.Provider
       value={{
         settings,
+        shopId,
+        memberRole,
+        memberName,
         loading,
         updateSettings,
         reloadSettings: load,

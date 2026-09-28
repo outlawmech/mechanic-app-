@@ -50,7 +50,8 @@ export default function Auth() {
     setLoading(true);
     try {
       if (mode === 'signup') {
-        const isDealer = selectedPackage === 'dealer';
+        // New accounts start in Solo Rig; dealership access requires a separate grant.
+        const isDealer = false;
         const res = await signUp(email, password, shopName, isDealer);
         if (res.error) {
           setErrorMsg(res.error.message);
@@ -223,7 +224,7 @@ export default function Auth() {
             <span className="grid h-12 w-12 place-items-center rounded-xl bg-orange-500/10 text-orange-400 font-bold">
               <ClipboardIcon className="h-6 w-6" />
             </span>
-            <h3 className="text-lg font-bold text-white">Repair Orders in 10 Seconds</h3>
+            <h3 className="text-lg font-bold text-white">Work Orders in 10 Seconds</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
               Open repair tickets, add labor hours and parts lines, track job status (Open, In Progress, Completed), and capture customer sign-offs on glass.
             </p>
@@ -350,7 +351,7 @@ export default function Auth() {
 
               <ul className="space-y-2.5 text-xs text-slate-300 pt-4 border-t border-slate-800">
                 <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Unlimited Repair Orders &amp; Invoices
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Unlimited Work Orders &amp; Invoices
                 </li>
                 <li className="flex items-center gap-2.5">
                   <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Full 100% Offline Mode &amp; Local Database
@@ -429,10 +430,10 @@ export default function Auth() {
 
             <button
               type="button"
-              onClick={() => scrollToAuth('signup', 'dealer')}
+              onClick={() => scrollToAuth('signup', 'solo')}
               className="w-full rounded-xl bg-orange-500 py-3.5 text-sm font-black text-slate-950 hover:bg-orange-400 shadow-lg shadow-orange-500/25 transition active:scale-95"
             >
-              Start Dealership Free Trial
+              Create Account for Dealership Upgrade
             </button>
           </div>
         </div>
@@ -512,7 +513,7 @@ export default function Auth() {
 
                     <button
                       type="button"
-                      onClick={() => setSelectedPackage('dealer')}
+                      onClick={() => setSelectedPackage('solo')}
                       className={`rounded-xl border p-2.5 text-left transition ${
                         selectedPackage === 'dealer'
                           ? 'border-orange-500 bg-orange-500/10 text-white shadow-xs'
@@ -521,7 +522,7 @@ export default function Auth() {
                     >
                       <p className="font-bold text-slate-100">🏍️ Dealer DMS</p>
                       <p className="text-[10px] text-orange-400 font-semibold mt-0.5">$99 / mo</p>
-                      <p className="text-[10px] text-slate-400 mt-1">Showroom &amp; Unit Sales</p>
+                      <p className="text-[10px] text-slate-400 mt-1">Upgrade required after signup</p>
                     </button>
                   </div>
                 </div>

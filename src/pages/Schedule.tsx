@@ -101,7 +101,7 @@ export default function Schedule() {
             .update({ scheduled_at: scheduledAtIso })
             .eq('id', wo.id)
         );
-        toast(`RO #${wo.number} rescheduled to ${newDate}`);
+        toast(`WO #${wo.number} rescheduled to ${newDate}`);
         await reload();
       } else {
         enqueueOfflineAction({
@@ -110,11 +110,11 @@ export default function Schedule() {
           payload: { scheduled_at: scheduledAtIso },
           matchField: 'id',
           matchValue: wo.id,
-          description: `Reschedule RO #${wo.number} to ${newDate}`,
+          description: `Reschedule WO #${wo.number} to ${newDate}`,
         });
         wo.scheduled_at = scheduledAtIso;
         cacheLocal('work_orders', allOrders);
-        toast(`RO #${wo.number} rescheduled (Saved locally)`);
+        toast(`WO #${wo.number} rescheduled (Saved locally)`);
       }
       setReschedulingId(null);
     } catch (err) {
@@ -273,7 +273,7 @@ export default function Schedule() {
               sub={
                 quickFilter === 'today'
                   ? 'No appointments on the board for today.'
-                  : 'No scheduled repair orders match this filter.'
+                  : 'No scheduled work orders match this filter.'
               }
               action={
                 <Link
@@ -300,7 +300,7 @@ export default function Schedule() {
                             {idx + 1}
                           </span>
                           <span className="font-mono text-xs font-bold text-slate-600">
-                            RO #{wo.number}
+                            WO #{wo.number}
                           </span>
                         </div>
                         <Badge status={wo.status} />
@@ -349,7 +349,7 @@ export default function Schedule() {
                       )}
                     </div>
 
-                    {/* Action Bar: Maps, Text ETA, Call, Open RO */}
+                    {/* Action Bar: Maps, Text ETA, Call, Open WO */}
                     <div className="mt-4 border-t border-slate-100 pt-3 space-y-2">
                       <div className="grid grid-cols-3 gap-1.5">
                         {/* Maps Nav */}
@@ -436,7 +436,7 @@ export default function Schedule() {
                           to={`/work/${wo.id}`}
                           className="font-bold text-orange-600 hover:text-orange-700 flex items-center gap-0.5"
                         >
-                          Open RO →
+                          Open WO →
                         </Link>
                       </div>
                     </div>
@@ -546,7 +546,7 @@ export default function Schedule() {
 
             {routeOrders.length === 0 ? (
               <Card className="p-4 text-center text-xs text-slate-400">
-                No repair orders scheduled on this date.
+                No work orders scheduled on this date.
               </Card>
             ) : (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
@@ -555,7 +555,7 @@ export default function Schedule() {
                     <Card className="p-3.5 hover:border-orange-400/50">
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="font-mono text-xs font-bold text-slate-600">RO #{wo.number}</p>
+                          <p className="font-mono text-xs font-bold text-slate-600">WO #{wo.number}</p>
                           <p className="text-sm font-bold text-slate-900">{fullName(wo.customer)}</p>
                           {wo.vehicle && (
                             <p className="text-xs text-slate-500 mt-0.5">
@@ -574,7 +574,7 @@ export default function Schedule() {
         </div>
       )}
 
-      {/* Unscheduled ROs Sidebar / Drawer Section */}
+      {/* Unscheduled WOs Sidebar / Drawer Section */}
       {unscheduledOrders.length > 0 && (
         <Card className="border-slate-200 bg-slate-50/80 p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -588,7 +588,7 @@ export default function Schedule() {
             {unscheduledOrders.map((wo) => (
               <div key={wo.id} className="flex items-center justify-between rounded-xl bg-white p-2.5 shadow-sm border border-slate-200">
                 <div className="min-w-0 pr-2">
-                  <p className="font-mono text-[11px] font-bold text-slate-500">RO #{wo.number}</p>
+                  <p className="font-mono text-[11px] font-bold text-slate-500">WO #{wo.number}</p>
                   <p className="truncate text-xs font-bold text-slate-800">{fullName(wo.customer)}</p>
                 </div>
                 <button

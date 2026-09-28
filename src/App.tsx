@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import { ToastProvider } from './components/Toast';
 import { Spinner } from './components/ui';
@@ -82,10 +82,10 @@ function AppRoutes() {
           <Route path="invoices/:id" element={<InvoiceDetail />} />
           <Route path="reports" element={<Reports />} />
           <Route path="parts" element={<Parts />} />
-          <Route path="parts/counter" element={<CounterSale />} />
-          <Route path="sales" element={<Sales />} />
-          <Route path="sales/deal/new" element={<BuyersOrderDetail />} />
-          <Route path="sales/deal/:id" element={<BuyersOrderDetail />} />
+          <Route path="parts/counter" element={settings.enable_dealership_mode ? <CounterSale /> : <Navigate to="/parts" replace />} />
+          <Route path="sales" element={settings.enable_dealership_mode ? <Sales /> : <Navigate to="/" replace />} />
+          <Route path="sales/deal/new" element={settings.enable_dealership_mode ? <BuyersOrderDetail /> : <Navigate to="/" replace />} />
+          <Route path="sales/deal/:id" element={settings.enable_dealership_mode ? <BuyersOrderDetail /> : <Navigate to="/" replace />} />
           <Route path="help" element={<Help />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Dashboard />} />

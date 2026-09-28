@@ -116,6 +116,8 @@ export type InvoicePayment = {
   method: PaymentMethod;
   reference_note?: string;
   created_at: string;
+  cashier_user_id?: string;
+  cashier_name?: string;
 };
 
 export type Invoice = {

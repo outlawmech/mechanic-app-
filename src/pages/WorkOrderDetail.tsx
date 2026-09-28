@@ -247,7 +247,7 @@ export default function WorkOrderDetail() {
           payload: { status: next, completed_at: completedAt },
           matchField: 'id',
           matchValue: wo!.id,
-          description: `Update RO #${wo!.number} status to ${next}`,
+          description: `Update WO #${wo!.number} status to ${next}`,
         });
         wo!.status = next;
         cacheLocal(`wo_${id}`, data);
@@ -260,7 +260,7 @@ export default function WorkOrderDetail() {
         payload: { status: next, completed_at: completedAt },
         matchField: 'id',
         matchValue: wo!.id,
-        description: `Update RO #${wo!.number} status to ${next}`,
+        description: `Update WO #${wo!.number} status to ${next}`,
       });
       wo!.status = next;
       cacheLocal(`wo_${id}`, data);
@@ -315,7 +315,7 @@ export default function WorkOrderDetail() {
   async function addItem(e: FormEvent) {
     e.preventDefault();
     if (wo?.internal_closed_at) {
-      toast('This internal RO is closed. Create a separate correction order.', 'error');
+      toast('This internal WO is closed. Create a separate correction order.', 'error');
       return;
     }
     if (isInternal && kind === 'part' && !selectedPartId) {
@@ -323,7 +323,7 @@ export default function WorkOrderDetail() {
       return;
     }
     if (financialItemsLocked) {
-      toast('This repair order has an issued invoice. Its financial line items are locked; record additional work on a separate repair order.', 'error');
+      toast('This work order has an issued invoice. Its financial line items are locked; record additional work on a separate work order.', 'error');
       return;
     }
     if (!desc.trim()) {
@@ -425,11 +425,11 @@ export default function WorkOrderDetail() {
 
   async function removeItem(itemId: string) {
     if (wo?.internal_closed_at) {
-      toast('This internal RO is closed. Create a separate correction order.', 'error');
+      toast('This internal WO is closed. Create a separate correction order.', 'error');
       return;
     }
     if (financialItemsLocked) {
-      toast('This repair order has an issued invoice. Its financial line items are locked.', 'error');
+      toast('This work order has an issued invoice. Its financial line items are locked.', 'error');
       return;
     }
     try {
@@ -484,7 +484,7 @@ export default function WorkOrderDetail() {
           payload: updates,
           matchField: 'id',
           matchValue: wo!.id,
-          description: `Update details for RO #${wo!.number}`,
+          description: `Update details for WO #${wo!.number}`,
         });
         if (updates.notes !== undefined) wo!.notes = updates.notes;
         if (updates.mileage_or_hours !== undefined) wo!.mileage_or_hours = updates.mileage_or_hours;
@@ -500,7 +500,7 @@ export default function WorkOrderDetail() {
         payload: updates,
         matchField: 'id',
         matchValue: wo!.id,
-        description: `Update details for RO #${wo!.number}`,
+        description: `Update details for WO #${wo!.number}`,
       });
       if (updates.notes !== undefined) wo!.notes = updates.notes;
       if (updates.mileage_or_hours !== undefined) wo!.mileage_or_hours = updates.mileage_or_hours;
@@ -612,11 +612,11 @@ export default function WorkOrderDetail() {
         to="/work"
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800"
       >
-        <ArrowLeftIcon className="h-3.5 w-3.5" /> All Repair Orders
+        <ArrowLeftIcon className="h-3.5 w-3.5" /> All Work Orders
       </Link>
 
       <PageTitle
-        title={`RO #${wo.number}`}
+        title={`WO #${wo.number}`}
         sub={`Created ${longDate(wo.created_at)}`}
         right={<Badge status={wo.status} />}
       />
@@ -747,12 +747,12 @@ export default function WorkOrderDetail() {
             <div className="space-y-2">
               {wo.status === 'open' && (
                 <Button variant="accent" className="w-full text-xs font-bold" disabled={acting} onClick={() => updateStatus('in_progress')}>
-                  ▶ Start Repair Order
+                  ▶ Start Work Order
                 </Button>
               )}
               {wo.status === 'in_progress' && (
                 <Button variant="success" className="w-full text-xs font-bold" disabled={acting} onClick={() => updateStatus('completed')}>
-                  ✓ Mark RO Completed
+                  ✓ Mark WO Completed
                 </Button>
               )}
               {isInternal && (
@@ -768,7 +768,7 @@ export default function WorkOrderDetail() {
               )}
               {wo.status === 'completed' && isInternal && !wo.internal_closed_at && (
                 <Button variant="success" className="w-full text-xs font-bold" disabled={acting} onClick={closeInternalOrder}>
-                  Close Internal RO &amp; Post Unit Cost
+                  Close Internal WO &amp; Post Unit Cost
                 </Button>
               )}
               {wo.status === 'completed' && !isInternal && !showInvoicePanel && (
@@ -956,7 +956,7 @@ export default function WorkOrderDetail() {
           {financialItemsLocked && (
             <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-950">
               <p className="font-bold">Invoice {invoice!.number} has been issued. Repair-order financial line items are locked.</p>
-              <p className="mt-1">Record additional work on a separate repair order; this keeps issued invoice totals unchanged.</p>
+              <p className="mt-1">Record additional work on a separate work order; this keeps issued invoice totals unchanged.</p>
             </div>
           )}
           {invoiceItemsMismatch && (
@@ -966,7 +966,7 @@ export default function WorkOrderDetail() {
           )}
 
           {items.length === 0 ? (
-            <EmptyState title="No line items" sub={financialItemsLocked ? 'No line items were saved on this repair order.' : 'Add labor, parts or fees below to build the estimate.'} />
+            <EmptyState title="No line items" sub={financialItemsLocked ? 'No line items were saved on this work order.' : 'Add labor, parts or fees below to build the estimate.'} />
           ) : (
             <Card className="divide-y divide-slate-100 px-4 shadow-sm">
               {items.map((it) => (
@@ -1227,7 +1227,7 @@ export default function WorkOrderDetail() {
               disabled={adding || !desc.trim()}
               className="w-full text-xs font-bold"
             >
-              + Add to Repair Order
+              + Add to Work Order
             </Button>
               </form>
             </>
@@ -1247,7 +1247,7 @@ export default function WorkOrderDetail() {
           setDesc(p.sku ? `${p.sku} - ${p.name}` : p.name);
           setPrice(String(p.sell_price));
           setScannerOpen(false);
-          toast(`Selected ${p.sku} for repair order!`);
+          toast(`Selected ${p.sku} for work order!`);
         }}
         onAddNewPart={async (sku) => {
           setKind('part');

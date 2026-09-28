@@ -123,11 +123,11 @@ export default function BuyersOrderDetail() {
       toast('Reconnect before dispatching rigging.', 'error');
       return;
     }
-    if (!window.confirm('Create a separate internal rigging RO for this unit and deal?')) return;
+    if (!window.confirm('Create a separate internal rigging WO for this unit and deal?')) return;
     setDispatchingRigging(true);
     try {
       const res = check(await requireSupabase().rpc('dispatch_unit_rigging', { p_buyer_order_id: id }));
-      if (!res.data) throw new Error('Rigging dispatch did not return an RO.');
+      if (!res.data) throw new Error('Rigging dispatch did not return an WO.');
       navigate(`/work/${res.data}`);
     } catch (e) {
       toast(errMsg(e), 'error');
@@ -426,7 +426,7 @@ export default function BuyersOrderDetail() {
         <div className="flex items-center gap-2">
           {!isNew && existingOrder?.unit_id && (
             <Button type="button" variant="ghost" disabled={dispatchingRigging} onClick={dispatchRigging} className="text-xs font-bold">
-              <WrenchIcon className="h-4 w-4" /> Dispatch Rigging RO
+              <WrenchIcon className="h-4 w-4" /> Dispatch Rigging WO
             </Button>
           )}
           {!isNew && (

@@ -29,6 +29,8 @@ export function buildStandaloneInvoiceHtml(
   const totalPaid = (invoice.payments || []).reduce((sum, p) => sum + num(p.amount), 0);
   const balanceDue = Math.max(0, num(invoice.total) - totalPaid);
   const isFullyPaid = invoice.status === 'paid' || balanceDue <= 0;
+  const cashierRows = (invoice.payments || []).filter((payment) => payment.cashier_name)
+    .map((payment) => `<div style="font-size:8pt;color:#64748b">Cashier: ${escapeHtml(payment.cashier_name)} · ${money(payment.amount)}</div>`).join('');
   const vInfo = vehicle ? getVehicleTypeInfo(vehicle.type) : null;
 
   const lineItemsRows =
@@ -315,6 +317,7 @@ export function buildStandaloneInvoiceHtml(
         `
             : ''
         }
+        ${cashierRows}
         <div class="totals-row balance">
           <span style="color: ${balanceDue <= 0 ? '#16a34a' : '#0f172a'};">${balanceDue <= 0 ? 'Paid in Full' : 'Balance Due:'}</span>
           <span style="font-family: monospace; font-size: 10.5pt; color: ${balanceDue <= 0 ? '#16a34a' : '#dc2626'};">${balanceDue <= 0 ? '$0.00' : money(balanceDue)}</span>

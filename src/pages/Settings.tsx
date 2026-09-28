@@ -10,12 +10,13 @@ import { getSubscriptionInfo, STRIPE_PAYMENT_URL, redeemActivationCode } from '.
 
 import { ANDROID_APK_DOWNLOAD_URL } from '../lib/supabase';
 import { isNativePlatform } from '../lib/printer';
+import TeamAccess from '../components/TeamAccess';
 
 export default function Settings() {
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, signOut } = useAuth();
-  const { settings, loading, updateSettings } = useShopSettings();
+  const { settings, loading, memberRole, updateSettings } = useShopSettings();
 
   const [form, setForm] = useState(settings);
   const [saving, setSaving] = useState(false);
@@ -30,6 +31,12 @@ export default function Settings() {
   }, [settings]);
 
   if (loading) return <Spinner />;
+
+  if (memberRole === 'staff') return <div className="space-y-4 p-4">
+    <PageTitle title="Your dealership account" sub={settings.shop_name} />
+    <TeamAccess />
+    <Button type="button" onClick={signOut}>Sign out</Button>
+  </div>;
 
   const sub = getSubscriptionInfo(user, settings);
 
@@ -185,6 +192,10 @@ export default function Settings() {
             <div
               onClick={async () => {
                 const newTagline = form.tagline === 'Sales, Service & Parts DMS' ? 'Mobile & Shop Management' : form.tagline;
+                if (form.enable_dealership_mode) {
+                  toast('Contact support to change your plan. Your dealership access will remain available.');
+                  return;
+                }
                 setForm((prev) => ({ ...prev, enable_dealership_mode: false, tagline: newTagline }));
                 await updateSettings({ enable_dealership_mode: false, tagline: newTagline });
                 toast('🚛 Switched to Solo Rig Mode');
@@ -205,13 +216,18 @@ export default function Settings() {
               </div>
               <p className="text-[11px] text-orange-400 font-bold mt-1">$29 / month</p>
               <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                Streamlined for mobile mechanics and solo vans. Dispatch schedule, repair orders, on-site invoicing, and parts catalog.
+                Streamlined for mobile mechanics and solo vans. Dispatch schedule, work orders, on-site invoicing, and parts catalog.
               </p>
             </div>
 
             {/* Dealership DMS Option Card */}
             <div
               onClick={async () => {
+                if (!form.enable_dealership_mode) {
+                  setShowCodeBox(true);
+                  toast('A dealership plan or dealership activation code is required to use DMS.');
+                  return;
+                }
                 const newTagline = form.tagline === 'Mobile & Shop Management' ? 'Sales, Service & Parts DMS' : form.tagline;
                 setForm((prev) => ({ ...prev, enable_dealership_mode: true, tagline: newTagline }));
                 await updateSettings({ enable_dealership_mode: true, tagline: newTagline });
@@ -232,6 +248,7 @@ export default function Settings() {
                 )}
               </div>
               <p className="text-[11px] text-purple-300 font-bold mt-1">$99 / month</p>
+              {!form.enable_dealership_mode && <p className="text-[11px] text-purple-200 font-bold mt-1">Upgrade or redeem a dealership code to unlock</p>}
               <p className="text-xs text-slate-300 mt-2 leading-relaxed">
                 Full dealership operations. Showroom unit inventory, commercial floorplan financing, Buyer's Orders &amp; bills of sale, and direct part invoices.
               </p>
@@ -539,7 +556,7 @@ export default function Settings() {
         <p className="text-xs text-slate-300 leading-relaxed">
           {form.enable_dealership_mode
             ? 'Complete dealership management suite: Showroom inventory, floorplan line financing, Buyer’s Orders & bills of sale, direct part invoicing, and multi-tech service bay scheduling.'
-            : 'Unlock unlimited repair orders, cloud multi-tenant database sync, parts & inventory tracking, offline PDF invoicing, and customer SMS dispatches.'}
+            : 'Unlock unlimited work orders, cloud multi-tenant database sync, parts & inventory tracking, offline PDF invoicing, and customer SMS dispatches.'}
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
@@ -731,6 +748,7 @@ export default function Settings() {
       </Card>
 
       {/* Data Management Card */}
+      <TeamAccess />
       <Card className="space-y-3 border-orange-200 bg-orange-50/50 p-4">
         <h3 className="text-xs font-bold uppercase tracking-wide text-orange-900">
           Demo Data Management

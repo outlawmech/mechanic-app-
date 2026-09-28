@@ -162,7 +162,7 @@ export default function SignaturePad({
       </div>
 
       <p className="text-[10px] text-slate-500 leading-tight italic">
-        "I authorize the repair order services, parts, and estimates listed above and acknowledge satisfactory completion."
+        "I authorize the work order services, parts, and estimates listed above and acknowledge satisfactory completion."
       </p>
 
       <div className="flex items-center gap-2 pt-1">

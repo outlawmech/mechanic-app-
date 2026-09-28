@@ -12,6 +12,16 @@ type Topic = {
 
 const topics: Topic[] = [
   {
+    title: 'Add dealership staff', summary: 'Separate logins and shared shop records', path: '/settings',
+    steps: [
+      'The dealership owner opens Settings, enters the staff member’s name and email, and creates an invitation code.',
+      'Give that code only to the named person. They create their own login using that exact email, then enter the code in Settings within seven days.',
+      'Each person sets their display name in Settings. The app records who changes shop records and who records a payment.',
+      'The owner can remove staff access in Settings when someone leaves.',
+    ],
+    notes: ['Staff share the dealership’s records and can edit operational records. Only the owner changes shop settings and manages invitations. Existing separate shops are not merged.'],
+  },
+  {
     title: 'Set up your shop', summary: 'Business details, rates, tax, and payment options', path: '/settings',
     steps: [
       'Open Settings. Enter your shop name, phone, email, service area, and invoice footer, then save.',
@@ -31,20 +41,20 @@ const topics: Topic[] = [
     notes: ['Check decoded VIN information against the actual unit. Enter missing or incorrect details manually.'],
   },
   {
-    title: 'Write a repair order', summary: 'Intake, work, notes, and completion', path: '/work',
+    title: 'Write a work order', summary: 'Intake, work, notes, and completion', path: '/work',
     steps: [
-      'Start a new RO from the customer record or Repair Orders page. Select the customer and equipment when applicable.',
+      'Start a new WO from the customer record or Work Orders page. Select the customer and equipment when applicable.',
       'Record the concern and add labor, parts, or fees with the right quantity and rate.',
       'Use service notes and photos for findings. Capture a customer signature when authorization is needed.',
-      'Choose Start Repair Order when work begins, then Mark RO Completed when it is done.',
+      'Choose Start Work Order when work begins, then Mark WO Completed when it is done.',
       'For customer work, review the lines and tax before creating an invoice.',
     ],
-    notes: ['Issued invoices lock the RO’s financial lines. Put additional billable work on a separate RO.', 'For an internal PDI or rigging RO, complete the work and use Close Internal RO. This posts cost to the unit without issuing a customer invoice.'],
+    notes: ['Issued invoices lock the WO’s financial lines. Put additional billable work on a separate WO.', 'For an internal PDI or rigging WO, complete the work and use Close Internal WO. This posts cost to the unit without issuing a customer invoice.'],
   },
   {
     title: 'Invoice and record payments', summary: 'Send bills, take partial payments, print receipts', path: '/invoices',
     steps: [
-      'Complete a customer RO, open Create & Send Invoice, and check line items, total, and tax before issuing it.',
+      'Complete a customer WO, open Create & Send Invoice, and check line items, total, and tax before issuing it.',
       'Open the invoice to share it using your device’s email or messaging options, or select Print / Save PDF.',
       'After payment is actually received, choose Record Payment, enter the amount and method, then save.',
       'For a deposit or partial payment, enter only what you received. The unpaid amount remains due.',
@@ -63,7 +73,7 @@ const topics: Topic[] = [
     title: 'Manage parts inventory', summary: 'Stock, SKUs, prices, and imports', path: '/parts',
     steps: [
       'Open Parts and add an item with its SKU, description, quantity, cost, and selling price.',
-      'Search by SKU or name to find stocked parts for repair orders and counter sales.',
+      'Search by SKU or name to find stocked parts for work orders and counter sales.',
       'For many parts, use Import CSV and review the imported quantities and prices.',
       'After a sale, reopen the part to confirm the remaining stock.',
     ],
@@ -92,8 +102,8 @@ const topics: Topic[] = [
     steps: [
       'In Dealership mode, open Sales and choose Add Unit. Enter stock number, year, make, model, cost, and asking price. Add VIN and floorplan details when available.',
       'Save the unit and verify its stock number and price on the showroom list.',
-      'The PDI button creates an internal repair order with the stock number and two starting labor tasks. Review and adjust work as needed.',
-      'After the technician finishes, mark the RO completed and choose Close Internal RO to post costs to the unit.',
+      'The PDI button creates an internal work order with the stock number and two starting labor tasks. Review and adjust work as needed.',
+      'After the technician finishes, mark the WO completed and choose Close Internal WO to post costs to the unit.',
       'Keep the manufacturer’s PDI form with your normal delivery records.',
     ],
     notes: ['PDI closeout uses the internal labor cost rate in Settings and the current cost of stocked parts. It does not create a customer invoice or change the unit’s sale price.'],
@@ -104,7 +114,7 @@ const topics: Topic[] = [
       'Choose Buyer’s Order on a showroom unit, or create a new deal, then select the customer.',
       'Enter the agreed unit price, freight, prep, documentation fee, installed accessories, trade allowance and payoff, rebates, title fees, and down payment as applicable.',
       'Review taxable amount, tax, total, and remaining balance before saving.',
-      'After saving a deal linked to a showroom unit, choose Dispatch Rigging RO for buyer-requested work. Service adds stocked parts and labor, then completes and closes that internal RO.',
+      'After saving a deal linked to a showroom unit, choose Dispatch Rigging WO for buyer-requested work. Service adds stocked parts and labor, then completes and closes that internal WO.',
       'Capture a signature when needed. Mark Completed & Sold only when the sale is final and the unit is delivered.',
     ],
     notes: ['Installed Parts & Accessories is added to unit price. Do not include the same charge in both fields.', 'Rigging tracks service cost; set the customer-facing accessory charge in the Buyer’s Order yourself. A later rigging order can be created for additional requests.'],
@@ -141,7 +151,7 @@ const topics: Topic[] = [
       'Check that you are signed into the right account and using the intended operating mode.',
       'Clear search text and status filters, then reopen or refresh the page.',
       'If you worked offline, reconnect and confirm the change synced.',
-      'For billing differences, compare RO lines, invoice totals, recorded payments, and balance.',
+      'For billing differences, compare WO lines, invoice totals, recorded payments, and balance.',
       'When requesting help, include the screen name, record number, expected result, actual result, and an error screenshot.',
     ],
   },
@@ -161,7 +171,7 @@ export default function Help() {
       <Card className="space-y-3 p-5 sm:p-6">
         <label htmlFor="help-search" className="block text-sm font-bold text-slate-900">What do you need to do?</label>
         <input id="help-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search payments, PDI, special orders…" className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200" />
-        <p className="text-xs leading-relaxed text-slate-600">New here? Set up your shop, add a customer and equipment, write a repair order, complete the work, then invoice and record payment.</p>
+        <p className="text-xs leading-relaxed text-slate-600">New here? Set up your shop, add a customer and equipment, write a work order, complete the work, then invoice and record payment.</p>
       </Card>
       <div className="grid gap-3 sm:grid-cols-2">
         {filtered.map((topic) => {

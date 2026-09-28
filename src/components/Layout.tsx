@@ -29,7 +29,7 @@ import NetworkStatusBadge from './NetworkStatusBadge';
 const soloDesktopTabs = [
   { to: '/', label: 'Home (Solo Rig)', shortLabel: 'Home', icon: HomeIcon, end: true },
   { to: '/schedule', label: 'Schedule & Appointments', shortLabel: 'Schedule', icon: CalendarIcon, end: false },
-  { to: '/work', label: 'Repair Orders', shortLabel: 'ROs', icon: ClipboardIcon, end: false },
+  { to: '/work', label: 'Work Orders', shortLabel: 'WOs', icon: ClipboardIcon, end: false },
   { to: '/customers', label: 'Customers & Fleet', shortLabel: 'Customers', icon: UsersIcon, end: false },
   { to: '/parts', label: 'Parts Inventory', shortLabel: 'Parts', icon: BoxIcon, end: false },
   { to: '/invoices', label: 'Invoices & Billing', shortLabel: 'Invoices', icon: ReceiptIcon, end: false },
@@ -42,7 +42,7 @@ const soloDesktopTabs = [
 const dealerDesktopTabs = [
   { to: '/', label: 'Executive Dashboard', shortLabel: 'Home', icon: HomeIcon, end: true },
   { to: '/schedule', label: 'Schedule & Bay Dispatch', shortLabel: 'Schedule', icon: CalendarIcon, end: false },
-  { to: '/work', label: 'Service & Repair Orders', shortLabel: 'Service', icon: ClipboardIcon, end: false },
+  { to: '/work', label: 'Service & Work Orders', shortLabel: 'Service', icon: ClipboardIcon, end: false },
   { to: '/parts', label: 'Parts Department', shortLabel: 'Parts', icon: BoxIcon, end: false },
   { to: '/sales', label: 'Showroom & Unit Sales', shortLabel: 'Showroom', icon: TagIcon, end: false },
   { to: '/customers', label: 'Customer Directory', shortLabel: 'Customers', icon: UsersIcon, end: false },
@@ -56,7 +56,7 @@ const dealerDesktopTabs = [
 const soloPrimaryTabs = [
   { to: '/', label: 'Home', shortLabel: 'Home', icon: HomeIcon, end: true },
   { to: '/schedule', label: 'Schedule', shortLabel: 'Schedule', icon: CalendarIcon, end: false },
-  { to: '/work', label: 'ROs', shortLabel: 'ROs', icon: ClipboardIcon, end: false },
+  { to: '/work', label: 'WOs', shortLabel: 'WOs', icon: ClipboardIcon, end: false },
   { to: '/customers', label: 'Customers', shortLabel: 'Customers', icon: UsersIcon, end: false },
 ];
 
@@ -70,7 +70,7 @@ const dealerPrimaryTabs = [
 ];
 
 export default function Layout() {
-  const { settings, updateSettings } = useShopSettings();
+  const { settings } = useShopSettings();
   const { user } = useAuth();
   const { viewMode, setViewMode } = useViewMode();
   const toast = useToast();
@@ -714,11 +714,10 @@ export default function Layout() {
             <div className="pt-2 border-t border-slate-100">
               <button
                 type="button"
-                onClick={async () => {
-                  const targetState = !settings.enable_dealership_mode;
-                  await updateSettings({ enable_dealership_mode: targetState });
-                  toast(targetState ? '🏢 Switched to Dealership DMS Mode!' : '🚛 Switched to Solo Rig Mode!');
+                onClick={() => {
+                  toast(settings.enable_dealership_mode ? 'Contact support to change your dealership plan.' : 'A dealership upgrade or activation code is required for DMS.');
                   setShowMoreMenu(false);
+                  navigate('/settings');
                 }}
                 className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left transition ${
                   settings.enable_dealership_mode
@@ -728,7 +727,7 @@ export default function Layout() {
               >
                 <div>
                   <p className="text-xs font-black">
-                    {settings.enable_dealership_mode ? 'Switch to Solo Rig Mode ($29/mo)' : '🏢 Switch to Dealership DMS ($99/mo)'}
+                    {settings.enable_dealership_mode ? 'Dealership plan active' : '🏢 Dealership upgrade required ($99/mo)'}
                   </p>
                   <p className="text-[10px] text-slate-500 mt-0.5">
                     {settings.enable_dealership_mode
@@ -737,7 +736,7 @@ export default function Layout() {
                   </p>
                 </div>
                 <span className="text-xs font-bold px-2 py-1 bg-white rounded-lg border shadow-xs">
-                  Switch →
+                  Settings →
                 </span>
               </button>
             </div>

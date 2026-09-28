@@ -78,7 +78,7 @@ export default function NewWorkOrder() {
         phone: qPhone.trim(),
         email: qEmail.trim(),
         address: '',
-        notes: 'Created via quick RO intake',
+        notes: 'Created via quick WO intake',
         created_at: new Date().toISOString(),
       };
 
@@ -154,11 +154,11 @@ export default function NewWorkOrder() {
   if (customers && customers.length === 0) {
     return (
       <div className="space-y-4">
-        <PageTitle title="New Repair Order (RO)" />
+        <PageTitle title="New Work Order (WO)" />
         <EmptyState
           icon={<UsersIcon className="h-8 w-8" />}
           title="No customers on file"
-          sub="Add a customer first, then start the repair order."
+          sub="Add a customer first, then start the work order."
           action={
             <Link to="/customers/new">
               <Button variant="accent">+ Add Customer</Button>
@@ -226,7 +226,7 @@ export default function NewWorkOrder() {
         );
         const created = (res.data as Array<{ id: string; number: string }>)?.[0];
         if (created?.id) {
-          toast('Repair Order created');
+          toast('Work Order created');
           navigate(`/work/${created.id}`, { replace: true });
           return;
         }
@@ -243,10 +243,10 @@ export default function NewWorkOrder() {
           mileage_or_hours: payload.mileage_or_hours,
           notes: payload.notes,
         },
-        description: `Create Repair Order for ${fullName(customer)}`,
+        description: `Create Work Order for ${fullName(customer)}`,
       });
 
-      toast('Repair Order created (Saved to device)');
+      toast('Work Order created (Saved to device)');
       navigate(`/work/${roId}`, { replace: true });
     } catch (err) {
       enqueueOfflineAction({
@@ -260,10 +260,10 @@ export default function NewWorkOrder() {
           mileage_or_hours: payload.mileage_or_hours,
           notes: payload.notes,
         },
-        description: `Create Repair Order for ${fullName(customer)}`,
+        description: `Create Work Order for ${fullName(customer)}`,
       });
 
-      toast('Repair Order created (Saved offline)');
+      toast('Work Order created (Saved offline)');
       navigate(`/work/${roId}`, { replace: true });
     } finally {
       setSaving(false);
@@ -276,9 +276,9 @@ export default function NewWorkOrder() {
         to="/work"
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800"
       >
-        <ArrowLeftIcon className="h-3.5 w-3.5" /> All Repair Orders
+        <ArrowLeftIcon className="h-3.5 w-3.5" /> All Work Orders
       </Link>
-      <PageTitle title="New Repair Order (RO)" sub="What machine or vehicle are we servicing?" />
+      <PageTitle title="New Work Order (WO)" sub="What machine or vehicle are we servicing?" />
 
       <form onSubmit={save} className="space-y-4">
         <Card className="space-y-4 p-4">
@@ -367,7 +367,7 @@ export default function NewWorkOrder() {
         </Card>
 
         <Button type="submit" variant="accent" disabled={saving} className="w-full text-xs font-bold">
-          {saving ? 'Creating…' : 'Create Repair Order'}
+          {saving ? 'Creating…' : 'Create Work Order'}
         </Button>
       </form>
 
@@ -388,7 +388,7 @@ export default function NewWorkOrder() {
                 </span>
                 <div>
                   <h3 className="text-base font-bold text-white">Quick Customer Intake</h3>
-                  <p className="text-xs text-slate-400">Add contact info and vehicle without leaving RO intake</p>
+                  <p className="text-xs text-slate-400">Add contact info and vehicle without leaving WO intake</p>
                 </div>
               </div>
               <button
@@ -521,7 +521,7 @@ export default function NewWorkOrder() {
                   disabled={savingQuick}
                   className="text-xs font-bold"
                 >
-                  {savingQuick ? 'Saving…' : 'Save & Attach to RO'}
+                  {savingQuick ? 'Saving…' : 'Save & Attach to WO'}
                 </Button>
               </div>
             </form>

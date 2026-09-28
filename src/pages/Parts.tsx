@@ -691,12 +691,12 @@ export default function Parts() {
             </>
           )}
 
-          <Link
+          {settings.enable_dealership_mode && <Link
             to="/parts/counter"
             className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition active:scale-95"
           >
             <span>⚡ Part Invoice</span>
-          </Link>
+          </Link>}
 
           {mainTab === 'inventory' && !addingPart && (
             <button
@@ -760,12 +760,12 @@ export default function Parts() {
             </button>
           ) : null}
 
-          <Link
+          {settings.enable_dealership_mode && <Link
             to="/parts/counter"
             className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3 text-xs font-bold text-white shadow-xs active:scale-95 transition"
           >
             <span>⚡ Part Invoice</span>
-          </Link>
+          </Link>}
         </div>
 
         {/* Row 2: Bottom 3 Secondary Utilities */}
@@ -1418,7 +1418,7 @@ export default function Parts() {
                         )}
 
                         {/* 3. Convert to Direct Invoice */}
-                        {so.status !== 'fulfilled' && (
+                        {settings.enable_dealership_mode && so.status !== 'fulfilled' && (
                           <button
                             type="button"
                             onClick={() => convertToInvoice(so)}

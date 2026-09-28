@@ -148,10 +148,10 @@ export default function Customers() {
                       to={`/work/new?customer=${c.id}`}
                       onClick={(e) => e.stopPropagation()}
                       className="inline-flex items-center gap-1 rounded-lg bg-orange-500/10 px-2 py-1 text-[11px] font-bold text-orange-700 hover:bg-orange-500 hover:text-slate-950 transition"
-                      title="Start New Repair Order"
+                      title="Start New Work Order"
                     >
                       <ClipboardIcon className="h-3 w-3" />
-                      <span>+ New RO</span>
+                      <span>+ New WO</span>
                     </Link>
                   </div>
                 </Card>

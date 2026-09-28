@@ -43,93 +43,92 @@ interface Metrics {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { settings } = useShopSettings();
+  const { settings, shopId } = useShopSettings();
   const sub = getSubscriptionInfo(user, settings);
   const isDms = Boolean(settings.enable_dealership_mode);
 
-  const [recentOrders, setRecentOrders] = useState<WorkOrderFull[]>(() => {
-    return getCachedLocal<WorkOrderFull[]>('dashboard_orders') || [];
-  });
-  const [unpaidInvoices, setUnpaidInvoices] = useState<any[]>(() => {
-    return getCachedLocal<any[]>('dashboard_unpaid_invoices') || [];
-  });
-  const [specialOrders, setSpecialOrders] = useState<SpecialOrder[]>(() => {
-    return getCachedLocal<SpecialOrder[]>('dashboard_special_orders') || [];
-  });
+  const [recentOrders, setRecentOrders] = useState<WorkOrderFull[]>([]);
+  const [unpaidInvoices, setUnpaidInvoices] = useState<any[]>([]);
+  const [specialOrders, setSpecialOrders] = useState<SpecialOrder[]>([]);
   const [upcomingCurtailments, setUpcomingCurtailments] = useState<DealershipUnit[]>([]);
   const [activeTab, setActiveTab] = useState<'active' | 'in_progress' | 'completed'>('active');
 
-  const [metrics, setMetrics] = useState<Metrics>(() => {
-    return (
-      getCachedLocal<Metrics>('dashboard_metrics') || {
+  const [metrics, setMetrics] = useState<Metrics>(() => ({
         inProgressCount: 0,
         completedCount: 0,
         openCount: 0,
         unpaidTotal: 0,
         unpaidCount: 0,
         totalCustomers: 0,
-      }
-    );
-  });
+  }));
   const [loading, setLoading] = useState(true);
+  const [dataNotice, setDataNotice] = useState('');
+  const [unavailable, setUnavailable] = useState<string[]>([]);
 
   useEffect(() => {
+    setRecentOrders([]);
+    setUnpaidInvoices([]);
+    setSpecialOrders([]);
+    setMetrics({
+      inProgressCount: 0, completedCount: 0, openCount: 0,
+      unpaidTotal: 0, unpaidCount: 0, totalCustomers: 0,
+    });
+    setDataNotice('');
+    setUnavailable([]);
     loadDashboard();
-  }, [user?.id]);
+  }, [user?.id, shopId]);
 
   async function loadDashboard() {
-    if (!user) {
+    if (!user || !shopId) {
       setLoading(false);
       return;
     }
     setLoading(true);
-
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const cachedOrders = getCachedLocal<WorkOrderFull[]>('dashboard_orders') || getCachedLocal<WorkOrderFull[]>('work_orders');
-      const cachedMetrics = getCachedLocal<Metrics>('dashboard_metrics');
-      const cachedUnpaid = getCachedLocal<any[]>('dashboard_unpaid_invoices');
-      const cachedSO = getCachedLocal<SpecialOrder[]>('dashboard_special_orders');
-      if (cachedOrders) setRecentOrders(cachedOrders.slice(0, 10));
-      if (cachedMetrics) setMetrics(cachedMetrics);
-      if (cachedUnpaid) setUnpaidInvoices(cachedUnpaid);
-      if (cachedSO) setSpecialOrders(cachedSO);
-      setLoading(false);
-      return;
-    }
+    setDataNotice('');
+    setUnavailable([]);
+    const key = (name: string) => `dashboard_${user.id}_${name}`;
 
     try {
       const [ordersRes, invoicesRes, customersRes, unitsRes, soRes] = await Promise.all([
         supabase
           .from('work_orders')
           .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
-          .eq('user_id', user.id)
+          .eq('user_id', shopId)
           .order('created_at', { ascending: false })
           .limit(20),
         supabase
           .from('invoices')
           .select('id, number, total, status, payments, paid_at, created_at, customer:customers(*)')
-          .or(`user_id.eq.${user.id},user_id.is.null`)
+          .eq('user_id', shopId)
           .order('created_at', { ascending: false }),
         supabase
           .from('customers')
           .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id),
+          .eq('user_id', shopId),
         supabase
           .from('dealership_units')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', shopId)
           .eq('is_floored', true)
           .eq('floorplan_paid_off', false),
         supabase
           .from('special_orders')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', shopId)
           .in('status', ['ordered', 'in_transit', 'received', 'notified'])
           .order('created_at', { ascending: false })
           .limit(6),
       ]);
 
-      if (invoicesRes.error) throw new Error(invoicesRes.error.message);
+      const failures = [
+        ['work orders', ordersRes], ['invoices', invoicesRes], ['customers', customersRes],
+        ['showroom units', unitsRes], ['special orders', soRes],
+      ] as const;
+      const failed = failures.filter(([, result]) => result.error);
+      setUnavailable(failed.map(([source]) => source));
+      if (failed.length) {
+        setDataNotice(`Some live dashboard data could not load: ${failed.map(([source, result]) => `${source} (${result.error?.message})`).join('; ')}. Retry live data.`);
+      }
 
       const orders = (ordersRes.data || []) as WorkOrderFull[];
       const allInvoices = (invoicesRes.data || []) as any[];
@@ -167,16 +166,25 @@ export default function Dashboard() {
       setSpecialOrders(activeSOs);
       setMetrics(latestMetrics);
 
-      cacheLocal('dashboard_orders', orders);
-      cacheLocal('dashboard_unpaid_invoices', unpaidList.slice(0, 5));
-      cacheLocal('dashboard_special_orders', activeSOs);
-      cacheLocal('dashboard_metrics', latestMetrics);
+      cacheLocal(key('orders'), orders);
+      cacheLocal(key('unpaid_invoices'), unpaidList.slice(0, 5));
+      cacheLocal(key('special_orders'), activeSOs);
+      cacheLocal(key('metrics'), latestMetrics);
     } catch (err) {
       console.warn('Dashboard online fetch failed, using local cache:', err);
-      const cachedOrders = getCachedLocal<WorkOrderFull[]>('dashboard_orders') || getCachedLocal<WorkOrderFull[]>('work_orders');
-      const cachedMetrics = getCachedLocal<Metrics>('dashboard_metrics');
+      const cachedOrders = getCachedLocal<WorkOrderFull[]>(key('orders'));
+      const cachedMetrics = getCachedLocal<Metrics>(key('metrics'));
+      const cachedUnpaid = getCachedLocal<any[]>(key('unpaid_invoices'));
+      const cachedSO = getCachedLocal<SpecialOrder[]>(key('special_orders'));
       if (cachedOrders) setRecentOrders(cachedOrders.slice(0, 10));
       if (cachedMetrics) setMetrics(cachedMetrics);
+      if (cachedUnpaid) setUnpaidInvoices(cachedUnpaid);
+      if (cachedSO) setSpecialOrders(cachedSO);
+      const reason = err instanceof Error ? err.message : 'Unknown network error';
+      setDataNotice(cachedMetrics
+        ? `Showing saved dashboard data; live refresh failed (${reason}). Retry when connected.`
+        : `Dashboard data could not load (${reason}). These zeros are not confirmed live totals. Retry when connected.`);
+      setUnavailable(cachedMetrics ? [] : ['work orders', 'invoices', 'customers']);
     } finally {
       setLoading(false);
     }
@@ -192,6 +200,12 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-5">
+      {dataNotice && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs font-semibold text-amber-950">
+          <span>{dataNotice}</span>
+          <button type="button" onClick={() => void loadDashboard()} disabled={loading} className="rounded-lg bg-amber-900 px-3 py-1.5 text-white disabled:opacity-50">Retry live data</button>
+        </div>
+      )}
       {/* 1. Header & Live Mode Switcher */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -212,7 +226,7 @@ export default function Dashboard() {
           <p className="text-xs text-slate-500 mt-0.5">
             {isDms
               ? 'Multi-department service, parts counter, and showroom operations.'
-              : 'Mobile mechanic, field service, and repair order dispatch.'}
+              : 'Mobile mechanic, field service, and work order dispatch.'}
           </p>
         </div>
 
@@ -238,12 +252,12 @@ export default function Dashboard() {
             <PlusIcon className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <span className="block text-xs font-black leading-tight group-hover:underline">New RO</span>
+            <span className="block text-xs font-black leading-tight group-hover:underline">New WO</span>
             <span className="block text-[10px] text-slate-900/80 font-semibold truncate">Service Intake</span>
           </div>
         </Link>
 
-        <Link
+        {isDms && <Link
           to="/parts/counter"
           className="flex items-center gap-2.5 rounded-2xl bg-slate-900 p-3 text-white shadow-md shadow-slate-900/20 transition hover:bg-slate-800 active:scale-95 group"
         >
@@ -254,7 +268,7 @@ export default function Dashboard() {
             <span className="block text-xs font-black leading-tight group-hover:underline">Part Invoice</span>
             <span className="block text-[10px] text-slate-400 font-semibold truncate">Counter Sale</span>
           </div>
-        </Link>
+        </Link>}
 
         <Link
           to="/schedule"
@@ -319,8 +333,8 @@ export default function Dashboard() {
               <ClipboardIcon className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Active ROs</p>
-              <p className="text-2xl font-black text-slate-900">{metrics.openCount}</p>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Active WOs</p>
+              <p className="text-2xl font-black text-slate-900">{loading ? '…' : unavailable.includes('work orders') ? '—' : metrics.openCount}</p>
             </div>
           </Card>
         </Link>
@@ -332,7 +346,7 @@ export default function Dashboard() {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">In Bay / Progress</p>
-              <p className="text-2xl font-black text-slate-900">{metrics.inProgressCount}</p>
+              <p className="text-2xl font-black text-slate-900">{loading ? '…' : unavailable.includes('work orders') ? '—' : metrics.inProgressCount}</p>
             </div>
           </Card>
         </Link>
@@ -344,7 +358,7 @@ export default function Dashboard() {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Unpaid Tickets</p>
-              <p className="text-2xl font-black text-slate-900">{money(metrics.unpaidTotal)}</p>
+              <p className="text-2xl font-black text-slate-900">{loading ? '…' : unavailable.includes('invoices') ? '—' : money(metrics.unpaidTotal)}</p>
             </div>
           </Card>
         </Link>
@@ -356,7 +370,7 @@ export default function Dashboard() {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Client Accounts</p>
-              <p className="text-2xl font-black text-slate-900">{metrics.totalCustomers}</p>
+              <p className="text-2xl font-black text-slate-900">{loading ? '…' : unavailable.includes('customers') ? '—' : metrics.totalCustomers}</p>
             </div>
           </Card>
         </Link>
@@ -394,12 +408,12 @@ export default function Dashboard() {
 
       {/* 4. Main 2-Column Split: Active Shop Floor & Department Activity */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-        {/* Left Column (7 Cols on desktop): Active Repair Orders */}
+        {/* Left Column (7 Cols on desktop): Active Work Orders */}
         <div className="space-y-4 lg:col-span-7">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800">
-                Shop Floor Repair Orders
+                Shop Floor Work Orders
               </h2>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
                 {filteredOrders.length}
@@ -447,14 +461,14 @@ export default function Dashboard() {
           ) : filteredOrders.length === 0 ? (
             <EmptyState
               icon={<ClipboardIcon className="h-8 w-8 text-slate-400" />}
-              title="No active repair orders"
-              sub="Create a new repair order to track diagnostic time, parts, and machine repair history."
+              title="No active work orders"
+              sub="Create a new work order to track diagnostic time, parts, and machine repair history."
               action={
                 <Link
                   to="/work/new"
                   className="inline-flex rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-slate-950 shadow shadow-orange-500/20 hover:bg-orange-400"
                 >
-                  + Create Repair Order
+                  + Create Work Order
                 </Link>
               }
             />

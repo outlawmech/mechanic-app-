@@ -364,7 +364,7 @@ export default function CustomerDetail() {
             </Button>
             <Link to={`/work/new?customer=${c.id}`}>
               <Button variant="accent" className="text-xs font-bold">
-                + New Repair Order (RO)
+                + New Work Order (WO)
               </Button>
             </Link>
           </div>
@@ -789,10 +789,10 @@ export default function CustomerDetail() {
                           <Link
                             to={`/work/new?customer=${c.id}&vehicle=${veh.id}`}
                             className="inline-flex items-center gap-1 rounded-lg bg-orange-400 px-2 py-1 text-[11px] font-black text-slate-950 hover:bg-orange-300 transition shadow-2xs"
-                            title="Start new repair order for this machine"
+                            title="Start new work order for this machine"
                           >
                             <WrenchIcon className="h-3 w-3" />
-                            <span>+ RO</span>
+                            <span>+ WO</span>
                           </Link>
                           <button
                             type="button"
@@ -819,13 +819,13 @@ export default function CustomerDetail() {
             )}
           </section>
 
-          {/* Repair Orders History Section */}
+          {/* Work Orders History Section */}
           <section className="space-y-2">
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
-              Repair Orders ({wos.length})
+              Work Orders ({wos.length})
             </h3>
             {wos.length === 0 ? (
-              <Card className="p-4 text-center text-xs text-slate-400">No repair orders on file.</Card>
+              <Card className="p-4 text-center text-xs text-slate-400">No work orders on file.</Card>
             ) : (
               <div className="space-y-2">
                 {wos.map((w) => (

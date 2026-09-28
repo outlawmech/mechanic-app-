@@ -22,6 +22,7 @@ import {
 import { Button, Card, EmptyState, ErrorState, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { useShopSettings } from '../lib/settings';
+import { useAuth } from '../lib/auth';
 import {
   formatInvoiceText,
   fullName,
@@ -61,7 +62,8 @@ const PAYMENT_METHODS: Record<
 export default function InvoiceDetail() {
   const { id } = useParams();
   const toast = useToast();
-  const { settings } = useShopSettings();
+  const { settings, memberName } = useShopSettings();
+  const { user } = useAuth();
   const [acting, setActing] = useState(false);
 
   // Split payment form state
@@ -165,6 +167,8 @@ export default function InvoiceDetail() {
       method: payMethod,
       reference_note: payRef.trim(),
       created_at: new Date().toISOString(),
+      cashier_user_id: user?.id,
+      cashier_name: memberName,
     };
 
     const nextPayments = [...paymentsList, newPayment];
@@ -507,6 +511,7 @@ export default function InvoiceDetail() {
                           {mInfo.label} — <span className="font-bold text-emerald-700">{money(p.amount)}</span>
                         </span>
                         {p.reference_note && <span className="text-[10px] text-slate-500 truncate">({p.reference_note})</span>}
+                        {p.cashier_name && <span className="text-[10px] text-slate-500 truncate">Cashier: {p.cashier_name}</span>}
                       </div>
                       <button
                         type="button"
@@ -568,7 +573,7 @@ export default function InvoiceDetail() {
                   to={`/work/${invoice.work_order_id}`}
                   className="font-bold text-orange-600 hover:text-orange-700"
                 >
-                  View Associated Repair Order (RO) →
+                  View Associated Work Order (WO) →
                 </Link>
               </div>
             )}
@@ -649,9 +654,9 @@ export default function InvoiceDetail() {
 
             {invoiceLineItemsMismatch && (
               <div className="mt-6 rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950" role="alert">
-                <p className="font-bold">Repair order items no longer match this issued invoice.</p>
+                <p className="font-bold">Work order items no longer match this issued invoice.</p>
                 <p className="mt-1">
-                  The invoice was issued with a subtotal of {money(invoice.subtotal)}. Its linked repair order now has line items totaling {money(currentLineItemsSubtotal)}. The issued invoice totals and balance have not been changed. Invoiced repair-order line items are locked; record additional work on a separate repair order.
+                  The invoice was issued with a subtotal of {money(invoice.subtotal)}. Its linked work order now has line items totaling {money(currentLineItemsSubtotal)}. The issued invoice totals and balance have not been changed. Invoiced work order line items are locked; record additional work on a separate work order.
                 </p>
               </div>
             )}
@@ -720,6 +725,11 @@ export default function InvoiceDetail() {
                     <span className="font-mono font-bold">-{money(totalPaid)}</span>
                   </div>
                 )}
+                {paymentsList.filter((payment) => payment.cashier_name).map((payment) => (
+                  <div key={payment.id} className="flex justify-between text-[10px] text-slate-500">
+                    <span>Cashier: {payment.cashier_name}</span><span>{money(payment.amount)}</span>
+                  </div>
+                ))}
                 <div className="flex justify-between border-t border-slate-300 pt-1.5 text-xs font-bold">
                   <span className={balanceDue <= 0 ? 'text-emerald-700' : 'text-slate-800'}>
                     {balanceDue <= 0 ? 'Paid in Full' : 'Balance Due:'}

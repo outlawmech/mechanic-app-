@@ -108,7 +108,7 @@ export default function PhotoGallery({ workOrderId }: PhotoGalleryProps) {
       // Save to IndexedDB
       await saveWorkOrderPhoto(newPhoto);
       setPhotos((prev) => [newPhoto, ...prev]);
-      toast('Photo saved to Repair Order');
+      toast('Photo saved to Work Order');
       setAddingCaption('');
     } catch (err: any) {
       console.error('Error processing photo:', err);
