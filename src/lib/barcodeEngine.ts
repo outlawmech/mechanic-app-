@@ -46,11 +46,17 @@ export interface BarcodeHit {
   format: string;
 }
 
+export type BarcodeFormatName = 'PDF_417' | 'CODE_39' | 'CODE_128' | 'QR_CODE';
+
 export interface BarcodeEngineOptions {
   /** Milliseconds between decode attempts. Lower = more responsive, more CPU. */
   scanIntervalMs?: number;
   /** Ignore repeat reads of the same value within this window. */
   dedupeMs?: number;
+  /** Limit decoding to formats known to be used by the current label. */
+  formats?: BarcodeFormatName[];
+  /** Spend more time on dense or difficult barcodes. */
+  tryHarder?: boolean;
   /** Called for every successful decode. */
   onResult: (hit: BarcodeHit) => void;
   /** Called when the engine cannot start at all. */
@@ -71,6 +77,8 @@ export class BarcodeEngine {
 
   private readonly scanIntervalMs: number;
   private readonly dedupeMs: number;
+  private readonly formats?: BarcodeFormatName[];
+  private readonly tryHarder: boolean;
   private readonly onResult: (hit: BarcodeHit) => void;
   private readonly onError?: (err: unknown) => void;
   private readonly onReady?: () => void;
@@ -78,6 +86,8 @@ export class BarcodeEngine {
   constructor(options: BarcodeEngineOptions) {
     this.scanIntervalMs = options.scanIntervalMs ?? DEFAULT_SCAN_INTERVAL_MS;
     this.dedupeMs = options.dedupeMs ?? DEFAULT_DEDUPE_MS;
+    this.formats = options.formats;
+    this.tryHarder = options.tryHarder ?? false;
     this.onResult = options.onResult;
     this.onError = options.onError;
     this.onReady = options.onReady;
@@ -94,7 +104,20 @@ export class BarcodeEngine {
       if (this.stopped) return;
       this.zxing = zxing;
 
-      this.reader = new zxing.BrowserMultiFormatReader(undefined, this.scanIntervalMs);
+      const hints = new Map();
+      if (this.tryHarder) {
+        hints.set(zxing.DecodeHintType.TRY_HARDER, true);
+      }
+      if (this.formats?.length) {
+        hints.set(
+          zxing.DecodeHintType.POSSIBLE_FORMATS,
+          this.formats.map((name) => zxing.BarcodeFormat[name])
+        );
+      }
+      this.reader = new zxing.BrowserMultiFormatReader(
+        hints.size ? hints : undefined,
+        this.scanIntervalMs
+      );
 
       // One loop, managed by ZXing, for the life of this call.
       await this.reader.decodeFromVideoElementContinuously(video, (result: Result) => {

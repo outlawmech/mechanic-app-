@@ -11,6 +11,20 @@ export interface VinScannerModalProps {
   onVinDetected: (vin: string, decodedInfo?: DecodedVehicleInfo) => void;
 }
 
+function extractVehicleId(raw: string): string {
+  for (const line of raw.toUpperCase().split(/[\r\n]+/)) {
+    const compact = line
+      .replace(/^\s*(?:VIN|HIN)\s*[:#-]?\s*/, '')
+      .replace(/[^A-Z0-9]/g, '');
+    const corrected = compact.replace(/[IOQ]/g, (letter) => (letter === 'I' ? '1' : '0'));
+    if (compact.length === 17 && /^[A-HJ-NPR-Z0-9]{17}$/.test(compact)) return compact;
+    if (corrected.length === 17 && /^[A-HJ-NPR-Z0-9]{17}$/.test(corrected)) return corrected;
+    if (compact.length === 12 && /^[A-Z0-9]{12}$/.test(compact)) return compact;
+    if (corrected.length === 12 && /^[A-Z0-9]{12}$/.test(corrected)) return corrected;
+  }
+  return '';
+}
+
 export default function VinScannerModal({
   isOpen,
   onClose,
@@ -57,12 +71,13 @@ export default function VinScannerModal({
       setDetectedVin('');
       setDecodedInfo(null);
       setCameraError(null);
+      setEngineError(null);
 
       const constraints: MediaStreamConstraints = {
         video: {
           facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
         audio: false,
       };
@@ -88,11 +103,11 @@ export default function VinScannerModal({
       // Live Barcode Scanner (ZXing — works in the Android WebView)
       if (scanMode === 'barcode' && videoRef.current) {
         const engine = new BarcodeEngine({
+          formats: ['CODE_39', 'CODE_128', 'PDF_417', 'QR_CODE'],
+          tryHarder: true,
           onResult: ({ text }) => {
-            const clean = text.trim();
-            if (clean.length === 17 || clean.length === 12) {
-              void handleFoundVin(clean);
-            }
+            const candidate = extractVehicleId(text);
+            if (candidate) void handleFoundVin(candidate);
           },
           onReady: () => setEngineError(null),
           onError: (err) => {
@@ -124,20 +139,41 @@ export default function VinScannerModal({
     setScanning(true);
 
     try {
+      setEngineError(null);
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) throw new Error('Could not prepare the camera image.');
+      if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+        throw new Error('The camera image is not ready yet.');
+      }
 
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Crop to the center target and enlarge it so small stamped characters
+      // occupy more pixels before OCR.
+      const cropWidth = Math.round(video.videoWidth * 0.88);
+      const cropHeight = Math.round(video.videoHeight * 0.52);
+      const sx = Math.round((video.videoWidth - cropWidth) / 2);
+      const sy = Math.round((video.videoHeight - cropHeight) / 2);
+      canvas.width = cropWidth * 2;
+      canvas.height = cropHeight * 2;
+      ctx.drawImage(video, sx, sy, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
+      const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < image.data.length; i += 4) {
+        const gray = 0.299 * image.data[i] + 0.587 * image.data[i + 1] + 0.114 * image.data[i + 2];
+        const enhanced = gray > 128 ? Math.min(255, (gray - 128) * 1.45 + 128) : Math.max(0, (gray - 128) * 1.45 + 128);
+        image.data[i] = enhanced;
+        image.data[i + 1] = enhanced;
+        image.data[i + 2] = enhanced;
+      }
+      ctx.putImageData(image, 0, 0);
 
       const text = await recognizeText(canvas);
-      const vinMatches =
-        text.match(/\b[A-HJ-NPR-Z0-9]{17}\b/i) || text.match(/\b[A-Z0-9]{12}\b/i);
-      if (vinMatches && vinMatches[0]) {
-        await handleFoundVin(vinMatches[0]);
+      const candidate = extractVehicleId(text);
+      if (candidate) {
+        setEngineError(null);
+        await handleFoundVin(candidate);
+      } else {
+        setEngineError('No clear VIN or HIN was found. Center the stamped characters in the frame, steady the camera, and try again.');
       }
     } catch (err) {
       console.warn('OCR error:', err);

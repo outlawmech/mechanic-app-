@@ -149,16 +149,23 @@ export default function PartScannerModal({
     setScanning(true);
 
     try {
+      setEngineError(null);
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) throw new Error('Could not prepare the camera image.');
+      if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
+        throw new Error('The camera image is not ready yet.');
+      }
 
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-
-      // Draw center crop for better focus on stamped text
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Crop to the scanner target and enlarge the printed text before OCR.
+      const cropWidth = Math.round(video.videoWidth * 0.88);
+      const cropHeight = Math.round(video.videoHeight * 0.56);
+      const sx = Math.round((video.videoWidth - cropWidth) / 2);
+      const sy = Math.round((video.videoHeight - cropHeight) / 2);
+      canvas.width = cropWidth * 2;
+      canvas.height = cropHeight * 2;
+      ctx.drawImage(video, sx, sy, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
       const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imgData.data;
 
@@ -175,9 +182,14 @@ export default function PartScannerModal({
       // Offline Tesseract WASM OCR
       const fullText = await recognizeText(canvas);
       if (fullText) {
-        extractPartNumberCandidates(fullText);
+        const foundPartNumber = extractPartNumberCandidates(fullText);
+        if (!foundPartNumber) {
+          setEngineError('Text was read, but no part number stood out. Center one printed number in the frame and try again.');
+        }
         return;
       }
+
+      setEngineError('No clear text was found. Move closer, steady the camera, and try again.');
 
       // Nothing legible: fall back to matching the manual query against the catalog
       const matchingExisting = parts.find((p) =>
@@ -196,7 +208,7 @@ export default function PartScannerModal({
     }
   }
 
-  function extractPartNumberCandidates(text: string) {
+  function extractPartNumberCandidates(text: string): boolean {
     // Regex for part numbers e.g. 16510-07J00, CR9EK, HF-138, WIX51515, 5TG-14451-00, 0470-449
     const regex = /\b[A-Z0-9]{2,8}[-\s]?[A-Z0-9]{2,8}(?:[-\s]?[A-Z0-9]{1,6})?\b/gi;
     const matches = text.match(regex) || [];
@@ -208,7 +220,9 @@ export default function PartScannerModal({
       setCandidateSkus(candidates.slice(0, 5));
       const firstCandidate = candidates[0];
       handleDetectedValue(firstCandidate);
+      return true;
     }
+    return false;
   }
 
   if (!isOpen) return null;

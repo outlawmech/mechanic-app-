@@ -31,12 +31,13 @@ export default function IdCardScannerModal({
     if (isOpen) {
       setScannedId(null);
       setCameraError(null);
+      setEngineError(null);
 
       const constraints: MediaStreamConstraints = {
         video: {
           facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
         },
         audio: false,
       };
@@ -62,9 +63,18 @@ export default function IdCardScannerModal({
       // PDF417 Live Barcode Scanner (ZXing — works in the Android WebView)
       if (videoRef.current) {
         const engine = new BarcodeEngine({
+          formats: ['PDF_417'],
+          tryHarder: true,
           onResult: ({ text }) => {
             const parsed = parseAAMVA(text.trim());
-            if (parsed) setScannedId(parsed);
+            if (parsed) {
+              setScannedId(parsed);
+              setEngineError(null);
+            } else {
+              setEngineError(
+                'The barcode was read, but its ID details were not recognized. Scan the large barcode on the back of the ID.'
+              );
+            }
           },
           onReady: () => setEngineError(null),
           onError: (err) => {
