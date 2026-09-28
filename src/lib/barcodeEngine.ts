@@ -1,18 +1,17 @@
 /**
  * Universal barcode engine (ZXing), running fully in the browser.
  *
- * Replaces the native `window.BarcodeDetector` API used by the VIN, ID and
- * part scanner modals. `BarcodeDetector` is not implemented in the Android
- * WebView, so those scan loops never fired on device — this module decodes in
- * pure JS/WASM and works everywhere.
+ * Part barcode scanning runs in pure JavaScript/WASM so it works in the
+ * Android WebView without relying on the browser's optional BarcodeDetector.
  *
  * IMPORTANT: this uses ZXing's *continuous* decode API, which runs exactly
  * one internal scan loop for the lifetime of the call. The single-shot
  * `decodeFromVideoElement()` must NOT be used here: it internally retries
  * forever on a miss, so calling it on a timer stacks up dozens of concurrent
  * infinite decode loops that saturate the CPU and prevent any code from ever
- * being recognised. Throttling is handled by `timeBetweenScansMillis` on the
- * reader, plus a dedupe window so a code held in frame fires only once.
+ * being recognised. ZXing uses a separate retry delay for unsuccessful frames;
+ * we set that delay as well as the successful-scan delay so aiming at an empty
+ * frame cannot spin the phone's CPU. A dedupe window prevents repeated hits.
  */
 
 import type { BrowserMultiFormatReader, Result, BarcodeFormat } from '@zxing/library';
@@ -46,17 +45,11 @@ export interface BarcodeHit {
   format: string;
 }
 
-export type BarcodeFormatName = 'PDF_417' | 'CODE_39' | 'CODE_128' | 'QR_CODE';
-
 export interface BarcodeEngineOptions {
   /** Milliseconds between decode attempts. Lower = more responsive, more CPU. */
   scanIntervalMs?: number;
   /** Ignore repeat reads of the same value within this window. */
   dedupeMs?: number;
-  /** Limit decoding to formats known to be used by the current label. */
-  formats?: BarcodeFormatName[];
-  /** Spend more time on dense or difficult barcodes. */
-  tryHarder?: boolean;
   /** Called for every successful decode. */
   onResult: (hit: BarcodeHit) => void;
   /** Called when the engine cannot start at all. */
@@ -77,8 +70,6 @@ export class BarcodeEngine {
 
   private readonly scanIntervalMs: number;
   private readonly dedupeMs: number;
-  private readonly formats?: BarcodeFormatName[];
-  private readonly tryHarder: boolean;
   private readonly onResult: (hit: BarcodeHit) => void;
   private readonly onError?: (err: unknown) => void;
   private readonly onReady?: () => void;
@@ -86,8 +77,6 @@ export class BarcodeEngine {
   constructor(options: BarcodeEngineOptions) {
     this.scanIntervalMs = options.scanIntervalMs ?? DEFAULT_SCAN_INTERVAL_MS;
     this.dedupeMs = options.dedupeMs ?? DEFAULT_DEDUPE_MS;
-    this.formats = options.formats;
-    this.tryHarder = options.tryHarder ?? false;
     this.onResult = options.onResult;
     this.onError = options.onError;
     this.onReady = options.onReady;
@@ -104,24 +93,32 @@ export class BarcodeEngine {
       if (this.stopped) return;
       this.zxing = zxing;
 
-      const hints = new Map();
-      if (this.tryHarder) {
-        hints.set(zxing.DecodeHintType.TRY_HARDER, true);
-      }
-      if (this.formats?.length) {
-        hints.set(
-          zxing.DecodeHintType.POSSIBLE_FORMATS,
-          this.formats.map((name) => zxing.BarcodeFormat[name])
-        );
-      }
-      this.reader = new zxing.BrowserMultiFormatReader(
-        hints.size ? hints : undefined,
-        this.scanIntervalMs
-      );
+      this.reader = new zxing.BrowserMultiFormatReader(undefined, this.scanIntervalMs);
+      // Misses use a separate retry timer; ZXing defaults it to zero, which
+      // can spin continuously while the camera is pointed away from a barcode.
+      this.reader.timeBetweenDecodingAttempts = this.scanIntervalMs;
+
+      // ZXing waits for a `playing` event before it starts decoding. If the
+      // camera preview started before the reader was ready, that event has
+      // already happened and ZXing can wait forever. Restart playback so the
+      // reader always sees a fresh `playing` event.
+      video.muted = true;
+      video.playsInline = true;
+      if (!video.paused && video.readyState > 2) video.pause();
 
       // One loop, managed by ZXing, for the life of this call.
-      await this.reader.decodeFromVideoElementContinuously(video, (result: Result) => {
+      await this.reader.decodeFromVideoElementContinuously(video, (result: Result, error?: Error) => {
         if (this.stopped) return;
+        if (error) {
+          const expectedMiss =
+            error instanceof zxing.NotFoundException ||
+            error instanceof zxing.ChecksumException ||
+            error instanceof zxing.FormatException;
+          if (expectedMiss) return;
+          this.stopped = true;
+          this.onError?.(error);
+          return;
+        }
         const text = result?.getText()?.trim();
         if (!text) return;
         const now = Date.now();

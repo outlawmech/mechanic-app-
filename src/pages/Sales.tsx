@@ -18,7 +18,6 @@ import {
   VehicleIcon,
   WrenchIcon,
   PencilIcon,
-  ScanIcon,
 } from '../components/icons';
 import {
   ACTION_GRID_CLS,
@@ -38,8 +37,7 @@ import { useAsync } from '../lib/hooks';
 import { money, num, shortDate, fullName, VEHICLE_TYPES } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
-import { decodeVehicleVIN, type DecodedVehicleInfo } from '../lib/vinDecoder';
-import VinScannerModal from '../components/VinScannerModal';
+import { decodeVehicleVIN } from '../lib/vinDecoder';
 import { useShopSettings } from '../lib/settings';
 import type { DealershipUnit, BuyersOrderFull, UnitCondition, UnitStatus, VehicleType } from '../types';
 
@@ -85,21 +83,6 @@ export default function Sales() {
   const [form, setForm] = useState(emptyUnit);
   const [decoding, setDecoding] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [vinScannerOpen, setVinScannerOpen] = useState(false);
-
-  function handleVinDetected(scannedVin: string, decoded?: DecodedVehicleInfo) {
-    setForm((prev) => ({
-      ...prev,
-      vin: scannedVin,
-      year: decoded?.year || prev.year,
-      make: decoded?.make || prev.make,
-      model: decoded?.model || prev.model,
-      trim: decoded?.trim || prev.trim,
-      engine_info: decoded?.engine_info || prev.engine_info,
-      type: (decoded?.vehicle_type as VehicleType) || prev.type,
-    }));
-    toast(`✓ Scanned VIN: ${scannedVin} ${decoded?.make ? `(${decoded.make} ${decoded.model})` : ''}`);
-  }
 
   const { data, error, loading, reload } = useAsync(async () => {
     return safeFetchWithCache(
@@ -637,14 +620,6 @@ export default function Sales() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setVinScannerOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-1.5 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 hover:bg-orange-400 transition active:scale-95"
-              >
-                <ScanIcon className="h-4 w-4" />
-                <span>📷 Scan VIN Barcode</span>
-              </button>
               <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-bold text-orange-900">
                 {form.condition.toUpperCase()}
               </span>
@@ -1307,13 +1282,6 @@ export default function Sales() {
           </div>
         </div>
       )}
-
-      {/* Vehicle VIN / HIN Scanner Modal */}
-      <VinScannerModal
-        isOpen={vinScannerOpen}
-        onClose={() => setVinScannerOpen(false)}
-        onVinDetected={handleVinDetected}
-      />
     </div>
   );
 }

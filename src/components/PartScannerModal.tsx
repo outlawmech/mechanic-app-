@@ -1,21 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  BarcodeIcon,
   BookOpenIcon,
   CheckIcon,
   PlusIcon,
   ScanIcon,
-  SearchIcon,
-  SparklesIcon,
-  WrenchIcon,
-  BoxIcon,
 } from './icons';
 import { Button, Card, Input } from './ui';
 import type { Part } from '../types';
 import { money, num } from '../lib/format';
 import { lookupPriceBookSku, type PriceBookEntry } from '../lib/priceBooks';
 import { BarcodeEngine } from '../lib/barcodeEngine';
-import { recognizeText } from '../lib/ocrEngine';
 
 interface PartScannerModalProps {
   isOpen: boolean;
@@ -35,85 +29,92 @@ export default function PartScannerModal({
   onAddNewPart,
 }: PartScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const activeStreamRef = useRef<MediaStream | null>(null);
 
-  const [scanMode, setScanMode] = useState<'barcode' | 'ocr'>('barcode');
-  const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [scanning, setScanning] = useState(false);
   const [recognizedText, setRecognizedText] = useState<string>('');
   const [matchedPart, setMatchedPart] = useState<Part | null>(null);
   const [matchedPb, setMatchedPb] = useState<PriceBookEntry | null>(null);
-  const [candidateSkus, setCandidateSkus] = useState<string[]>([]);
   const [manualQuery, setManualQuery] = useState('');
   const [engineError, setEngineError] = useState<string | null>(null);
 
   const barcodeEngineRef = useRef<BarcodeEngine | null>(null);
 
-  // Start Camera Stream
+  // Open one camera stream and start the part barcode reader only after the
+  // video is playing. This avoids a ZXing startup race on Android WebView.
   useEffect(() => {
+    let cancelled = false;
     let stream: MediaStream | null = null;
+    let engine: BarcodeEngine | null = null;
 
     if (isOpen) {
       setMatchedPart(null);
       setMatchedPb(null);
       setRecognizedText('');
-      setCandidateSkus([]);
       setCameraError(null);
+      setEngineError(null);
 
-      const constraints: MediaStreamConstraints = {
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
+      const startCamera = async () => {
+        try {
+          if (!navigator.mediaDevices?.getUserMedia) {
+            throw new Error('Camera access is not available in this app.');
+          }
+
+          const cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+            audio: false,
+          });
+
+          if (cancelled) {
+            cameraStream.getTracks().forEach((track) => track.stop());
+            return;
+          }
+
+          stream = cameraStream;
+          const video = videoRef.current;
+          if (!video) throw new Error('Camera preview is unavailable.');
+
+          video.srcObject = cameraStream;
+          video.muted = true;
+          video.playsInline = true;
+          await video.play();
+          if (cancelled) return;
+
+          const scanner = new BarcodeEngine({
+            onResult: ({ text }) => handleDetectedValue(text),
+            onReady: () => setEngineError(null),
+            onError: (err) => {
+              console.warn('Part barcode engine error:', err);
+              setEngineError('The barcode reader could not start. Close this screen and try again.');
+            },
+          });
+          engine = scanner;
+          barcodeEngineRef.current = scanner;
+          void scanner.start(video);
+        } catch (err) {
+          if (cancelled) return;
+          console.warn('Part scanner camera error:', err);
+          setCameraError('Camera could not start. Check the app camera permission, then reopen the scanner.');
+        }
       };
 
-      navigator.mediaDevices
-        ?.getUserMedia(constraints)
-        .then((s) => {
-          stream = s;
-          activeStreamRef.current = s;
-          if (videoRef.current) {
-            videoRef.current.srcObject = s;
-            videoRef.current.play().catch(() => {});
-            setCameraActive(true);
-          }
-        })
-        .catch((err) => {
-          console.warn('Camera access error:', err);
-          setCameraError(
-            'Camera permission is required for live scanning. You can also type the SKU below.'
-          );
-        });
-
-      // Periodic Live Barcode Scanning (ZXing — works in the Android WebView)
-      if (scanMode === 'barcode' && videoRef.current) {
-        const engine = new BarcodeEngine({
-          onResult: ({ text }) => handleDetectedValue(text),
-          onReady: () => setEngineError(null),
-          onError: (err) => {
-            console.warn('Barcode engine error:', err);
-            setEngineError('Part reader could not start. Close and reopen this screen, or type the SKU below.');
-          },
-        });
-        barcodeEngineRef.current = engine;
-        void engine.start(videoRef.current);
-      }
+      void startCamera();
     }
 
     return () => {
-      barcodeEngineRef.current?.stop();
-      barcodeEngineRef.current = null;
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+      cancelled = true;
+      engine?.stop();
+      if (barcodeEngineRef.current === engine) barcodeEngineRef.current = null;
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
       }
-      activeStreamRef.current = null;
-      setCameraActive(false);
+      stream?.getTracks().forEach((track) => track.stop());
     };
-  }, [isOpen, scanMode]);
+  }, [isOpen]);
 
   function handleDetectedValue(val: string) {
     const clean = val.trim();
@@ -137,92 +138,7 @@ export default function PartScannerModal({
         setMatchedPb(pb);
       });
 
-      if (!candidateSkus.includes(clean)) {
-        setCandidateSkus((prev) => [clean, ...prev.slice(0, 3)]);
-      }
     }
-  }
-
-  // OCR Part Number Extraction from Still Frame
-  async function captureAndReadOCR() {
-    if (!videoRef.current || !canvasRef.current) return;
-    setScanning(true);
-
-    try {
-      setEngineError(null);
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Could not prepare the camera image.');
-      if (video.readyState < 2 || !video.videoWidth || !video.videoHeight) {
-        throw new Error('The camera image is not ready yet.');
-      }
-
-      // Crop to the scanner target and enlarge the printed text before OCR.
-      const cropWidth = Math.round(video.videoWidth * 0.88);
-      const cropHeight = Math.round(video.videoHeight * 0.56);
-      const sx = Math.round((video.videoWidth - cropWidth) / 2);
-      const sy = Math.round((video.videoHeight - cropHeight) / 2);
-      canvas.width = cropWidth * 2;
-      canvas.height = cropHeight * 2;
-      ctx.drawImage(video, sx, sy, cropWidth, cropHeight, 0, 0, canvas.width, canvas.height);
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imgData.data;
-
-      // Enhance contrast (Grayscale + High-pass filter for stamped numbers)
-      for (let i = 0; i < data.length; i += 4) {
-        const v = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-        const enhanced = v > 120 ? Math.min(255, v * 1.2) : Math.max(0, v * 0.8);
-        data[i] = enhanced;
-        data[i + 1] = enhanced;
-        data[i + 2] = enhanced;
-      }
-      ctx.putImageData(imgData, 0, 0);
-
-      // Offline Tesseract WASM OCR
-      const fullText = await recognizeText(canvas);
-      if (fullText) {
-        const foundPartNumber = extractPartNumberCandidates(fullText);
-        if (!foundPartNumber) {
-          setEngineError('Text was read, but no part number stood out. Center one printed number in the frame and try again.');
-        }
-        return;
-      }
-
-      setEngineError('No clear text was found. Move closer, steady the camera, and try again.');
-
-      // Nothing legible: fall back to matching the manual query against the catalog
-      const matchingExisting = parts.find((p) =>
-        manualQuery && p.sku.toLowerCase().includes(manualQuery.toLowerCase())
-      );
-      if (matchingExisting) {
-        handleDetectedValue(matchingExisting.sku);
-      }
-    } catch (err) {
-      console.warn('OCR capture error:', err);
-      setEngineError(
-        'Text reader could not start on this device. You can still type the SKU below.'
-      );
-    } finally {
-      setScanning(false);
-    }
-  }
-
-  function extractPartNumberCandidates(text: string): boolean {
-    // Regex for part numbers e.g. 16510-07J00, CR9EK, HF-138, WIX51515, 5TG-14451-00, 0470-449
-    const regex = /\b[A-Z0-9]{2,8}[-\s]?[A-Z0-9]{2,8}(?:[-\s]?[A-Z0-9]{1,6})?\b/gi;
-    const matches = text.match(regex) || [];
-    const candidates = Array.from(new Set(matches.map((m) => m.trim().toUpperCase()))).filter(
-      (m) => m.length >= 3
-    );
-
-    if (candidates.length > 0) {
-      setCandidateSkus(candidates.slice(0, 5));
-      const firstCandidate = candidates[0];
-      handleDetectedValue(firstCandidate);
-      return true;
-    }
-    return false;
   }
 
   if (!isOpen) return null;
@@ -243,8 +159,8 @@ export default function PartScannerModal({
               <ScanIcon className="h-4 w-4" />
             </span>
             <div>
-              <h3 className="text-sm font-black text-white">Smart Part Scanner</h3>
-              <p className="text-[10px] text-slate-400">Barcode, QR &amp; Stamped Part Number OCR</p>
+              <h3 className="text-sm font-black text-white">Part Barcode Scanner</h3>
+              <p className="text-[10px] text-slate-400">Scan a part barcode or QR code</p>
             </div>
           </div>
           <button
@@ -254,35 +170,6 @@ export default function PartScannerModal({
             className="rounded-full bg-slate-800 p-1.5 text-xs font-bold text-slate-400 hover:bg-slate-700 hover:text-white transition"
           >
             ✕
-          </button>
-        </div>
-
-        {/* Mode Selector Tabs */}
-        <div className="grid grid-cols-2 p-2 bg-slate-950/80 border-b border-slate-800 text-xs font-bold gap-1.5">
-          <button
-            type="button"
-            onClick={() => setScanMode('barcode')}
-            className={`flex items-center justify-center gap-2 py-2 rounded-xl transition ${
-              scanMode === 'barcode'
-                ? 'bg-orange-500 text-slate-950 font-black shadow-xs'
-                : 'text-slate-400 hover:text-white bg-slate-900/40'
-            }`}
-          >
-            <BarcodeIcon className="h-4 w-4" />
-            <span>Barcode &amp; QR Mode</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setScanMode('ocr')}
-            className={`flex items-center justify-center gap-2 py-2 rounded-xl transition ${
-              scanMode === 'ocr'
-                ? 'bg-orange-500 text-slate-950 font-black shadow-xs'
-                : 'text-slate-400 hover:text-white bg-slate-900/40'
-            }`}
-          >
-            <ScanIcon className="h-4 w-4" />
-            <span>Part # Text OCR</span>
           </button>
         </div>
 
@@ -303,7 +190,6 @@ export default function PartScannerModal({
                 muted
                 className="h-full w-full object-cover"
               />
-              <canvas ref={canvasRef} className="hidden" />
 
               {/* Viewfinder Target Overlay */}
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
@@ -319,20 +205,6 @@ export default function PartScannerModal({
                 </div>
               </div>
 
-              {/* OCR Action Trigger Button */}
-              {scanMode === 'ocr' && (
-                <div className="absolute bottom-3 inset-x-0 flex justify-center">
-                  <button
-                    type="button"
-                    onClick={captureAndReadOCR}
-                    disabled={scanning}
-                    className="flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-slate-950 shadow-xl shadow-orange-500/30 hover:bg-orange-400 active:scale-95 transition"
-                  >
-                    <ScanIcon className="h-4 w-4" />
-                    <span>{scanning ? 'Reading Part Text…' : '📸 Read Part Number on Box'}</span>
-                  </button>
-                </div>
-              )}
             </>
           )}
         </div>
@@ -481,34 +353,11 @@ export default function PartScannerModal({
             /* Default Hint */
             <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 text-center space-y-1">
               <p className="text-xs font-bold text-slate-300">
-                {scanMode === 'barcode'
-                  ? 'Align barcode or QR sticker within the targeting frame.'
-                  : 'Point camera at the printed or stamped part number and tap "Read Part Number".'}
+                Align the part barcode or QR code within the targeting frame.
               </p>
               <p className="text-[11px] text-slate-500">
                 Auto-matches against all {parts.length} part numbers in your catalog.
               </p>
-            </div>
-          )}
-
-          {/* Candidate SKUs from OCR (if multiple found) */}
-          {candidateSkus.length > 1 && (
-            <div className="space-y-1.5 pt-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Detected Text Candidates:
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {candidateSkus.map((sku) => (
-                  <button
-                    key={sku}
-                    type="button"
-                    onClick={() => handleDetectedValue(sku)}
-                    className="font-mono text-xs font-bold bg-slate-800 px-2.5 py-1 rounded-lg text-slate-200 hover:bg-orange-500 hover:text-slate-950 transition"
-                  >
-                    {sku}
-                  </button>
-                ))}
-              </div>
             </div>
           )}
 

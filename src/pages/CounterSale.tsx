@@ -795,7 +795,7 @@ export default function CounterSale() {
         )}
       </form>
 
-      {/* Barcode & OCR Scanner Modal for Direct Part Invoicing */}
+      {/* Part Barcode Scanner Modal for Direct Part Invoicing */}
       <PartScannerModal
         isOpen={scannerOpen}
         onClose={() => setScannerOpen(false)}

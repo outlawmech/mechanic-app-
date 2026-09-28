@@ -1399,7 +1399,7 @@ export default function Parts() {
 
       {/* ---------------- MODALS ---------------- */}
 
-      {/* 1. Barcode / OCR Camera Scanner */}
+      {/* 1. Part Barcode Scanner */}
       <PartScannerModal
         isOpen={scannerOpen}
         onClose={() => setScannerOpen(false)}

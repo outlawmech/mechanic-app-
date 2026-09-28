@@ -1150,7 +1150,7 @@ export default function WorkOrderDetail() {
         </div>
       </div>
 
-      {/* Barcode / OCR Camera Scanner for Work Order Parts */}
+      {/* Part Barcode Scanner for Work Order Parts */}
       <PartScannerModal
         isOpen={scannerOpen}
         onClose={() => setScannerOpen(false)}

@@ -16,18 +16,16 @@ import {
   PhoneIcon,
   MailIcon,
   MapPinIcon,
-  ScanIcon,
 } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Select, Spinner, ErrorState } from '../components/ui';
 import CustomerSearchPicker from '../components/CustomerSearchPicker';
 import SignaturePad from '../components/SignaturePad';
-import VinScannerModal from '../components/VinScannerModal';
 import { useShopSettings } from '../lib/settings';
 import { useAsync } from '../lib/hooks';
 import { money, num, fullName, shortDate, longDate } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
-import { decodeVehicleVIN, type DecodedVehicleInfo } from '../lib/vinDecoder';
+import { decodeVehicleVIN } from '../lib/vinDecoder';
 import type { BuyersOrderFull, Customer, CustomerWithVehicles, DealershipUnit, PaymentMethod, UnitCondition, BuyersOrderStatus } from '../types';
 
 export default function BuyersOrderDetail() {
@@ -59,15 +57,6 @@ export default function BuyersOrderDetail() {
   const [unitVin, setUnitVin] = useState('');
   const [unitColor, setUnitColor] = useState('');
   const [unitCondition, setUnitCondition] = useState<UnitCondition>('new');
-  const [vinScannerOpen, setVinScannerOpen] = useState(false);
-
-  function handleVinDetected(scannedVin: string, decoded?: DecodedVehicleInfo) {
-    setUnitVin(scannedVin);
-    if (decoded?.year) setUnitYear(decoded.year);
-    if (decoded?.make) setUnitMake(decoded.make);
-    if (decoded?.model) setUnitModel(decoded.model);
-    toast(`✓ Scanned VIN: ${scannedVin} ${decoded?.make ? `(${decoded.make} ${decoded.model})` : ''}`);
-  }
 
   // Financial Breakdown
   const [unitPrice, setUnitPrice] = useState('');
@@ -459,14 +448,6 @@ export default function BuyersOrderDetail() {
                   2. Vehicle / Equipment Sold
                 </h3>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setVinScannerOpen(true)}
-                    className="inline-flex items-center gap-1 rounded-xl bg-orange-500 px-2.5 py-1 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 hover:bg-orange-400 transition active:scale-95"
-                  >
-                    <ScanIcon className="h-3.5 w-3.5" />
-                    <span>📷 Scan VIN</span>
-                  </button>
                   <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-700">
                     {unitCondition.toUpperCase()}
                   </span>
@@ -835,13 +816,6 @@ export default function BuyersOrderDetail() {
           </div>
         </div>
       )}
-
-      {/* Vehicle VIN Scanner Modal */}
-      <VinScannerModal
-        isOpen={vinScannerOpen}
-        onClose={() => setVinScannerOpen(false)}
-        onVinDetected={handleVinDetected}
-      />
     </div>
   );
 }

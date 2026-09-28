@@ -6,15 +6,12 @@ import {
   PhoneCallIcon,
   VehicleIcon,
   CheckIcon,
-  ScanIcon,
 } from './icons';
 import { Button, Card, Field, Input, Select, Spinner } from './ui';
 import { fullName, getVehicleTypeInfo, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
 import { enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
 import { useToast } from './Toast';
-import IdCardScannerModal from './IdCardScannerModal';
-import { type ParsedDriverLicense } from '../lib/aamvaParser';
 import type { Customer, CustomerWithVehicles, Vehicle, VehicleType } from '../types';
 
 export interface CustomerSearchPickerProps {
@@ -62,23 +59,6 @@ export default function CustomerSearchPicker({
   const [qAddress, setQAddress] = useState('');
   const [qNotes, setQNotes] = useState('');
   const [savingQuick, setSavingQuick] = useState(false);
-  const [idScannerOpen, setIdScannerOpen] = useState(false);
-
-  function handleIdDetected(idData: ParsedDriverLicense) {
-    setQFirstName(idData.firstName || qFirstName);
-    setQLastName(idData.lastName || qLastName);
-    setQAddress(idData.fullAddress || qAddress);
-    setQNotes(
-      [
-        qNotes,
-        idData.licenseNumber ? `DL #${idData.licenseNumber} (${idData.state})` : '',
-        idData.dateOfBirth ? `DOB: ${idData.dateOfBirth}` : '',
-      ]
-        .filter(Boolean)
-        .join(' · ')
-    );
-    toast(`✓ Extracted info for ${idData.fullName}`);
-  }
 
   // Find currently selected customer
   const selectedCustomer = useMemo(() => {
@@ -569,15 +549,6 @@ export default function CustomerSearchPicker({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setIdScannerOpen(true)}
-                  className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-slate-800 shadow-xs active:scale-95 transition"
-                  title="Scan Driver's License Barcode"
-                >
-                  <ScanIcon className="h-3.5 w-3.5 text-orange-400" />
-                  <span>🪪 Scan ID</span>
-                </button>
-                <button
-                  type="button"
                   onClick={() => setQuickAddOpen(false)}
                   className="rounded-full bg-slate-100 p-1.5 text-xs font-bold text-slate-500 hover:bg-slate-200"
                 >
@@ -658,13 +629,6 @@ export default function CustomerSearchPicker({
           </div>
         </div>
       )}
-
-      {/* Driver's License Scanner Modal */}
-      <IdCardScannerModal
-        isOpen={idScannerOpen}
-        onClose={() => setIdScannerOpen(false)}
-        onIdDetected={handleIdDetected}
-      />
     </div>
   );
 }
