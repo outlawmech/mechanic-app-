@@ -138,10 +138,11 @@ export async function redeemActivationCode(
       return { success: false, error: data.error || 'Could not redeem code.' };
     }
 
-    setLocalUnlocked(true, targetTier);
+    const redeemedTier: 'solo' | 'dealer' = data?.tier === 'dealer' ? 'dealer' : targetTier;
+    setLocalUnlocked(true, redeemedTier);
     return {
       success: true,
-      tier: targetTier,
+      tier: redeemedTier,
       message: data?.message || 'VIP Code redeemed successfully! Pro access unlocked.',
     };
   } catch (err: any) {
