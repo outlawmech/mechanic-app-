@@ -23,7 +23,6 @@ const APK_PUBLIC_DOWNLOAD_URL = ANDROID_APK_DOWNLOAD_URL;
 export default function Auth() {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('signup');
-  const [selectedPackage, setSelectedPackage] = useState<'solo' | 'dealer'>('solo');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [shopName, setShopName] = useState('');
@@ -87,9 +86,8 @@ export default function Auth() {
     }
   }
 
-  const scrollToAuth = (newMode: 'login' | 'signup', pkg?: 'solo' | 'dealer') => {
+  const scrollToAuth = (newMode: 'login' | 'signup') => {
     setMode(newMode);
-    if (pkg) setSelectedPackage(pkg);
     const el = document.getElementById('auth-section');
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
@@ -154,23 +152,22 @@ export default function Auth() {
         <div className="relative mx-auto max-w-4xl text-center space-y-6">
           <div className="inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-3.5 py-1 text-xs font-bold text-orange-400">
             <SparklesIcon className="h-3.5 w-3.5" />
-            <span>BUILT FOR MOBILE TECHS, HEAVY DUTY &amp; POWERSPORTS DEALERS</span>
+            <span>WORK ORDERS, SCHEDULING &amp; INVOICING</span>
           </div>
 
           <h1 className="text-3xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl leading-[1.1]">
-            The No-BS Shop &amp; Dealer Management Software Built by a <span className="text-orange-400">Mechanic</span>, Not a Tech Bro.
+            Run the work. Keep the paperwork <span className="text-orange-400">moving.</span>
           </h1>
 
           <p className="mx-auto max-w-2xl text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
-            Zero lag. 100% offline reliability in steel pole barns and off-grid calls. 
-            Choose the focused <strong>Solo Rig</strong> tool for independent repairs or unlock the full <strong>Dealership DMS</strong> with showroom unit sales, buyer's orders, and PDI dispatch.
+            Outlaw Shop Systems brings customers, schedules, work orders, and invoices into one place. Start with Solo Rig for service work; dealership tools for parts and unit sales are available with a DMS upgrade.
           </p>
 
           {/* Hero CTAs */}
           <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
               type="button"
-              onClick={() => scrollToAuth('signup', 'solo')}
+              onClick={() => scrollToAuth('signup')}
               className="flex items-center gap-2 rounded-xl bg-orange-500 px-6 py-3.5 text-sm font-black text-slate-950 shadow-xl shadow-orange-500/25 transition hover:bg-orange-400 active:scale-95"
             >
               <span>Start 14-Day Free Trial</span>
@@ -191,30 +188,53 @@ export default function Auth() {
           {/* Highlights Badges */}
           <div className="flex flex-wrap items-center justify-center gap-2 pt-4 text-xs font-bold text-slate-400">
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
-              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> 100% Offline Capable
+              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Android and desktop views
             </span>
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
-              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> 1-Tap VIN &amp; Boat HIN Decoder
+              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Customer and vehicle records
             </span>
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
-              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Instant Part Invoicing
+              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Work orders and invoices
             </span>
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
-              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Showroom Unit Sales &amp; PDI
+              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Dealership tools with DMS
             </span>
           </div>
         </div>
       </section>
 
-      {/* 6 Core Feature Pillars */}
+      {/* Product screenshots from a sample account */}
+      <section className="border-b border-slate-800/80 bg-slate-900/40 px-4 py-16 sm:px-6 sm:py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-10 max-w-2xl">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-400">A look inside</p>
+            <h2 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">From the day’s jobs to the deal desk.</h2>
+            <p className="mt-4 text-sm leading-relaxed text-slate-400">Actual Android app screens from a sample account. Solo Rig handles service work; the buyer’s order screen is part of the dealership upgrade.</p>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2 md:gap-10">
+            <figure className="overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 p-3 shadow-2xl shadow-black/30 sm:p-5">
+              <div className="mb-4 flex items-center justify-between px-1"><span className="text-sm font-bold text-white">Plan the week</span><span className="rounded-full bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-orange-300">Solo Rig</span></div>
+              <div className="mx-auto max-w-[340px] overflow-hidden rounded-2xl border border-slate-700 shadow-xl"><img src="/screenshots/schedule-calendar.jpg" alt="Android schedule calendar with sample jobs" loading="lazy" className="block h-auto w-full" /></div>
+              <figcaption className="px-1 pt-4 text-xs leading-relaxed text-slate-400">See scheduled jobs on the calendar and move into the day’s work.</figcaption>
+            </figure>
+            <figure className="overflow-hidden rounded-3xl border border-orange-500/30 bg-slate-950 p-3 shadow-2xl shadow-black/30 sm:p-5">
+              <div className="mb-4 flex items-center justify-between px-1"><span className="text-sm font-bold text-white">Build the sale</span><span className="rounded-full bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-orange-300">Dealership DMS</span></div>
+              <div className="mx-auto max-w-[340px] overflow-hidden rounded-2xl border border-slate-700 shadow-xl"><img src="/screenshots/buyers-order.jpg" alt="Android buyer’s order form with customer and vehicle fields" loading="lazy" className="block h-auto w-full" /></div>
+              <figcaption className="px-1 pt-4 text-xs leading-relaxed text-slate-400">Connect a buyer and a unit in the dealership workflow.</figcaption>
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      {/* Core features */}
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:py-20 border-b border-slate-800/80">
         <div className="text-center space-y-2 mb-12">
           <p className="text-xs font-bold uppercase tracking-wider text-orange-400">Built For Real Shop Life</p>
           <h2 className="text-2xl font-black tracking-tight text-white sm:text-4xl">
-            Everything You Need to Run Your Rig or Dealership
+            Tools for the service desk and the shop floor
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 max-w-xl mx-auto">
-            Engineered to be tapped with greasy fingers on an Android phone or managed from a desktop workstation.
+            Work from the Android app or the web interface, with dealership features on the DMS plan.
           </p>
         </div>
 
@@ -224,9 +244,9 @@ export default function Auth() {
             <span className="grid h-12 w-12 place-items-center rounded-xl bg-orange-500/10 text-orange-400 font-bold">
               <ClipboardIcon className="h-6 w-6" />
             </span>
-            <h3 className="text-lg font-bold text-white">Work Orders in 10 Seconds</h3>
+            <h3 className="text-lg font-bold text-white">Work Orders</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Open repair tickets, add labor hours and parts lines, track job status (Open, In Progress, Completed), and capture customer sign-offs on glass.
+              Add labor and parts, follow job status, and keep customer and vehicle details with the work.
             </p>
           </div>
 
@@ -237,7 +257,7 @@ export default function Auth() {
             </span>
             <h3 className="text-lg font-bold text-white">Professional Invoicing &amp; Billing</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Generate crisp, professional invoices formatted for standard printers, text messages, or PDF export. Complete with your shop logo, parts breakdown, and tax totals.
+              Create itemized invoices from completed work, review totals, and print or share a copy.
             </p>
           </div>
 
@@ -246,9 +266,9 @@ export default function Auth() {
             <span className="grid h-12 w-12 place-items-center rounded-xl bg-blue-400/10 text-blue-400 font-bold">
               <BanknotesIcon className="h-6 w-6" />
             </span>
-            <h3 className="text-lg font-bold text-white">Direct Payment Handles &amp; Links</h3>
+            <h3 className="text-lg font-bold text-white">Payment Records</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Get paid faster without paying 3% processing fees when you don't want to. Add your Zelle, Venmo, Cash App, or Square link directly to invoices and customer text messages.
+              Record payments and see what remains due on each invoice. Add your preferred payment details where supported.
             </p>
           </div>
 
@@ -259,7 +279,7 @@ export default function Auth() {
             </span>
             <h3 className="text-lg font-bold text-white">Showroom Sales &amp; Buyer’s Orders</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Track new and used motorcycles, ATVs, and equipment. Generate itemized Buyer’s Orders with freight, prep/PDI, doc fees, trade-ins, and 1-tap assembly dispatch to your shop.
+              On the DMS plan, track units and prepare itemized buyer’s orders with deal details and service prep.
             </p>
           </div>
 
@@ -268,9 +288,9 @@ export default function Auth() {
             <span className="grid h-12 w-12 place-items-center rounded-xl bg-teal-400/10 text-teal-400 font-bold">
               <BoatIcon className="h-6 w-6" />
             </span>
-            <h3 className="text-lg font-bold text-white">Auto, Marine &amp; Powersports</h3>
+            <h3 className="text-lg font-bold text-white">Customers &amp; Equipment</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Built-in 1-tap VIN/HIN decoding for trucks, boats (Hull IDs, twin outboards, port &amp; starboard serials), ATVs, side-by-sides, snowmobiles, and equipment with engine hours.
+              Keep customer histories and vehicle or equipment details together so the next visit starts with context.
             </p>
           </div>
 
@@ -279,9 +299,9 @@ export default function Auth() {
             <span className="grid h-12 w-12 place-items-center rounded-xl bg-rose-400/10 text-rose-400 font-bold">
               <MonitorIcon className="h-6 w-6" />
             </span>
-            <h3 className="text-lg font-bold text-white">Financials &amp; QuickBooks CSV</h3>
+            <h3 className="text-lg font-bold text-white">Schedule &amp; Reports</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Live tracking of collected revenue, outstanding accounts receivable, labor margins, and sales tax accrued. 1-click export to QuickBooks Online, Xero, and Excel.
+              Review upcoming jobs and available financial summaries from the same workspace.
             </p>
           </div>
         </div>
@@ -296,19 +316,19 @@ export default function Auth() {
             </span>
             <div>
               <h3 className="text-lg font-black text-white">Why I Built Outlaw Shop Systems</h3>
-              <p className="text-xs text-orange-400 font-semibold">17 Years in the Bays &amp; Behind the Service Desk</p>
+              <p className="text-xs text-orange-400 font-semibold">From the bays to the service desk</p>
             </div>
           </div>
 
           <div className="space-y-4 text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
             <p>
-              I spent 17 years working across the board—from lot rat and flat-rate technician to parts manager and service manager. I know firsthand what it's like to bleed knuckles in a bay, hunt down backordered parts, and manage a service schedule.
+              I’ve worked around the bays, the parts counter, and the service desk. I know what it’s like to hunt down parts while a schedule keeps changing.
             </p>
             <p>
-              I got completely fed up watching corporate software companies charge independent shops $300 to $500 a month and dealerships $1,000+ for slow, bloated systems that crash the second you lose cell signal in a steel building or out on a mobile service call.
+              I wanted a tool that follows the way a job actually moves through a shop: schedule it, do the work, account for the parts, and get the invoice out.
             </p>
             <p>
-              I built Outlaw Shop Systems to be the rugged, fast, no-nonsense tool I always wished I had in my own toolbox: zero lag, 100% offline reliability, clean customer invoices, and fair pricing that doesn't bleed independent mechanics dry.
+              Outlaw Shop Systems is my attempt to put those steps in one practical workspace for independent techs and dealerships.
             </p>
           </div>
         </div>
@@ -322,7 +342,7 @@ export default function Auth() {
             Simple, Transparent Pricing
           </h2>
           <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto">
-            Choose the focused mobile &amp; repair shop tool, or unlock the full powersports dealership DMS. Both include a 14-day free trial.
+            Start with Solo Rig. Dealership operations require a DMS upgrade after account creation.
           </p>
         </div>
 
@@ -351,29 +371,29 @@ export default function Auth() {
 
               <ul className="space-y-2.5 text-xs text-slate-300 pt-4 border-t border-slate-800">
                 <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Unlimited Work Orders &amp; Invoices
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Work Orders &amp; Invoices
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Full 100% Offline Mode &amp; Local Database
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Android and Web Access
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> 1-Tap NHTSA VIN &amp; Boat HIN Decoder
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Customer &amp; Vehicle Records
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> 30-Second Over-The-Counter Parts POS
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Job Scheduling
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Zelle, Venmo &amp; Cash App Payment Handles
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Payment Recording
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> QuickBooks CSV &amp; Financial Reports
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Financial Summaries
                 </li>
               </ul>
             </div>
 
             <button
               type="button"
-              onClick={() => scrollToAuth('signup', 'solo')}
+              onClick={() => scrollToAuth('signup')}
               className="w-full rounded-xl bg-slate-800 py-3.5 text-sm font-bold text-white hover:bg-slate-700 transition"
             >
               Start Solo Free Trial
@@ -393,7 +413,7 @@ export default function Auth() {
                   <p className="text-xs text-orange-400 font-semibold">For Motorcycle, ATV &amp; Marine Dealers</p>
                 </div>
                 <span className="rounded-full bg-orange-500/20 px-3 py-1 text-xs font-bold text-orange-300 border border-orange-500/30">
-                  14-Day Trial
+                  Upgrade
                 </span>
               </div>
 
@@ -403,7 +423,7 @@ export default function Auth() {
               </div>
 
               <p className="text-xs text-slate-300 leading-relaxed">
-                Complete dealership operations: Showroom units, buyer's orders, parts counter, and service shop.
+                Add showroom units, buyer’s orders, and parts counter workflows to service operations.
               </p>
 
               <ul className="space-y-2.5 text-xs text-slate-200 pt-4 border-t border-slate-800">
@@ -414,7 +434,7 @@ export default function Auth() {
                   <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Showroom Unit Inventory (New, Used, Consignment)
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> 1-Page Buyer’s Order &amp; Bill of Sale Builder
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Buyer’s Order &amp; Bill of Sale Builder
                 </li>
                 <li className="flex items-center gap-2.5">
                   <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Freight, Prep/PDI &amp; Doc Fee Desking
@@ -423,14 +443,14 @@ export default function Auth() {
                   <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Trade-in Credit &amp; Lien Payoff Calculations
                 </li>
                 <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> 1-Tap PDI Dispatch to Service Department
+                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> PDI Work Orders for Service
                 </li>
               </ul>
             </div>
 
             <button
               type="button"
-              onClick={() => scrollToAuth('signup', 'solo')}
+              onClick={() => scrollToAuth('signup')}
               className="w-full rounded-xl bg-orange-500 py-3.5 text-sm font-black text-slate-950 hover:bg-orange-400 shadow-lg shadow-orange-500/25 transition active:scale-95"
             >
               Create Account for Dealership Upgrade
@@ -452,7 +472,7 @@ export default function Auth() {
           </h2>
           <p className="text-xs text-slate-400">
             {mode === 'signup'
-              ? 'Choose your package and get instant access.'
+                ? 'Create a Solo Rig account. Dealership tools require an upgrade.'
               : 'Welcome back! Enter your login credentials.'}
           </p>
         </div>
@@ -495,35 +515,23 @@ export default function Auth() {
             {mode === 'signup' && (
               <>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">Choose Shop Package</label>
+                  <label className="text-xs font-bold text-slate-300">Your account starts with Solo Rig</label>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPackage('solo')}
-                      className={`rounded-xl border p-2.5 text-left transition ${
-                        selectedPackage === 'solo'
-                          ? 'border-orange-500 bg-orange-500/10 text-white shadow-xs'
-                          : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
-                      }`}
+                    <div
+                      className="rounded-xl border border-orange-500 bg-orange-500/10 p-2.5 text-left text-white shadow-xs"
                     >
                       <p className="font-bold text-slate-100">🛠️ Solo Rig</p>
                       <p className="text-[10px] text-orange-400 font-semibold mt-0.5">$29 / mo</p>
                       <p className="text-[10px] text-slate-400 mt-1">Mobile &amp; Repair Garage</p>
-                    </button>
+                    </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPackage('solo')}
-                      className={`rounded-xl border p-2.5 text-left transition ${
-                        selectedPackage === 'dealer'
-                          ? 'border-orange-500 bg-orange-500/10 text-white shadow-xs'
-                          : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-white'
-                      }`}
+                    <div
+                      className="rounded-xl border border-slate-800 bg-slate-950 p-2.5 text-left text-slate-400"
                     >
                       <p className="font-bold text-slate-100">🏍️ Dealer DMS</p>
                       <p className="text-[10px] text-orange-400 font-semibold mt-0.5">$99 / mo</p>
                       <p className="text-[10px] text-slate-400 mt-1">Upgrade required after signup</p>
-                    </button>
+                    </div>
                   </div>
                 </div>
 
@@ -531,7 +539,7 @@ export default function Auth() {
                   <Input
                     value={shopName}
                     onChange={(e) => setShopName(e.target.value)}
-                    placeholder={selectedPackage === 'dealer' ? 'e.g. Big Sky Powersports' : 'e.g. Big Sky Mobile Tech'}
+                    placeholder="e.g. Big Sky Mobile Tech"
                     required
                   />
                 </Field>
@@ -591,7 +599,7 @@ export default function Auth() {
               {loading
                 ? 'Please wait…'
                 : mode === 'signup'
-                  ? `Start Free 14-Day Trial (${selectedPackage === 'dealer' ? '$99/mo' : '$29/mo'})`
+                  ? 'Start Solo Rig Free Trial'
                   : 'Log In to Shop'}
             </Button>
           </form>

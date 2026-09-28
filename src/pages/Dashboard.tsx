@@ -98,9 +98,9 @@ export default function Dashboard() {
           .limit(20),
         supabase
           .from('invoices')
-          .select('id, number, total, status, payments, paid_at, created_at, customer:customers(*)')
+          .select('id, number, total, status, payments, paid_at, issued_at, customer:customers(*)')
           .eq('user_id', shopId)
-          .order('created_at', { ascending: false }),
+          .order('issued_at', { ascending: false }),
         supabase
           .from('customers')
           .select('id', { count: 'exact', head: true })
@@ -550,7 +550,7 @@ export default function Dashboard() {
                       <p className="font-bold text-slate-900 text-xs">
                         {inv.number} · {inv.customer ? fullName(inv.customer) : 'Walk-In Customer'}
                       </p>
-                      <p className="text-[10px] text-slate-500">{shortDate(inv.created_at)}</p>
+                      <p className="text-[10px] text-slate-500">{shortDate(inv.issued_at)}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-mono font-black text-xs text-slate-900">{money(getInvoiceBalanceDue(inv))}</p>
