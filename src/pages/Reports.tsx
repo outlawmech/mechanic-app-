@@ -12,11 +12,12 @@ import {
   ClockIcon,
   ArrowLeftIcon,
 } from '../components/icons';
-import { Button, Card, PageTitle, Spinner, ErrorState } from '../components/ui';
+import { ACTION_BTN_CLS, Button, Card, PageTitle, Spinner, ErrorState } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { money, num, fullName, longDate, shortDate } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache } from '../lib/offlineSync';
+import { getInvoiceBalanceDue, getInvoicePaidAmount, getInvoicePaymentsForReporting } from '../lib/invoiceAccounting';
 import type { InvoiceFull, WorkItem, Part } from '../types';
 
 type DateRange = 'today' | 'week' | 'month' | 'last_month' | 'year' | 'all';
@@ -111,18 +112,16 @@ export default function Reports() {
       totalInvoiced += invTotal;
       taxCollected += invTax;
 
-      const payments = inv.payments || [];
-      const paidSum = payments.reduce((sum, p) => {
-        const amt = num(p.amount);
-        const method = p.method || 'other';
-        methodTotals[method] = (methodTotals[method] || 0) + amt;
-        return sum + amt;
-      }, 0);
+      const reportingPayments = getInvoicePaymentsForReporting(inv);
+      reportingPayments.forEach((payment) => {
+        const method = payment.method || 'other';
+        methodTotals[method] = (methodTotals[method] || 0) + num(payment.amount);
+      });
 
-      totalCollected += paidSum;
-      const balance = Math.max(0, invTotal - paidSum);
+      totalCollected += getInvoicePaidAmount(inv);
+      const balance = getInvoiceBalanceDue(inv);
 
-      if (balance > 0 && inv.status !== 'void') {
+      if (balance > 0) {
         totalOutstanding += balance;
         unpaidInvoices.push(inv);
       }
@@ -176,8 +175,8 @@ export default function Reports() {
 
     const headers = ['InvoiceNo', 'Customer', 'Email', 'Phone', 'IssuedDate', 'DueDate', 'Subtotal', 'Tax', 'Total', 'Paid', 'BalanceDue', 'Status'];
     const rows = filteredInvoices.map((inv) => {
-      const paid = (inv.payments || []).reduce((s, p) => s + num(p.amount), 0);
-      const balance = Math.max(0, num(inv.total) - paid);
+      const paid = getInvoicePaidAmount(inv);
+      const balance = getInvoiceBalanceDue(inv);
       return [
         `"${inv.number}"`,
         `"${fullName(inv.customer).replace(/"/g, '""')}"`,
@@ -202,14 +201,19 @@ export default function Reports() {
   function exportPaymentsCSV() {
     const paymentRows: string[] = [];
     filteredInvoices.forEach((inv) => {
-      (inv.payments || []).forEach((p) => {
+      const recordedPayments = (inv.payments || []).filter((payment) => num(payment.amount) > 0);
+      const reportingPayments = getInvoicePaymentsForReporting(inv);
+      reportingPayments.forEach((payment, index) => {
+        const recorded = recordedPayments[index];
+        const date = recorded?.created_at || inv.paid_at || inv.issued_at;
+        const note = recorded?.reference_note || (recorded ? '' : 'Legacy paid invoice; payment detail unavailable');
         paymentRows.push([
-          `"${p.created_at.slice(0, 10)}"`,
+          `"${date.slice(0, 10)}"`,
           `"${inv.number}"`,
           `"${fullName(inv.customer).replace(/"/g, '""')}"`,
-          num(p.amount).toFixed(2),
-          `"${p.method.toUpperCase()}"`,
-          `"${(p.reference_note || '').replace(/"/g, '""')}"`,
+          num(payment.amount).toFixed(2),
+          `"${String(payment.method || 'other').toUpperCase()}"`,
+          `"${note.replace(/"/g, '""')}"`,
         ].join(','));
       });
     });
@@ -368,12 +372,12 @@ export default function Reports() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3 pt-1">
+        <div className="grid grid-cols-1 gap-2.5 pt-1 sm:grid-cols-3">
           <Button
             type="button"
             variant="accent"
             onClick={exportInvoicesCSV}
-            className="text-xs font-bold shadow-xs flex items-center justify-center gap-2"
+            className={`${ACTION_BTN_CLS} shadow-xs`}
           >
             <ReceiptIcon className="h-4 w-4 text-slate-950" />
             <span>Export Invoices ({filteredInvoices.length})</span>
@@ -383,7 +387,7 @@ export default function Reports() {
             type="button"
             variant="ghost"
             onClick={exportPaymentsCSV}
-            className="text-xs font-semibold bg-white border border-slate-200 flex items-center justify-center gap-2 hover:bg-slate-50"
+            className={`${ACTION_BTN_CLS} bg-white border border-slate-200 font-semibold hover:bg-slate-50`}
           >
             <CreditCardIcon className="h-4 w-4 text-slate-700" />
             <span>Export Income &amp; Payments</span>
@@ -393,7 +397,7 @@ export default function Reports() {
             type="button"
             variant="ghost"
             onClick={exportInventoryCSV}
-            className="text-xs font-semibold bg-white border border-slate-200 flex items-center justify-center gap-2 hover:bg-slate-50"
+            className={`${ACTION_BTN_CLS} bg-white border border-slate-200 font-semibold hover:bg-slate-50`}
           >
             <BoxIcon className="h-4 w-4 text-slate-700" />
             <span>Export Inventory Valuation</span>
@@ -421,8 +425,7 @@ export default function Reports() {
           ) : (
             <div className="space-y-2">
               {metrics.unpaidInvoices.map((inv) => {
-                const paid = (inv.payments || []).reduce((s, p) => s + num(p.amount), 0);
-                const balance = Math.max(0, num(inv.total) - paid);
+                const balance = getInvoiceBalanceDue(inv);
                 return (
                   <Link
                     key={inv.id}

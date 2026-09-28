@@ -8,7 +8,6 @@ import {
   HelpCircleIcon,
   MonitorIcon,
   ReceiptIcon,
-  ScanIcon,
   SmartphoneIcon,
   SparklesIcon,
   TagIcon,
@@ -81,7 +80,7 @@ export default function Help() {
               : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'
           }`}
         >
-          <span>📦 Parts, Scanner &amp; POS</span>
+          <span>📦 Parts &amp; POS</span>
         </button>
 
         <button
@@ -234,7 +233,7 @@ export default function Help() {
         </div>
       )}
 
-      {/* TAB 3: PARTS, SCANNER & POS */}
+      {/* TAB 3: PARTS & POS */}
       {activeTab === 'parts' && (
         <div className="space-y-4 animate-in fade-in duration-150">
           <Card className="p-6 space-y-4 border-l-4 border-l-orange-500">
@@ -243,7 +242,7 @@ export default function Help() {
                 📦
               </span>
               <h3 className="text-base font-black text-slate-900">
-                Parts Department, Smart Scanner &amp; POS Register
+                Parts Department &amp; POS Register
               </h3>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
@@ -259,9 +258,9 @@ export default function Help() {
               </div>
 
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1.5">
-                <p className="text-xs font-bold text-slate-900">📷 Dual-Mode Camera Scanner</p>
+                <p className="text-xs font-bold text-slate-900">📷 Part Barcode Scanner</p>
                 <p className="text-[11px] text-slate-500 leading-snug">
-                  Tap <strong>"📷 Scan Barcode / OCR"</strong>. Scan UPC barcodes, or switch to <strong>OCR Text Mode</strong> to read stamped or printed part numbers on greasy boxes and cast parts without barcodes.
+                  Tap <strong>"Scan SKU"</strong> and center a part barcode or QR code in the camera frame to look up the item.
                 </p>
               </div>
 

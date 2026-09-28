@@ -38,14 +38,62 @@ import { money, num, round2, fullName } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { cacheLocal, getCachedLocal, safeFetchWithCache, enqueueOfflineAction } from '../lib/offlineSync';
 import { getPriceBookStats, lookupPriceBookSku, type PriceBookEntry } from '../lib/priceBooks';
-import type { Customer, Part, SpecialOrder, SpecialOrderStatus } from '../types';
-
+import type { Customer, InvoicePayment, Part, SpecialOrder, SpecialOrderStatus } from '../types';
+import { getInvoicePaidAmount } from '../lib/invoiceAccounting';
 import PartScannerModal from '../components/PartScannerModal';
 import CsvInventoryImporterModal from '../components/CsvInventoryImporterModal';
 import SpecialOrderModal from '../components/SpecialOrderModal';
 import SpecialOrderReceiveModal from '../components/SpecialOrderReceiveModal';
 import SpecialOrderNotifyModal from '../components/SpecialOrderNotifyModal';
 import PriceBookManagerModal from '../components/PriceBookManagerModal';
+
+type SpecialOrderInvoiceMatch = {
+  id: string;
+  number: string;
+  subtotal: number | string;
+  tax: number | string;
+  total: number | string;
+  status: string;
+  notes: string | null;
+  work_order_id: string | null;
+  payments?: InvoicePayment[] | null;
+};
+
+function findSpecialOrderInvoice(order: SpecialOrder, invoices: SpecialOrderInvoiceMatch[]) {
+  return invoices.find((invoice) => invoice.work_order_id && invoice.work_order_id === order.work_order_id) ??
+    invoices.find((invoice) => invoice.notes?.includes(`Fulfilled ${order.order_number}`));
+}
+
+function specialOrderFinancials(order: SpecialOrder, invoice?: SpecialOrderInvoiceMatch) {
+  const itemSubtotal = round2(num(order.quantity) * num(order.sell_price));
+  const deposit = Math.max(0, num(order.deposit_amount));
+
+  if (invoice && invoice.status !== 'void') {
+    const total = round2(Math.max(0, num(invoice.subtotal) + num(invoice.tax)));
+    const paid = round2(Math.min(total, deposit + getInvoicePaidAmount(invoice)));
+    return {
+      subtotal: itemSubtotal,
+      tax: round2(num(invoice.tax)),
+      total,
+      paid,
+      balance: round2(Math.max(0, total - paid)),
+    };
+  }
+
+  const total = itemSubtotal;
+  const paid = order.payment_status === 'paid_in_full'
+    ? total
+    : order.payment_status === 'deposit_paid'
+      ? Math.min(total, deposit)
+      : 0;
+  return {
+    subtotal: itemSubtotal,
+    tax: 0,
+    total,
+    paid: round2(paid),
+    balance: round2(Math.max(0, total - paid)),
+  };
+}
 
 const CATEGORIES = [
   'General',
@@ -152,6 +200,25 @@ export default function Parts() {
     );
   }, []);
 
+  // Paid special-order invoices let the card show tax and payment even for older
+  // orders whose direct checkout did not update the special-order row itself.
+  const { data: specialOrderInvoices } = useAsync(async () => {
+    return safeFetchWithCache<SpecialOrderInvoiceMatch[]>(
+      'special_order_fulfillment_invoices',
+      async () => {
+        const res = check(
+          await requireSupabase()
+            .from('invoices')
+            .select('id, number, subtotal, tax, total, status, notes, work_order_id, payments')
+            .ilike('notes', '%Fulfilled SO-%')
+            .order('issued_at', { ascending: false })
+        );
+        return (res.data ?? []) as SpecialOrderInvoiceMatch[];
+      },
+      []
+    );
+  }, []);
+
   // Load Customers for Special Orders dropdown
   const { data: customers } = useAsync(async () => {
     return safeFetchWithCache<Customer[]>(
@@ -193,14 +260,13 @@ export default function Parts() {
   ).length;
   const fulfilledCount = allSpecialOrders.filter((s) => s.status === 'fulfilled').length;
   const totalPendingOrderValue = activeSpecialOrders.reduce(
-    (sum, s) => sum + num(s.quantity) * num(s.sell_price),
+    (sum, order) => sum + specialOrderFinancials(order, findSpecialOrderInvoice(order, specialOrderInvoices ?? [])).total,
     0
   );
-  const totalUncollectedBalance = activeSpecialOrders.reduce((sum, s) => {
-    const total = num(s.quantity) * num(s.sell_price);
-    const deposit = s.payment_status === 'deposit_paid' ? num(s.deposit_amount) : (s.payment_status === 'paid_in_full' ? total : 0);
-    return sum + Math.max(0, total - deposit);
-  }, 0);
+  const totalUncollectedBalance = activeSpecialOrders.reduce(
+    (sum, order) => sum + specialOrderFinancials(order, findSpecialOrderInvoice(order, specialOrderInvoices ?? [])).balance,
+    0
+  );
 
   // Filtered in-stock parts
   const filteredParts = useMemo(() => {
@@ -1188,9 +1254,10 @@ export default function Parts() {
           ) : (
             <div className="space-y-3">
               {filteredSpecialOrders.map((so) => {
-                const totalDue = num(so.quantity) * num(so.sell_price);
-                const deposit = so.payment_status === 'deposit_paid' ? num(so.deposit_amount) : (so.payment_status === 'paid_in_full' ? totalDue : 0);
-                const balanceDue = Math.max(0, totalDue - deposit);
+                const orderFinancials = specialOrderFinancials(so, findSpecialOrderInvoice(so, specialOrderInvoices ?? []));
+                const totalDue = orderFinancials.total;
+                const paidToDate = orderFinancials.paid;
+                const balanceDue = orderFinancials.balance;
 
                 const getStatusBadge = (st: SpecialOrderStatus) => {
                   switch (st) {
@@ -1295,19 +1362,20 @@ export default function Parts() {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <span className="text-slate-400">Total:</span>
                         <span className="font-mono font-black text-slate-900">{money(totalDue)}</span>
-                        {deposit > 0 && (
+                        {orderFinancials.tax > 0 && (
+                          <span className="font-mono text-[11px] text-slate-500">(Tax: {money(orderFinancials.tax)})</span>
+                        )}
+                        {paidToDate > 0 && (
                           <span className="font-mono text-[11px] text-emerald-700 font-bold">
-                            (Paid: {money(deposit)})
+                            Paid: {money(paidToDate)}
                           </span>
                         )}
-                        {balanceDue > 0 && (
-                          <span className="font-mono font-bold text-orange-600">
-                            Due: {money(balanceDue)}
-                          </span>
-                        )}
+                        <span className={`font-mono font-bold ${balanceDue > 0 ? 'text-orange-600' : 'text-emerald-700'}`}>
+                          Due: {money(balanceDue)}
+                        </span>
                       </div>
                     </div>
 
@@ -1399,7 +1467,7 @@ export default function Parts() {
 
       {/* ---------------- MODALS ---------------- */}
 
-      {/* 1. Barcode / OCR Camera Scanner */}
+      {/* 1. Part Barcode Scanner */}
       <PartScannerModal
         isOpen={scannerOpen}
         onClose={() => setScannerOpen(false)}

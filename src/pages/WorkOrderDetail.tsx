@@ -102,7 +102,7 @@ export default function WorkOrderDetail() {
         const invRes = check(
           await sb
             .from('invoices')
-            .select('id, number, total, status')
+            .select('id, number, subtotal, total, status')
             .eq('work_order_id', wo.id)
             .order('issued_at', { ascending: false })
             .limit(1)
@@ -219,6 +219,8 @@ export default function WorkOrderDetail() {
 
   const items = wo.items ?? [];
   const subtotal = workOrderEstimate(items);
+  const financialItemsLocked = Boolean(invoice);
+  const invoiceItemsMismatch = Boolean(invoice) && Math.abs(subtotal - num(invoice?.subtotal)) >= 0.01;
   const vehicleTypeInfo = wo.vehicle ? getVehicleTypeInfo(wo.vehicle.type) : null;
 
   async function updateStatus(next: WorkOrderStatus) {
@@ -292,6 +294,10 @@ export default function WorkOrderDetail() {
 
   async function addItem(e: FormEvent) {
     e.preventDefault();
+    if (financialItemsLocked) {
+      toast('This repair order has an issued invoice. Its financial line items are locked; record additional work on a separate repair order.', 'error');
+      return;
+    }
     if (!desc.trim()) {
       toast('Please enter a description or pick a part', 'error');
       return;
@@ -359,32 +365,40 @@ export default function WorkOrderDetail() {
         setPrice('0');
       }
     } catch (e) {
-      const itemId = generateUUID();
-      const offlineItemPayload = {
-        id: itemId,
-        ...newItemPayload,
-      };
+      if (navigator.onLine) {
+        toast(errMsg(e) || 'Line item could not be saved.', 'error');
+      } else {
+        const itemId = generateUUID();
+        const offlineItemPayload = {
+          id: itemId,
+          ...newItemPayload,
+        };
 
-      enqueueOfflineAction({
-        table: 'work_items',
-        type: 'insert',
-        payload: offlineItemPayload,
-        description: `Add ${kind}: ${desc.trim()}`,
-      });
-      const tempItem: WorkItem = {
-        id: itemId,
-        ...newItemPayload,
-        created_at: new Date().toISOString(),
-      };
-      wo!.items = [...(wo!.items ?? []), tempItem];
-      cacheLocal(`wo_${id}`, data);
-      toast('Line item added (Saved offline)');
+        enqueueOfflineAction({
+          table: 'work_items',
+          type: 'insert',
+          payload: offlineItemPayload,
+          description: `Add ${kind}: ${desc.trim()}`,
+        });
+        const tempItem: WorkItem = {
+          id: itemId,
+          ...newItemPayload,
+          created_at: new Date().toISOString(),
+        };
+        wo!.items = [...(wo!.items ?? []), tempItem];
+        cacheLocal(`wo_${id}`, data);
+        toast('Line item added (Saved offline)');
+      }
     } finally {
       setAdding(false);
     }
   }
 
   async function removeItem(itemId: string) {
+    if (financialItemsLocked) {
+      toast('This repair order has an issued invoice. Its financial line items are locked.', 'error');
+      return;
+    }
     try {
       if (navigator.onLine) {
         check(await requireSupabase().from('work_items').delete().eq('id', itemId));
@@ -403,16 +417,20 @@ export default function WorkOrderDetail() {
         toast('Item removed (Saved locally)');
       }
     } catch (e) {
-      enqueueOfflineAction({
-        table: 'work_items',
-        type: 'delete',
-        matchField: 'id',
-        matchValue: itemId,
-        description: 'Remove line item',
-      });
-      wo!.items = (wo!.items ?? []).filter((i) => i.id !== itemId);
-      cacheLocal(`wo_${id}`, data);
-      toast('Item removed (Saved offline)');
+      if (navigator.onLine) {
+        toast(errMsg(e) || 'Line item could not be removed.', 'error');
+      } else {
+        enqueueOfflineAction({
+          table: 'work_items',
+          type: 'delete',
+          matchField: 'id',
+          matchValue: itemId,
+          description: 'Remove line item',
+        });
+        wo!.items = (wo!.items ?? []).filter((i) => i.id !== itemId);
+        cacheLocal(`wo_${id}`, data);
+        toast('Item removal queued (Saved offline)');
+      }
     }
   }
 
@@ -879,15 +897,27 @@ export default function WorkOrderDetail() {
         <div className={`space-y-4 lg:col-span-7 ${mobileTab === 'items' ? 'block' : 'hidden lg:block'}`}>
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-600">
-              Line Items ({items.length})
+              Line Items ({items.length}) {financialItemsLocked ? '· LOCKED' : ''}
             </h3>
             {items.length > 0 && (
               <span className="text-sm font-black text-slate-900">Est. Total: {money(subtotal)}</span>
             )}
           </div>
 
+          {financialItemsLocked && (
+            <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-950">
+              <p className="font-bold">Invoice {invoice!.number} has been issued. Repair-order financial line items are locked.</p>
+              <p className="mt-1">Record additional work on a separate repair order; this keeps issued invoice totals unchanged.</p>
+            </div>
+          )}
+          {invoiceItemsMismatch && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950" role="alert">
+              Current repair-order items total {money(subtotal)}, but invoice {invoice!.number} was issued with a subtotal of {money(invoice!.subtotal)}. The invoice has not been recalculated or changed.
+            </div>
+          )}
+
           {items.length === 0 ? (
-            <EmptyState title="No line items" sub="Add labor, parts or fees below to build the estimate." />
+            <EmptyState title="No line items" sub={financialItemsLocked ? 'No line items were saved on this repair order.' : 'Add labor, parts or fees below to build the estimate.'} />
           ) : (
             <Card className="divide-y divide-slate-100 px-4 shadow-sm">
               {items.map((it) => (
@@ -908,20 +938,24 @@ export default function WorkOrderDetail() {
                       {num(it.quantity)} × {money(it.unit_price)}
                     </p>
                   </div>
-                  <button
-                    onClick={() => removeItem(it.id)}
-                    className="mt-1 text-slate-300 transition hover:text-red-500"
-                    aria-label="Remove item"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
+                  {!financialItemsLocked && (
+                    <button
+                      onClick={() => removeItem(it.id)}
+                      className="mt-1 text-slate-300 transition hover:text-red-500"
+                      aria-label="Remove item"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               ))}
             </Card>
           )}
 
-          {/* Add Line Item Form with Instant Part Number Search */}
-          <form onSubmit={addItem} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-900/10">
+          {!financialItemsLocked && (
+            <>
+              {/* Add Line Item Form with Instant Part Number Search */}
+              <form onSubmit={addItem} className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-900/10">
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <p className="text-xs font-bold uppercase tracking-wide text-slate-700">Add Line Item</p>
               {kind === 'part' && (
@@ -1146,11 +1180,13 @@ export default function WorkOrderDetail() {
             >
               + Add to Repair Order
             </Button>
-          </form>
+              </form>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Barcode / OCR Camera Scanner for Work Order Parts */}
+      {/* Part Barcode Scanner for Work Order Parts */}
       <PartScannerModal
         isOpen={scannerOpen}
         onClose={() => setScannerOpen(false)}

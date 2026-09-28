@@ -1,17 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon, PlusIcon, UsersIcon, WrenchIcon, VehicleIcon, ScanIcon } from '../components/icons';
+import { ArrowLeftIcon, PlusIcon, UsersIcon, WrenchIcon, VehicleIcon } from '../components/icons';
 import { Button, Card, EmptyState, ErrorState, Field, Input, Textarea, PageTitle, Select, Spinner } from '../components/ui';
 import CustomerSearchPicker from '../components/CustomerSearchPicker';
-import VinScannerModal from '../components/VinScannerModal';
-import IdCardScannerModal from '../components/IdCardScannerModal';
 import { useAsync } from '../lib/hooks';
 import { fullName, getVehicleTypeInfo, todayISO, vehicleLabel } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
-import { type DecodedVehicleInfo } from '../lib/vinDecoder';
-import { type ParsedDriverLicense } from '../lib/aamvaParser';
 import type { CustomerWithVehicles, VehicleType, WorkOrderFull } from '../types';
 
 export default function NewWorkOrder() {
@@ -54,22 +50,6 @@ export default function NewWorkOrder() {
   const [qModel, setQModel] = useState('');
   const [qPlate, setQPlate] = useState('');
   const [savingQuick, setSavingQuick] = useState(false);
-  const [idScannerOpen, setIdScannerOpen] = useState(false);
-  const [vinScannerOpen, setVinScannerOpen] = useState(false);
-
-  function handleIdDetected(idData: ParsedDriverLicense) {
-    setQFirstName(idData.firstName || qFirstName);
-    setQLastName(idData.lastName || qLastName);
-    toast(`✓ Extracted ${idData.fullName}`);
-  }
-
-  function handleVinDetected(vin: string, decoded?: DecodedVehicleInfo) {
-    if (decoded?.year) setQYear(decoded.year);
-    if (decoded?.make) setQMake(decoded.make);
-    if (decoded?.model) setQModel(decoded.model);
-    if (decoded?.vehicle_type) setQType(decoded.vehicle_type);
-    toast(`✓ Scanned VIN: ${vin} ${decoded?.make ? `(${decoded.make} ${decoded.model})` : ''}`);
-  }
 
   const customer = customers?.find((c) => c.id === customerId);
   const selectedVehicle = customer?.vehicles?.find((v) => v.id === vehicleId);
@@ -424,14 +404,6 @@ export default function NewWorkOrder() {
                   <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
                     Customer Contact
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setIdScannerOpen(true)}
-                    className="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-2 py-1 text-[11px] font-bold text-orange-400 hover:bg-slate-700 transition"
-                  >
-                    <ScanIcon className="h-3 w-3" />
-                    <span>🪪 Scan ID</span>
-                  </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2.5">
                   <Field label="First Name *">
@@ -478,14 +450,6 @@ export default function NewWorkOrder() {
                   <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
                     Vehicle / Machine (Optional)
                   </span>
-                  <button
-                    type="button"
-                    onClick={() => setVinScannerOpen(true)}
-                    className="inline-flex items-center gap-1 rounded-lg bg-slate-800 px-2 py-1 text-[11px] font-bold text-orange-400 hover:bg-slate-700 transition"
-                  >
-                    <ScanIcon className="h-3 w-3" />
-                    <span>📷 Scan VIN</span>
-                  </button>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <Field label="Type">
@@ -561,20 +525,6 @@ export default function NewWorkOrder() {
           </div>
         </div>
       )}
-
-      {/* Driver's License Scanner Modal */}
-      <IdCardScannerModal
-        isOpen={idScannerOpen}
-        onClose={() => setIdScannerOpen(false)}
-        onIdDetected={handleIdDetected}
-      />
-
-      {/* Vehicle VIN / HIN Barcode Scanner Modal */}
-      <VinScannerModal
-        isOpen={vinScannerOpen}
-        onClose={() => setVinScannerOpen(false)}
-        onVinDetected={handleVinDetected}
-      />
     </div>
   );
 }

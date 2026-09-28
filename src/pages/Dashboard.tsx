@@ -27,6 +27,7 @@ import { Card, EmptyState, Badge } from '../components/ui';
 import WorkOrderCard from '../components/WorkOrderCard';
 import type { WorkOrderFull, DealershipUnit, SpecialOrder, InvoiceFull } from '../types';
 import { money, fullName, vehicleLabel, shortDate } from '../lib/format';
+import { getInvoiceBalanceDue, getInvoiceEffectiveStatus } from '../lib/invoiceAccounting';
 import { useShopSettings } from '../lib/settings';
 import { getSubscriptionInfo, STRIPE_PAYMENT_URL } from '../lib/subscription';
 import { cacheLocal, getCachedLocal } from '../lib/offlineSync';
@@ -106,8 +107,8 @@ export default function Dashboard() {
           .limit(20),
         supabase
           .from('invoices')
-          .select('id, number, total, status, created_at, customer:customers(*)')
-          .eq('user_id', user.id)
+          .select('id, number, total, status, payments, paid_at, created_at, customer:customers(*)')
+          .or(`user_id.eq.${user.id},user_id.is.null`)
           .order('created_at', { ascending: false }),
         supabase
           .from('customers')
@@ -128,6 +129,8 @@ export default function Dashboard() {
           .limit(6),
       ]);
 
+      if (invoicesRes.error) throw new Error(invoicesRes.error.message);
+
       const orders = (ordersRes.data || []) as WorkOrderFull[];
       const allInvoices = (invoicesRes.data || []) as any[];
       const floored = (unitsRes.data || []) as DealershipUnit[];
@@ -147,8 +150,8 @@ export default function Dashboard() {
       const completed = orders.filter((o) => o.status === 'completed').length;
       const open = orders.filter((o) => o.status === 'open' || o.status === 'in_progress').length;
 
-      const unpaidList = allInvoices.filter((i) => i.status === 'unpaid' || i.status === 'draft');
-      const unpaidTotal = unpaidList.reduce((sum, i) => sum + Number(i.total || 0), 0);
+      const unpaidList = allInvoices.filter((invoice) => getInvoiceBalanceDue(invoice) > 0);
+      const unpaidTotal = unpaidList.reduce((sum, invoice) => sum + getInvoiceBalanceDue(invoice), 0);
 
       const latestMetrics: Metrics = {
         inProgressCount: inProgress,
@@ -536,8 +539,8 @@ export default function Dashboard() {
                       <p className="text-[10px] text-slate-500">{shortDate(inv.created_at)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-mono font-black text-xs text-slate-900">{money(inv.total)}</p>
-                      <span className="text-[9px] font-bold text-amber-600 uppercase">Unpaid</span>
+                      <p className="font-mono font-black text-xs text-slate-900">{money(getInvoiceBalanceDue(inv))}</p>
+                      <span className="text-[9px] font-bold text-amber-600 uppercase">{getInvoiceEffectiveStatus(inv)}</span>
                     </div>
                   </Link>
                 ))}

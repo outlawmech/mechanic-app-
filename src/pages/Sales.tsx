@@ -18,9 +18,9 @@ import {
   VehicleIcon,
   WrenchIcon,
   PencilIcon,
-  ScanIcon,
 } from '../components/icons';
 import {
+  ACTION_GRID_CLS,
   Badge,
   Button,
   Card,
@@ -37,8 +37,7 @@ import { useAsync } from '../lib/hooks';
 import { money, num, shortDate, fullName, VEHICLE_TYPES } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
-import { decodeVehicleVIN, type DecodedVehicleInfo } from '../lib/vinDecoder';
-import VinScannerModal from '../components/VinScannerModal';
+import { decodeVehicleVIN } from '../lib/vinDecoder';
 import { useShopSettings } from '../lib/settings';
 import type { DealershipUnit, BuyersOrderFull, UnitCondition, UnitStatus, VehicleType } from '../types';
 
@@ -84,21 +83,7 @@ export default function Sales() {
   const [form, setForm] = useState(emptyUnit);
   const [decoding, setDecoding] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [vinScannerOpen, setVinScannerOpen] = useState(false);
-
-  function handleVinDetected(scannedVin: string, decoded?: DecodedVehicleInfo) {
-    setForm((prev) => ({
-      ...prev,
-      vin: scannedVin,
-      year: decoded?.year || prev.year,
-      make: decoded?.make || prev.make,
-      model: decoded?.model || prev.model,
-      trim: decoded?.trim || prev.trim,
-      engine_info: decoded?.engine_info || prev.engine_info,
-      type: (decoded?.vehicle_type as VehicleType) || prev.type,
-    }));
-    toast(`✓ Scanned VIN: ${scannedVin} ${decoded?.make ? `(${decoded.make} ${decoded.model})` : ''}`);
-  }
+  const [unitSaveNotice, setUnitSaveNotice] = useState<{ kind: 'error' | 'pending'; message: string } | null>(null);
 
   const { data, error, loading, reload } = useAsync(async () => {
     return safeFetchWithCache(
@@ -201,6 +186,7 @@ export default function Sales() {
       toast('Make and Model are required', 'error');
       return;
     }
+    setUnitSaveNotice(null);
     setSaving(true);
 
     const unitPayload = {
@@ -224,10 +210,10 @@ export default function Sales() {
       notes: form.notes.trim(),
       // Floorplan financing
       is_floored: Boolean(form.is_floored),
-      floorplan_company: form.floorplan_company.trim() || null,
-      floorplan_balance: form.floorplan_balance ? num(form.floorplan_balance) : (form.is_floored ? num(form.cost_price) : null),
+      floorplan_company: form.floorplan_company.trim(),
+      floorplan_balance: form.floorplan_balance ? num(form.floorplan_balance) : (form.is_floored ? num(form.cost_price) : 0),
       floorplan_curtailment_date: form.floorplan_curtailment_date.trim() || null,
-      floorplan_curtailment_amount: form.floorplan_curtailment_amount ? num(form.floorplan_curtailment_amount) : null,
+      floorplan_curtailment_amount: form.floorplan_curtailment_amount ? num(form.floorplan_curtailment_amount) : 0,
       floorplan_paid_off: Boolean(form.floorplan_paid_off),
       updated_at: new Date().toISOString(),
     };
@@ -236,13 +222,28 @@ export default function Sales() {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         const sb = requireSupabase();
         if (editingUnit) {
-          check(await sb.from('dealership_units').update(unitPayload).eq('id', editingUnit.id));
-          toast('Unit updated');
+          const updateResult = check(
+            await sb.from('dealership_units').update(unitPayload).eq('id', editingUnit.id).select('id').maybeSingle()
+          );
+          if (!updateResult.data?.id) {
+            throw new Error('Supabase did not confirm the showroom unit update. Check your access and try again.');
+          }
         } else {
-          check(await sb.from('dealership_units').insert(unitPayload));
-          toast('Showroom unit added');
+          const duplicateResult = check(
+            await sb.from('dealership_units').select('id').eq('stock_number', unitPayload.stock_number).limit(1)
+          );
+          if ((duplicateResult.data ?? []).length > 0) {
+            throw new Error(`Stock number ${unitPayload.stock_number} already exists. Check the showroom list before trying again.`);
+          }
+          const insertResult = check(
+            await sb.from('dealership_units').insert(unitPayload).select('id, stock_number').single()
+          );
+          if (!insertResult.data?.id) {
+            throw new Error('Supabase did not confirm the showroom unit insert. The unit was not marked as saved.');
+          }
         }
         await reload();
+        toast(editingUnit ? 'Unit updated in Supabase' : 'Showroom unit saved in Supabase');
       } else {
         // Offline handling
         if (editingUnit) {
@@ -258,7 +259,6 @@ export default function Sales() {
             u.id === editingUnit.id ? { ...u, ...unitPayload } : u
           );
           cacheLocal('dealership_sales_data', { units: updated, deals: allDeals });
-          toast('Unit updated (Saved offline)');
         } else {
           const tempId = generateUUID();
           const newUnitData: DealershipUnit = {
@@ -273,15 +273,20 @@ export default function Sales() {
             description: `Add unit ${unitPayload.make} ${unitPayload.model}`,
           });
           cacheLocal('dealership_sales_data', { units: [newUnitData, ...allUnits], deals: allDeals });
-          toast('Unit added (Saved offline)');
         }
+        await reload();
+        const pendingMessage = 'Unit is queued on this device and has not been confirmed in Supabase yet. It will sync when the connection returns.';
+        setUnitSaveNotice({ kind: 'pending', message: pendingMessage });
+        toast(pendingMessage);
       }
 
       setForm(emptyUnit);
       setAddingUnit(false);
       setEditingUnit(null);
-    } catch (err: any) {
-      toast(err.message || 'Failed to save unit', 'error');
+    } catch (err: unknown) {
+      const message = errMsg(err) || 'Failed to save unit.';
+      setUnitSaveNotice({ kind: 'error', message });
+      toast(message, 'error');
     } finally {
       setSaving(false);
     }
@@ -466,10 +471,10 @@ export default function Sales() {
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <div className={`${ACTION_GRID_CLS} justify-center pt-2`}>
             <Button
               variant="accent"
-              className="w-full sm:w-auto px-6 py-3 text-xs font-black shadow-lg"
+              className="h-10 w-full sm:h-9 sm:w-auto shadow-lg"
               onClick={async () => {
                 await updateSettings({ enable_dealership_mode: true });
                 toast('🏢 Switched to Dealership & Multi-Tech DMS Mode!');
@@ -480,7 +485,7 @@ export default function Sales() {
 
             <Button
               variant="ghost"
-              className="w-full sm:w-auto text-xs font-bold text-slate-300 border border-slate-700 bg-slate-800 hover:bg-slate-700"
+              className="h-10 w-full sm:h-9 sm:w-auto text-xs font-bold text-slate-300 border border-slate-700 bg-slate-800 hover:bg-slate-700"
               onClick={() => setShowPreview(true)}
             >
               Preview Showroom Floor
@@ -488,7 +493,7 @@ export default function Sales() {
 
             <Link
               to="/"
-              className="text-xs font-semibold text-slate-400 hover:text-white underline sm:no-underline"
+              className="inline-flex h-10 w-full items-center justify-center text-xs font-semibold text-slate-400 hover:text-white underline sm:no-underline sm:h-9 sm:w-auto"
             >
               Back to Dashboard
             </Link>
@@ -534,6 +539,19 @@ export default function Sales() {
           )}
         </div>
       </div>
+
+      {unitSaveNotice && (
+        <div
+          role={unitSaveNotice.kind === 'error' ? 'alert' : 'status'}
+          className={`rounded-xl border p-3 text-sm font-semibold ${
+            unitSaveNotice.kind === 'error'
+              ? 'border-red-300 bg-red-50 text-red-800'
+              : 'border-amber-300 bg-amber-50 text-amber-900'
+          }`}
+        >
+          {unitSaveNotice.message}
+        </div>
+      )}
 
       {/* Solo Rig Warning Banner if viewing Sales in Solo Mode */}
       {!settings.enable_dealership_mode && (
@@ -636,14 +654,6 @@ export default function Sales() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setVinScannerOpen(true)}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-1.5 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 hover:bg-orange-400 transition active:scale-95"
-              >
-                <ScanIcon className="h-4 w-4" />
-                <span>📷 Scan VIN Barcode</span>
-              </button>
               <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-bold text-orange-900">
                 {form.condition.toUpperCase()}
               </span>
@@ -1306,13 +1316,6 @@ export default function Sales() {
           </div>
         </div>
       )}
-
-      {/* Vehicle VIN / HIN Scanner Modal */}
-      <VinScannerModal
-        isOpen={vinScannerOpen}
-        onClose={() => setVinScannerOpen(false)}
-        onVinDetected={handleVinDetected}
-      />
     </div>
   );
 }

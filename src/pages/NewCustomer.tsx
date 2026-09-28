@@ -1,15 +1,12 @@
 import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../components/Toast';
-import { ArrowLeftIcon, PlusIcon, SparklesIcon, VehicleIcon, ScanIcon, UsersIcon } from '../components/icons';
+import { ArrowLeftIcon, PlusIcon, SparklesIcon, VehicleIcon, UsersIcon } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Select } from '../components/ui';
 import { getVehicleTypeInfo, VEHICLE_TYPES } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
-import { decodeVehicleVIN, type DecodedVehicleInfo } from '../lib/vinDecoder';
-import { type ParsedDriverLicense } from '../lib/aamvaParser';
-import VinScannerModal from '../components/VinScannerModal';
-import IdCardScannerModal from '../components/IdCardScannerModal';
+import { decodeVehicleVIN } from '../lib/vinDecoder';
 import type { CustomerWithVehicles, Vehicle, VehicleType } from '../types';
 
 const empty = {
@@ -42,8 +39,6 @@ export default function NewCustomer() {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [decoding, setDecoding] = useState(false);
-  const [idScannerOpen, setIdScannerOpen] = useState(false);
-  const [vinScannerOpen, setVinScannerOpen] = useState(false);
 
   const set =
     (k: keyof typeof empty) =>
@@ -51,37 +46,6 @@ export default function NewCustomer() {
       setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const currentTypeInfo = getVehicleTypeInfo(form.type);
-
-  function handleIdDetected(idData: ParsedDriverLicense) {
-    setForm((prev) => ({
-      ...prev,
-      first_name: idData.firstName || prev.first_name,
-      last_name: idData.lastName || prev.last_name,
-      address: idData.fullAddress || prev.address,
-      notes: [
-        prev.notes,
-        idData.licenseNumber ? `DL #${idData.licenseNumber} (${idData.state})` : '',
-        idData.dateOfBirth ? `DOB: ${idData.dateOfBirth}` : '',
-      ]
-        .filter(Boolean)
-        .join(' · '),
-    }));
-    toast(`✓ Extracted info for ${idData.fullName}`);
-  }
-
-  function handleVinDetected(vin: string, decoded?: DecodedVehicleInfo) {
-    setForm((prev) => ({
-      ...prev,
-      vin,
-      year: decoded?.year || prev.year,
-      make: decoded?.make || prev.make,
-      model: decoded?.model || prev.model,
-      trim: decoded?.trim || prev.trim,
-      engine_info: decoded?.engine_info || prev.engine_info,
-      type: (decoded?.vehicle_type as VehicleType) || prev.type,
-    }));
-    toast(`✓ Scanned VIN: ${vin} ${decoded?.make ? `(${decoded.make} ${decoded.model})` : ''}`);
-  }
 
   async function handleDecodeVin() {
     const raw = form.vin.trim();
@@ -237,16 +201,8 @@ export default function NewCustomer() {
           <div className="flex items-center justify-between border-b border-slate-100 pb-2 col-span-2">
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-slate-700">Customer Profile</p>
-              <p className="text-[11px] text-slate-500">Enter manually or scan state driver's license / ID card</p>
+              <p className="text-[11px] text-slate-500">Enter the customer's details below</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIdScannerOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition active:scale-95"
-            >
-              <ScanIcon className="h-4 w-4 text-orange-400" />
-              <span>🪪 Scan Driver's License</span>
-            </button>
           </div>
 
           <Field label="First name *">
@@ -279,14 +235,6 @@ export default function NewCustomer() {
               <p className="text-xs font-bold uppercase tracking-wide text-slate-700">Vehicle / Equipment / Machine</p>
               <p className="text-[11px] text-slate-500">Optional — you can also add equipment later.</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setVinScannerOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-1.5 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 hover:bg-orange-400 transition active:scale-95"
-            >
-              <ScanIcon className="h-4 w-4" />
-              <span>📷 Scan VIN Barcode</span>
-            </button>
           </div>
 
           <Field label="Equipment Category">
@@ -468,20 +416,6 @@ export default function NewCustomer() {
           {saving ? 'Saving…' : 'Save Customer & Vehicle'}
         </Button>
       </form>
-
-      {/* Driver's License / State ID Scanner Modal */}
-      <IdCardScannerModal
-        isOpen={idScannerOpen}
-        onClose={() => setIdScannerOpen(false)}
-        onIdDetected={handleIdDetected}
-      />
-
-      {/* Vehicle VIN / HIN Barcode Scanner Modal */}
-      <VinScannerModal
-        isOpen={vinScannerOpen}
-        onClose={() => setVinScannerOpen(false)}
-        onVinDetected={handleVinDetected}
-      />
     </div>
   );
 }

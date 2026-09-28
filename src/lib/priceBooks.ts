@@ -8,7 +8,7 @@ export interface PriceBookEntry {
   book_id: string;
   manufacturer: string;
   sku: string;
-  clean_sku: string; // alphanumeric only for fuzzy barcode/OCR matching
+  clean_sku: string; // alphanumeric only for normalized barcode matching
   name: string;
   cost_price: number;
   sell_price: number;

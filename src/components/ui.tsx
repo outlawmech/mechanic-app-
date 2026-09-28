@@ -31,6 +31,29 @@ export function Card({
 
 type BtnVariant = 'primary' | 'accent' | 'success' | 'ghost' | 'danger';
 
+/**
+ * Uniform sizing for page-header action rows and modal action bars.
+ * Touch targets stay large on phones (h-10) and tighten on desktop (sm:h-9)
+ * so grids line up edge-to-edge across every screen.
+ */
+export const ACTION_GRID_CLS = 'grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2';
+
+export const ACTION_BTN_CLS =
+  'inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl px-3 text-xs font-bold transition ' +
+  'sm:h-9 sm:w-auto active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50';
+
+export function actionBtnCls(tone: 'accent' | 'primary' | 'ghost' = 'primary', extra = ''): string {
+  const tones: Record<'accent' | 'primary' | 'ghost', string> = {
+    accent:
+      'bg-orange-500 text-slate-950 font-black shadow-md shadow-orange-500/20 hover:bg-orange-400 active:bg-orange-600',
+    primary:
+      'bg-slate-900 text-white shadow-xs hover:bg-slate-800 active:bg-slate-700',
+    ghost:
+      'border border-slate-200 bg-white text-slate-700 shadow-xs hover:bg-slate-50 active:bg-slate-100',
+  };
+  return `${ACTION_BTN_CLS} ${tones[tone]} ${extra}`.trim();
+}
+
 export function Button({
   variant = 'primary',
   className = '',

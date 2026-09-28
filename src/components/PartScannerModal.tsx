@@ -1,14 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  BarcodeIcon,
   BookOpenIcon,
   CheckIcon,
   PlusIcon,
   ScanIcon,
-  SearchIcon,
-  SparklesIcon,
-  WrenchIcon,
-  BoxIcon,
 } from './icons';
 import { Button, Card, Input } from './ui';
 import type { Part } from '../types';
@@ -33,98 +28,142 @@ export default function PartScannerModal({
   onAddNewPart,
 }: PartScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const activeStreamRef = useRef<MediaStream | null>(null);
 
-  const [scanMode, setScanMode] = useState<'barcode' | 'ocr'>('barcode');
-  const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [scanning, setScanning] = useState(false);
+  const [scannerReady, setScannerReady] = useState(false);
   const [recognizedText, setRecognizedText] = useState<string>('');
   const [matchedPart, setMatchedPart] = useState<Part | null>(null);
   const [matchedPb, setMatchedPb] = useState<PriceBookEntry | null>(null);
-  const [candidateSkus, setCandidateSkus] = useState<string[]>([]);
-  const [torchOn, setTorchOn] = useState(false);
   const [manualQuery, setManualQuery] = useState('');
+  const [engineError, setEngineError] = useState<string | null>(null);
 
-  // Start Camera Stream
+  // Reuse the app's original on-device barcode reader. This keeps barcode
+  // decoding in the Android/WebView platform and avoids the later ZXing path
+  // that stopped recognizing codes on the user's device.
   useEffect(() => {
+    let cancelled = false;
     let stream: MediaStream | null = null;
-    let scanInterval: any = null;
+    let scanInterval: ReturnType<typeof setInterval> | null = null;
+    let detecting = false;
+    let lastValue = '';
+    let lastValueAt = 0;
 
     if (isOpen) {
       setMatchedPart(null);
       setMatchedPb(null);
       setRecognizedText('');
-      setCandidateSkus([]);
       setCameraError(null);
+      setScannerReady(false);
+      setEngineError(null);
 
-      const constraints: MediaStreamConstraints = {
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-        audio: false,
-      };
-
-      navigator.mediaDevices
-        ?.getUserMedia(constraints)
-        .then((s) => {
-          stream = s;
-          activeStreamRef.current = s;
-          if (videoRef.current) {
-            videoRef.current.srcObject = s;
-            videoRef.current.play().catch(() => {});
-            setCameraActive(true);
-          }
-        })
-        .catch((err) => {
-          console.warn('Camera access error:', err);
-          setCameraError(
-            'Camera permission is required for live scanning. You can also type the SKU below.'
-          );
-        });
-
-      // Periodic Live Barcode Scanning
-      if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+      const startCamera = async () => {
         try {
-          const barcodeDetector = new (window as any).BarcodeDetector({
-            formats: ['qr_code', 'ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e'],
+          if (!navigator.mediaDevices?.getUserMedia) {
+            throw new Error('Camera access is not available in this app.');
+          }
+
+          const cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+            audio: false,
           });
 
+          if (cancelled) {
+            cameraStream.getTracks().forEach((track) => track.stop());
+            return;
+          }
+
+          stream = cameraStream;
+          const video = videoRef.current;
+          if (!video) throw new Error('Camera preview is unavailable.');
+
+          video.srcObject = cameraStream;
+          video.muted = true;
+          video.playsInline = true;
+          await video.play();
+          if (cancelled) return;
+
+          const Detector = (window as any).BarcodeDetector;
+          if (!Detector) {
+            setEngineError('This device does not provide the original barcode reader. You can still search by SKU below.');
+            return;
+          }
+
+          const preferredFormats = [
+            'qr_code',
+            'ean_13',
+            'ean_8',
+            'code_128',
+            'code_39',
+            'upc_a',
+            'upc_e',
+          ];
+          let formats = preferredFormats;
+          if (typeof Detector.getSupportedFormats === 'function') {
+            const supportedFormats = await Detector.getSupportedFormats();
+            formats = preferredFormats.filter((format) => supportedFormats.includes(format));
+          }
+          if (!formats.length) {
+            setEngineError('This device does not support the part barcode formats. You can still search by SKU below.');
+            return;
+          }
+
+          const detector = new Detector({ formats });
+          setScannerReady(true);
           scanInterval = setInterval(async () => {
-            if (scanMode === 'barcode' && videoRef.current && videoRef.current.readyState >= 2) {
-              try {
-                const barcodes = await barcodeDetector.detect(videoRef.current);
-                if (barcodes.length > 0) {
-                  const rawVal = barcodes[0].rawValue?.trim();
-                  if (rawVal) {
-                    handleDetectedValue(rawVal);
-                  }
-                }
-              } catch {}
+            const activeVideo = videoRef.current;
+            if (cancelled || detecting || !activeVideo || activeVideo.readyState < 2) return;
+
+            detecting = true;
+            try {
+              const barcodes = await detector.detect(activeVideo);
+              if (cancelled) return;
+              const rawValue = barcodes[0]?.rawValue?.trim();
+              const now = Date.now();
+              if (rawValue && (rawValue !== lastValue || now - lastValueAt >= 2000)) {
+                lastValue = rawValue;
+                lastValueAt = now;
+                handleDetectedValue(rawValue);
+              }
+            } catch (err) {
+              console.warn('Part barcode detection error:', err);
+              if (!cancelled) {
+                setScannerReady(false);
+                setEngineError('The barcode reader hit a decoding error. Reopen the scanner or search by SKU below.');
+              }
+              if (scanInterval !== null) clearInterval(scanInterval);
+              scanInterval = null;
+            } finally {
+              detecting = false;
             }
           }, 450);
-        } catch {}
-      }
+        } catch (err) {
+          if (cancelled) return;
+          console.warn('Part scanner startup error:', err);
+          if (videoRef.current && videoRef.current.readyState >= 2) {
+            setEngineError('The barcode reader could not start on this device. You can still search by SKU below.');
+          } else {
+            setCameraError('Camera could not start. Check the app camera permission, then reopen the scanner.');
+          }
+        }
+      };
+
+      void startCamera();
     }
 
     return () => {
-      if (scanInterval) clearInterval(scanInterval);
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+      cancelled = true;
+      if (scanInterval !== null) clearInterval(scanInterval);
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current.srcObject = null;
       }
-      activeStreamRef.current = null;
-      if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
-        try {
-          (window as any).AndroidNativeFlashlight.setTorch(false);
-        } catch {}
-      }
-      setCameraActive(false);
-      setTorchOn(false);
+      stream?.getTracks().forEach((track) => track.stop());
     };
-  }, [isOpen, scanMode]);
+  }, [isOpen]);
 
   function handleDetectedValue(val: string) {
     const clean = val.trim();
@@ -148,139 +187,7 @@ export default function PartScannerModal({
         setMatchedPb(pb);
       });
 
-      if (!candidateSkus.includes(clean)) {
-        setCandidateSkus((prev) => [clean, ...prev.slice(0, 3)]);
-      }
     }
-  }
-
-  // OCR Part Number Extraction from Still Frame
-  async function captureAndReadOCR() {
-    if (!videoRef.current || !canvasRef.current) return;
-    setScanning(true);
-
-    try {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      canvas.width = video.videoWidth || 640;
-      canvas.height = video.videoHeight || 480;
-
-      // Draw center crop for better focus on stamped text
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const data = imgData.data;
-
-      // Enhance contrast (Grayscale + High-pass filter for stamped numbers)
-      for (let i = 0; i < data.length; i += 4) {
-        const v = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-        const enhanced = v > 120 ? Math.min(255, v * 1.2) : Math.max(0, v * 0.8);
-        data[i] = enhanced;
-        data[i + 1] = enhanced;
-        data[i + 2] = enhanced;
-      }
-      ctx.putImageData(imgData, 0, 0);
-
-      // Check if browser native text detector is available
-      if ('TextDetector' in window) {
-        const textDetector = new (window as any).TextDetector();
-        const detectedTexts = await textDetector.detect(canvas);
-        if (detectedTexts.length > 0) {
-          const rawLines: string[] = detectedTexts.map((t: any) => t.rawValue).filter(Boolean);
-          const fullText = rawLines.join(' ');
-          extractPartNumberCandidates(fullText);
-          return;
-        }
-      }
-
-      // If no native text detector, simulate visual pattern matching against current SKU catalog
-      // by inspecting manual query or pattern match
-      const matchingExisting = parts.find((p) =>
-        manualQuery && p.sku.toLowerCase().includes(manualQuery.toLowerCase())
-      );
-      if (matchingExisting) {
-        handleDetectedValue(matchingExisting.sku);
-      }
-    } catch (err) {
-      console.warn('OCR capture error:', err);
-    } finally {
-      setScanning(false);
-    }
-  }
-
-  function extractPartNumberCandidates(text: string) {
-    // Regex for part numbers e.g. 16510-07J00, CR9EK, HF-138, WIX51515, 5TG-14451-00, 0470-449
-    const regex = /\b[A-Z0-9]{2,8}[-\s]?[A-Z0-9]{2,8}(?:[-\s]?[A-Z0-9]{1,6})?\b/gi;
-    const matches = text.match(regex) || [];
-    const candidates = Array.from(new Set(matches.map((m) => m.trim().toUpperCase()))).filter(
-      (m) => m.length >= 3
-    );
-
-    if (candidates.length > 0) {
-      setCandidateSkus(candidates.slice(0, 5));
-      const firstCandidate = candidates[0];
-      handleDetectedValue(firstCandidate);
-    }
-  }
-
-  // Toggle Torch/Flashlight
-  async function toggleTorch() {
-    const nextState = !torchOn;
-    let success = false;
-
-    // 1. Direct WebRTC track applyConstraints (Supported on Chrome, Edge, Safari, Android WebView)
-    const currentStream = activeStreamRef.current || (videoRef.current?.srcObject as MediaStream | null);
-    if (currentStream) {
-      const tracks = currentStream.getVideoTracks();
-      for (const track of tracks) {
-        try {
-          const caps = (track.getCapabilities ? track.getCapabilities() : {}) as any;
-          await track.applyConstraints({
-            advanced: [{ torch: nextState } as any],
-          });
-          success = true;
-        } catch {
-          try {
-            await (track as any).applyConstraints({
-              torch: nextState,
-            });
-            success = true;
-          } catch (err) {
-            console.warn('WebRTC torch constraint error:', err);
-          }
-        }
-      }
-    }
-
-    // 2. Try ImageCapture API if available
-    if (!success && typeof (window as any).ImageCapture !== 'undefined' && currentStream) {
-      try {
-        const track = currentStream.getVideoTracks()[0];
-        if (track) {
-          const imageCapture = new (window as any).ImageCapture(track);
-          if (typeof imageCapture.setOptions === 'function') {
-            await imageCapture.setOptions({ fillLightMode: nextState ? 'torch' : 'off', torch: nextState });
-            success = true;
-          }
-        }
-      } catch (icErr) {
-        console.warn('ImageCapture torch error:', icErr);
-      }
-    }
-
-    // 3. Try native Android Flashlight Interface if available
-    if (typeof window !== 'undefined' && (window as any).AndroidNativeFlashlight) {
-      try {
-        const res = (window as any).AndroidNativeFlashlight.setTorch(nextState);
-        if (res) success = true;
-      } catch (nativeErr) {
-        console.warn('Native Android torch error:', nativeErr);
-      }
-    }
-
-    setTorchOn(nextState);
   }
 
   if (!isOpen) return null;
@@ -301,8 +208,8 @@ export default function PartScannerModal({
               <ScanIcon className="h-4 w-4" />
             </span>
             <div>
-              <h3 className="text-sm font-black text-white">Smart Part Scanner</h3>
-              <p className="text-[10px] text-slate-400">Barcode, QR &amp; Stamped Part Number OCR</p>
+              <h3 className="text-sm font-black text-white">Part Barcode Scanner</h3>
+              <p className="text-[10px] text-slate-400">Scan a part barcode or QR code</p>
             </div>
           </div>
           <button
@@ -312,35 +219,6 @@ export default function PartScannerModal({
             className="rounded-full bg-slate-800 p-1.5 text-xs font-bold text-slate-400 hover:bg-slate-700 hover:text-white transition"
           >
             ✕
-          </button>
-        </div>
-
-        {/* Mode Selector Tabs */}
-        <div className="grid grid-cols-2 p-2 bg-slate-950/80 border-b border-slate-800 text-xs font-bold gap-1.5">
-          <button
-            type="button"
-            onClick={() => setScanMode('barcode')}
-            className={`flex items-center justify-center gap-2 py-2 rounded-xl transition ${
-              scanMode === 'barcode'
-                ? 'bg-orange-500 text-slate-950 font-black shadow-xs'
-                : 'text-slate-400 hover:text-white bg-slate-900/40'
-            }`}
-          >
-            <BarcodeIcon className="h-4 w-4" />
-            <span>Barcode &amp; QR Mode</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setScanMode('ocr')}
-            className={`flex items-center justify-center gap-2 py-2 rounded-xl transition ${
-              scanMode === 'ocr'
-                ? 'bg-orange-500 text-slate-950 font-black shadow-xs'
-                : 'text-slate-400 hover:text-white bg-slate-900/40'
-            }`}
-          >
-            <ScanIcon className="h-4 w-4" />
-            <span>Part # Text OCR</span>
           </button>
         </div>
 
@@ -361,7 +239,6 @@ export default function PartScannerModal({
                 muted
                 className="h-full w-full object-cover"
               />
-              <canvas ref={canvasRef} className="hidden" />
 
               {/* Viewfinder Target Overlay */}
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
@@ -377,43 +254,24 @@ export default function PartScannerModal({
                 </div>
               </div>
 
-              {/* Top Controls Overlay */}
-              <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
-                <button
-                  type="button"
-                  onClick={toggleTorch}
-                  className={`rounded-xl px-3 py-1.5 text-xs font-black transition shadow-lg flex items-center gap-1.5 ${
-                    torchOn
-                      ? 'bg-amber-400 text-slate-950 ring-2 ring-amber-300 shadow-amber-400/50'
-                      : 'bg-slate-900/80 text-white hover:bg-slate-800 ring-1 ring-white/20'
-                  }`}
-                  title="Toggle Physical Rear LED Flashlight"
-                >
-                  <span>💡</span>
-                  <span>{torchOn ? 'Flash ON' : 'Flash'}</span>
-                </button>
-              </div>
-
-              {/* OCR Action Trigger Button */}
-              {scanMode === 'ocr' && (
-                <div className="absolute bottom-3 inset-x-0 flex justify-center">
-                  <button
-                    type="button"
-                    onClick={captureAndReadOCR}
-                    disabled={scanning}
-                    className="flex items-center gap-2 rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-slate-950 shadow-xl shadow-orange-500/30 hover:bg-orange-400 active:scale-95 transition"
-                  >
-                    <ScanIcon className="h-4 w-4" />
-                    <span>{scanning ? 'Reading Part Text…' : '📸 Read Part Number on Box'}</span>
-                  </button>
-                </div>
-              )}
             </>
           )}
         </div>
 
         {/* Scan Results & Part Matching Drawer */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-900/90">
+          {!cameraError && !engineError && !recognizedText && (
+            <p className="text-center text-[11px] font-semibold text-slate-400" role="status">
+              {scannerReady
+                ? 'Barcode reader active — hold the code steady inside the frame.'
+                : 'Starting barcode reader…'}
+            </p>
+          )}
+          {engineError && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-200">
+              {engineError}
+            </div>
+          )}
           {/* Matched Part in Catalog */}
           {matchedPart ? (
             <div className="rounded-2xl border-2 border-emerald-500/40 bg-emerald-950/20 p-4 space-y-3 animate-in fade-in duration-150">
@@ -551,34 +409,11 @@ export default function PartScannerModal({
             /* Default Hint */
             <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 text-center space-y-1">
               <p className="text-xs font-bold text-slate-300">
-                {scanMode === 'barcode'
-                  ? 'Align barcode or QR sticker within the targeting frame.'
-                  : 'Point camera at the printed or stamped part number and tap "Read Part Number".'}
+                Align the part barcode or QR code within the targeting frame.
               </p>
               <p className="text-[11px] text-slate-500">
                 Auto-matches against all {parts.length} part numbers in your catalog.
               </p>
-            </div>
-          )}
-
-          {/* Candidate SKUs from OCR (if multiple found) */}
-          {candidateSkus.length > 1 && (
-            <div className="space-y-1.5 pt-1">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Detected Text Candidates:
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {candidateSkus.map((sku) => (
-                  <button
-                    key={sku}
-                    type="button"
-                    onClick={() => handleDetectedValue(sku)}
-                    className="font-mono text-xs font-bold bg-slate-800 px-2.5 py-1 rounded-lg text-slate-200 hover:bg-orange-500 hover:text-slate-950 transition"
-                  >
-                    {sku}
-                  </button>
-                ))}
-              </div>
             </div>
           )}
 

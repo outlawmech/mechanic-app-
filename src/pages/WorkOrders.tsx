@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import WorkOrderCard from '../components/WorkOrderCard';
 import { ClipboardIcon, PlusIcon, SearchIcon, CalendarIcon } from '../components/icons';
-import { Chip, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../components/ui';
+import { ACTION_GRID_CLS, actionBtnCls, Chip, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
@@ -84,18 +84,12 @@ export default function WorkOrders() {
           title={isDms ? 'Service Department (RO)' : 'Repair Orders (RO)'}
           sub={`${data?.length ?? 0} total repair orders`}
         />
-        <div className="flex items-center gap-2">
-          <Link
-            to="/schedule"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-bold text-slate-800 shadow-xs hover:bg-slate-50 transition"
-          >
+        <div className={ACTION_GRID_CLS}>
+          <Link to="/schedule" className={actionBtnCls('ghost')}>
             <CalendarIcon className="h-4 w-4 text-orange-600" />
             <span>Shop Schedule</span>
           </Link>
-          <Link
-            to="/work/new"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3.5 py-2 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 transition hover:bg-orange-400"
-          >
+          <Link to="/work/new" className={actionBtnCls('accent')}>
             <PlusIcon className="h-4 w-4" />
             <span>+ New RO</span>
           </Link>

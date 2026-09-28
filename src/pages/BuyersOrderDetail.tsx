@@ -16,18 +16,16 @@ import {
   PhoneIcon,
   MailIcon,
   MapPinIcon,
-  ScanIcon,
 } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Select, Spinner, ErrorState } from '../components/ui';
 import CustomerSearchPicker from '../components/CustomerSearchPicker';
 import SignaturePad from '../components/SignaturePad';
-import VinScannerModal from '../components/VinScannerModal';
 import { useShopSettings } from '../lib/settings';
 import { useAsync } from '../lib/hooks';
-import { money, num, fullName, shortDate, longDate } from '../lib/format';
+import { money, num, round2, fullName, shortDate, longDate } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
-import { decodeVehicleVIN, type DecodedVehicleInfo } from '../lib/vinDecoder';
+import { decodeVehicleVIN } from '../lib/vinDecoder';
 import type { BuyersOrderFull, Customer, CustomerWithVehicles, DealershipUnit, PaymentMethod, UnitCondition, BuyersOrderStatus } from '../types';
 
 export default function BuyersOrderDetail() {
@@ -59,15 +57,6 @@ export default function BuyersOrderDetail() {
   const [unitVin, setUnitVin] = useState('');
   const [unitColor, setUnitColor] = useState('');
   const [unitCondition, setUnitCondition] = useState<UnitCondition>('new');
-  const [vinScannerOpen, setVinScannerOpen] = useState(false);
-
-  function handleVinDetected(scannedVin: string, decoded?: DecodedVehicleInfo) {
-    setUnitVin(scannedVin);
-    if (decoded?.year) setUnitYear(decoded.year);
-    if (decoded?.make) setUnitMake(decoded.make);
-    if (decoded?.model) setUnitModel(decoded.model);
-    toast(`✓ Scanned VIN: ${scannedVin} ${decoded?.make ? `(${decoded.make} ${decoded.model})` : ''}`);
-  }
 
   // Financial Breakdown
   const [unitPrice, setUnitPrice] = useState('');
@@ -78,7 +67,7 @@ export default function BuyersOrderDetail() {
   const [tradeInAllowance, setTradeInAllowance] = useState('0');
   const [tradeInPayoff, setTradeInPayoff] = useState('0');
   const [tradeInInfo, setTradeInInfo] = useState('');
-  const [taxRate, setTaxRate] = useState(String(num(settings.default_tax_rate) * 100 || '4'));
+  const [taxRate, setTaxRate] = useState(() => String(num(settings.default_tax_rate) * 100));
   const [titleRegFee, setTitleRegFee] = useState('50');
   const [rebateAmount, setRebateAmount] = useState('0');
   const [downPayment, setDownPayment] = useState('0');
@@ -142,7 +131,7 @@ export default function BuyersOrderDetail() {
       setTradeInAllowance(String(existingOrder.trade_in_allowance || '0'));
       setTradeInPayoff(String(existingOrder.trade_in_payoff || '0'));
       setTradeInInfo(existingOrder.trade_in_info || '');
-      setTaxRate(String(num(existingOrder.tax_rate) * 100 || '4'));
+      setTaxRate(String(num(existingOrder.tax_rate) * 100));
       setTitleRegFee(String(existingOrder.title_reg_fee || '0'));
       setRebateAmount(String(existingOrder.rebate_amount || '0'));
       setDownPayment(String(existingOrder.down_payment || '0'));
@@ -177,10 +166,12 @@ export default function BuyersOrderDetail() {
     const title = num(titleRegFee);
     const down = num(downPayment);
 
-    const taxableSubtotal = Math.max(0, base + freight + prep + acc - tradeCredit);
-    const calculatedTax = taxableSubtotal * (num(taxRate) / 100);
-    const totalPrice = base + freight + prep + doc + acc + title + calculatedTax + tradeLien - rebate;
-    const balanceDue = Math.max(0, totalPrice - down);
+    // The current dealership tax rule reduces the taxable base by the trade-in allowance.
+    // A lien payoff is added to the customer's amount owed, but is not part of that tax base.
+    const taxableSubtotal = round2(Math.max(0, base + freight + prep + acc - tradeCredit));
+    const calculatedTax = round2(taxableSubtotal * (num(taxRate) / 100));
+    const totalPrice = round2(Math.max(0, base + freight + prep + doc + acc + title + calculatedTax + tradeLien - tradeCredit - rebate));
+    const balanceDue = round2(Math.max(0, totalPrice - down));
 
     return {
       taxableSubtotal,
@@ -459,14 +450,6 @@ export default function BuyersOrderDetail() {
                   2. Vehicle / Equipment Sold
                 </h3>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setVinScannerOpen(true)}
-                    className="inline-flex items-center gap-1 rounded-xl bg-orange-500 px-2.5 py-1 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 hover:bg-orange-400 transition active:scale-95"
-                  >
-                    <ScanIcon className="h-3.5 w-3.5" />
-                    <span>📷 Scan VIN</span>
-                  </button>
                   <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold text-slate-700">
                     {unitCondition.toUpperCase()}
                   </span>
@@ -666,7 +649,17 @@ export default function BuyersOrderDetail() {
                   <span>Trade-In Credit:</span>
                   <span className="font-mono text-emerald-400 font-bold">- {money(tradeInAllowance)}</span>
                 </div>
+                {num(tradeInPayoff) > 0 && (
+                  <div className="flex items-center justify-between text-slate-400">
+                    <span>Trade-In Lien Payoff (added to amount owed):</span>
+                    <span className="font-mono font-bold text-white">+ {money(tradeInPayoff)}</span>
+                  </div>
+                )}
 
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Taxable Base (after trade credit):</span>
+                  <span className="font-mono text-slate-300">{money(calculations.taxableSubtotal)}</span>
+                </div>
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Sales Tax ({taxRate}%):</span>
                   <span className="font-mono font-bold text-white">{money(calculations.calculatedTax)}</span>
@@ -835,13 +828,6 @@ export default function BuyersOrderDetail() {
           </div>
         </div>
       )}
-
-      {/* Vehicle VIN Scanner Modal */}
-      <VinScannerModal
-        isOpen={vinScannerOpen}
-        onClose={() => setVinScannerOpen(false)}
-        onVinDetected={handleVinDetected}
-      />
     </div>
   );
 }

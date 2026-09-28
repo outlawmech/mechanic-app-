@@ -9,7 +9,7 @@ import {
   ChatBubbleIcon,
   ClipboardIcon,
 } from '../components/icons';
-import { Card, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../components/ui';
+import { ACTION_GRID_CLS, actionBtnCls, Card, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
@@ -57,19 +57,12 @@ export default function Customers() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <PageTitle title="Customers" sub={`${data?.length ?? 0} on file`} />
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setCsvOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-xs hover:bg-slate-50 transition"
-          >
+        <div className={ACTION_GRID_CLS}>
+          <button type="button" onClick={() => setCsvOpen(true)} className={actionBtnCls('ghost')}>
             <FileSpreadsheetIcon className="h-4 w-4 text-orange-600" />
             <span>📂 Import CSV</span>
           </button>
-          <Link
-            to="/customers/new"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 transition hover:bg-orange-400"
-          >
+          <Link to="/customers/new" className={actionBtnCls('accent')}>
             <PlusIcon className="h-4 w-4" />
             <span>New Customer</span>
           </Link>

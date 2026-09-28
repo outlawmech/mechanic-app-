@@ -14,7 +14,6 @@ import {
   TrashIcon,
   CheckIcon,
   WrenchIcon,
-  ScanIcon,
 } from '../components/icons';
 import {
   Badge,
@@ -31,9 +30,8 @@ import {
 import { useAsync } from '../lib/hooks';
 import { fullName, getVehicleTypeInfo, longDate, money, num, VEHICLE_TYPES, vehicleLabel } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
-import { decodeVehicleVIN, type DecodedVehicleInfo } from '../lib/vinDecoder';
+import { decodeVehicleVIN } from '../lib/vinDecoder';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
-import VinScannerModal from '../components/VinScannerModal';
 import type { Customer, Invoice, Vehicle, VehicleType, WorkOrder } from '../types';
 
 type CustomerFull = Customer & {
@@ -98,22 +96,7 @@ export default function CustomerDetail() {
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [decoding, setDecoding] = useState(false);
-  const [vinScannerOpen, setVinScannerOpen] = useState(false);
   const [v, setV] = useState(emptyVehicle);
-
-  function handleVinDetected(scannedVin: string, decoded?: DecodedVehicleInfo) {
-    setV((prev) => ({
-      ...prev,
-      vin: scannedVin,
-      year: decoded?.year || prev.year,
-      make: decoded?.make || prev.make,
-      model: decoded?.model || prev.model,
-      trim: decoded?.trim || prev.trim,
-      engine_info: decoded?.engine_info || prev.engine_info,
-      type: (decoded?.vehicle_type as VehicleType) || prev.type,
-    }));
-    toast(`✓ Scanned VIN: ${scannedVin} ${decoded?.make ? `(${decoded.make} ${decoded.model})` : ''}`);
-  }
 
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
@@ -593,14 +576,6 @@ export default function CustomerDetail() {
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
                     {editingVehicleId ? 'Edit Vehicle / Vessel' : 'Add Vehicle or Equipment'}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setVinScannerOpen(true)}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-1.5 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 hover:bg-orange-400 transition active:scale-95"
-                  >
-                    <ScanIcon className="h-4 w-4" />
-                    <span>📷 Scan VIN</span>
-                  </button>
                 </div>
 
                 <Field label="Category">
@@ -869,13 +844,6 @@ export default function CustomerDetail() {
           </section>
         </div>
       </div>
-
-      {/* Vehicle VIN / HIN Scanner Modal */}
-      <VinScannerModal
-        isOpen={vinScannerOpen}
-        onClose={() => setVinScannerOpen(false)}
-        onVinDetected={handleVinDetected}
-      />
     </div>
   );
 }

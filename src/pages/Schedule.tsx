@@ -16,7 +16,7 @@ import {
   ChatBubbleIcon,
   VehicleIcon,
 } from '../components/icons';
-import { Badge, Card, Chip, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../components/ui';
+import { actionBtnCls, Badge, Card, Chip, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, getVehicleTypeInfo, longDate, todayISO, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
@@ -175,7 +175,7 @@ export default function Schedule() {
         </div>
         <Link
           to={`/work/new?scheduled=${selectedDate}`}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-orange-400 px-4 py-2.5 text-xs font-bold text-slate-950 shadow transition hover:bg-orange-300"
+          className={actionBtnCls('accent', 'w-full sm:w-auto')}
         >
           <PlusIcon className="h-4 w-4" />
           <span>+ Schedule Job</span>
@@ -217,7 +217,7 @@ export default function Schedule() {
               setCalendarMonth(new Date(e.target.value + 'T12:00:00'));
             }
           }}
-          className="rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-orange-400"
+          className="h-10 rounded-xl border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-700 shadow-sm outline-none focus:ring-2 focus:ring-orange-400 sm:h-9"
         />
       </div>
 
@@ -261,7 +261,7 @@ export default function Schedule() {
                 setQuickFilter('all');
               }}
             >
-              All Upcoming ({allOrders.filter((w) => Boolean(w.scheduled_at)).length})
+              All Scheduled ({allOrders.filter((w) => Boolean(w.scheduled_at)).length})
             </Chip>
           </div>
 
