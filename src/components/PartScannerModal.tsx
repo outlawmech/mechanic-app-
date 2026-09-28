@@ -47,6 +47,7 @@ export default function PartScannerModal({
   const [matchedPb, setMatchedPb] = useState<PriceBookEntry | null>(null);
   const [candidateSkus, setCandidateSkus] = useState<string[]>([]);
   const [manualQuery, setManualQuery] = useState('');
+  const [engineError, setEngineError] = useState<string | null>(null);
 
   const barcodeEngineRef = useRef<BarcodeEngine | null>(null);
 
@@ -92,7 +93,11 @@ export default function PartScannerModal({
       if (scanMode === 'barcode' && videoRef.current) {
         const engine = new BarcodeEngine({
           onResult: ({ text }) => handleDetectedValue(text),
-          onError: (err) => console.warn('Barcode engine error:', err),
+          onReady: () => setEngineError(null),
+          onError: (err) => {
+            console.warn('Barcode engine error:', err);
+            setEngineError('Part reader could not start. Close and reopen this screen, or type the SKU below.');
+          },
         });
         barcodeEngineRef.current = engine;
         void engine.start(videoRef.current);
@@ -183,6 +188,9 @@ export default function PartScannerModal({
       }
     } catch (err) {
       console.warn('OCR capture error:', err);
+      setEngineError(
+        'Text reader could not start on this device. You can still type the SKU below.'
+      );
     } finally {
       setScanning(false);
     }
@@ -317,6 +325,11 @@ export default function PartScannerModal({
 
         {/* Scan Results & Part Matching Drawer */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-900/90">
+          {engineError && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-200">
+              {engineError}
+            </div>
+          )}
           {/* Matched Part in Catalog */}
           {matchedPart ? (
             <div className="rounded-2xl border-2 border-emerald-500/40 bg-emerald-950/20 p-4 space-y-3 animate-in fade-in duration-150">

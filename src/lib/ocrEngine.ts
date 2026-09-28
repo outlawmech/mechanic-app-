@@ -23,9 +23,19 @@ let terminated = false;
 /** Progress of the most recent recognition, 0..1. -1 when idle/unknown. */
 let lastProgress = -1;
 
+/** Last worker error, surfaced in the UI so failures aren't silent. */
+let lastLoadError: string | null = null;
+
 function ensureNotTerminated() {
   if (terminated) {
     throw new Error('OCR engine has been terminated. Call warmUp() to restart it.');
+  }
+}
+
+export class OcrLoadError extends Error {
+  constructor(message: string, readonly cause?: unknown) {
+    super(message);
+    this.name = 'OcrLoadError';
   }
 }
 
@@ -39,22 +49,29 @@ export function getOcrWorker(): Promise<Worker> {
     workerPromise = (async () => {
       const { createWorker } = await import('tesseract.js');
       return createWorker('eng', 1 /* LSTM_ONLY */, {
+        // Local assets only — no CDN, so this works offline in the APK.
+        // `corePath` stays a directory so Tesseract can pick the SIMD variant
+        // this device actually supports; all variants are shipped in public/.
         workerPath: WORKER_PATH,
         corePath: CORE_PATH,
         langPath: LANG_PATH,
-        // Local assets are already compressed on the wire by the packager.
         gzip: true,
         logger: (m: { status?: string; progress?: number }) => {
           if (typeof m?.progress === 'number') lastProgress = m.progress;
         },
         errorHandler: (e: unknown) => {
+          lastLoadError = e instanceof Error ? e.message : String(e);
           console.warn('[ocr] worker error', e);
         },
       });
     })().catch((err) => {
       // Allow a later call to retry rather than caching a rejected promise.
       workerPromise = null;
-      throw err;
+      const detail = lastLoadError ?? (err instanceof Error ? err.message : String(err));
+      throw new OcrLoadError(
+        `Could not start the offline text reader (${detail}).`,
+        err
+      );
     });
   }
   return workerPromise;

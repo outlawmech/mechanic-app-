@@ -18,6 +18,7 @@ export default function IdCardScannerModal({
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scannedId, setScannedId] = useState<ParsedDriverLicense | null>(null);
+  const [engineError, setEngineError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const activeStreamRef = useRef<MediaStream | null>(null);
@@ -65,7 +66,11 @@ export default function IdCardScannerModal({
             const parsed = parseAAMVA(text.trim());
             if (parsed) setScannedId(parsed);
           },
-          onError: (err) => console.warn('Barcode engine error:', err),
+          onReady: () => setEngineError(null),
+          onError: (err) => {
+            console.warn('Barcode engine error:', err);
+            setEngineError('ID reader could not start. Close and reopen this screen, or enter details manually.');
+          },
         });
         barcodeEngineRef.current = engine;
         void engine.start(videoRef.current);
@@ -146,6 +151,11 @@ export default function IdCardScannerModal({
 
         {/* Results & Auto-Fill Bottom Card */}
         <div className="p-4 bg-slate-950 space-y-3 border-t border-slate-800">
+          {engineError && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-200">
+              {engineError}
+            </div>
+          )}
           {scannedId ? (
             <div className="rounded-2xl bg-slate-900 border border-slate-700 p-3.5 text-xs space-y-2 animate-in fade-in duration-150">
               <div className="flex items-center justify-between">

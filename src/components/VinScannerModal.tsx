@@ -23,6 +23,7 @@ export default function VinScannerModal({
   const [detectedVin, setDetectedVin] = useState('');
   const [decoding, setDecoding] = useState(false);
   const [decodedInfo, setDecodedInfo] = useState<DecodedVehicleInfo | null>(null);
+  const [engineError, setEngineError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -93,7 +94,13 @@ export default function VinScannerModal({
               void handleFoundVin(clean);
             }
           },
-          onError: (err) => console.warn('Barcode engine error:', err),
+          onReady: () => setEngineError(null),
+          onError: (err) => {
+            console.warn('Barcode engine error:', err);
+            setEngineError(
+              'Barcode reader could not start. Close and reopen this screen; if it keeps failing, type the VIN in below.'
+            );
+          },
         });
         barcodeEngineRef.current = engine;
         void engine.start(videoRef.current);
@@ -134,6 +141,9 @@ export default function VinScannerModal({
       }
     } catch (err) {
       console.warn('OCR error:', err);
+      setEngineError(
+        'Text reader could not start on this device. You can still type the VIN in below.'
+      );
     } finally {
       setScanning(false);
     }
@@ -243,6 +253,11 @@ export default function VinScannerModal({
 
         {/* Results & Auto-Fill Bottom Card */}
         <div className="p-4 bg-slate-950 space-y-3 border-t border-slate-800">
+          {engineError && (
+            <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-200">
+              {engineError}
+            </div>
+          )}
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Scanned VIN / HIN
