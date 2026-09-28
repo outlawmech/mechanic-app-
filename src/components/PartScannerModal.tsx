@@ -31,6 +31,7 @@ export default function PartScannerModal({
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [scannerReady, setScannerReady] = useState(false);
   const [recognizedText, setRecognizedText] = useState<string>('');
   const [matchedPart, setMatchedPart] = useState<Part | null>(null);
   const [matchedPb, setMatchedPb] = useState<PriceBookEntry | null>(null);
@@ -51,6 +52,7 @@ export default function PartScannerModal({
       setMatchedPb(null);
       setRecognizedText('');
       setCameraError(null);
+      setScannerReady(false);
       setEngineError(null);
 
       const startCamera = async () => {
@@ -84,8 +86,12 @@ export default function PartScannerModal({
           if (cancelled) return;
 
           const scanner = new BarcodeEngine({
+            tryHarder: true,
             onResult: ({ text }) => handleDetectedValue(text),
-            onReady: () => setEngineError(null),
+            onReady: () => {
+              setEngineError(null);
+              setScannerReady(true);
+            },
             onError: (err) => {
               console.warn('Part barcode engine error:', err);
               setEngineError('The barcode reader could not start. Close this screen and try again.');
@@ -211,6 +217,13 @@ export default function PartScannerModal({
 
         {/* Scan Results & Part Matching Drawer */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-900/90">
+          {!cameraError && !engineError && !recognizedText && (
+            <p className="text-center text-[11px] font-semibold text-slate-400" role="status">
+              {scannerReady
+                ? 'Barcode reader active — hold the code steady inside the frame.'
+                : 'Starting barcode reader…'}
+            </p>
+          )}
           {engineError && (
             <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-200">
               {engineError}

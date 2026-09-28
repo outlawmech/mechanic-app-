@@ -1,27 +1,16 @@
 /**
- * Universal barcode engine (ZXing), running fully in the browser.
+ * Part barcode scanner engine backed by ZXing in the Android WebView.
  *
- * Part barcode scanning runs in pure JavaScript/WASM so it works in the
- * Android WebView without relying on the browser's optional BarcodeDetector.
- *
- * IMPORTANT: this uses ZXing's *continuous* decode API, which runs exactly
- * one internal scan loop for the lifetime of the call. The single-shot
- * `decodeFromVideoElement()` must NOT be used here: it internally retries
- * forever on a miss, so calling it on a timer stacks up dozens of concurrent
- * infinite decode loops that saturate the CPU and prevent any code from ever
- * being recognised. ZXing uses a separate retry delay for unsuccessful frames;
- * we set that delay as well as the successful-scan delay so aiming at an empty
- * frame cannot spin the phone's CPU. A dedupe window prevents repeated hits.
+ * Do one synchronous decode attempt per timer tick. Do not call
+ * decodeFromVideoElement repeatedly: that API retries internally forever on
+ * a miss and can create overlapping loops. Using reader.decode(video) gives
+ * us exactly one attempt, followed by a controlled delay.
  */
 
 import type { BrowserMultiFormatReader, Result, BarcodeFormat } from '@zxing/library';
 
 type ZxingModule = typeof import('@zxing/library');
 
-/**
- * ZXing is a large dependency and only needed while a scanner modal is open,
- * so it is imported lazily and code-split out of the main bundle.
- */
 let zxingPromise: Promise<ZxingModule> | null = null;
 
 function loadZxing(): Promise<ZxingModule> {
@@ -34,10 +23,17 @@ function loadZxing(): Promise<ZxingModule> {
   return zxingPromise;
 }
 
-/** `BarcodeFormat` is a numeric enum; reverse-map it to a readable label. */
 function formatName(zxing: ZxingModule, format: BarcodeFormat | undefined): string {
   if (format === undefined) return 'UNKNOWN';
   return zxing.BarcodeFormat[format] ?? 'UNKNOWN';
+}
+
+function isExpectedMiss(zxing: ZxingModule, error: unknown): boolean {
+  return (
+    error instanceof zxing.NotFoundException ||
+    error instanceof zxing.ChecksumException ||
+    error instanceof zxing.FormatException
+  );
 }
 
 export interface BarcodeHit {
@@ -46,15 +42,14 @@ export interface BarcodeHit {
 }
 
 export interface BarcodeEngineOptions {
-  /** Milliseconds between decode attempts. Lower = more responsive, more CPU. */
+  /** Delay between single-frame attempts. */
   scanIntervalMs?: number;
   /** Ignore repeat reads of the same value within this window. */
   dedupeMs?: number;
-  /** Called for every successful decode. */
+  /** Spend more time on dense or difficult barcodes. */
+  tryHarder?: boolean;
   onResult: (hit: BarcodeHit) => void;
-  /** Called when the engine cannot start at all. */
   onError?: (err: unknown) => void;
-  /** Called once the decoder is live and actively scanning. */
   onReady?: () => void;
 }
 
@@ -64,12 +59,15 @@ const DEFAULT_DEDUPE_MS = 2000;
 export class BarcodeEngine {
   private reader: BrowserMultiFormatReader | null = null;
   private zxing: ZxingModule | null = null;
+  private video: HTMLVideoElement | null = null;
+  private scanTimer: ReturnType<typeof setTimeout> | null = null;
   private lastValue = '';
   private lastValueAt = 0;
   private stopped = true;
 
   private readonly scanIntervalMs: number;
   private readonly dedupeMs: number;
+  private readonly tryHarder: boolean;
   private readonly onResult: (hit: BarcodeHit) => void;
   private readonly onError?: (err: unknown) => void;
   private readonly onReady?: () => void;
@@ -77,59 +75,28 @@ export class BarcodeEngine {
   constructor(options: BarcodeEngineOptions) {
     this.scanIntervalMs = options.scanIntervalMs ?? DEFAULT_SCAN_INTERVAL_MS;
     this.dedupeMs = options.dedupeMs ?? DEFAULT_DEDUPE_MS;
+    this.tryHarder = options.tryHarder ?? false;
     this.onResult = options.onResult;
     this.onError = options.onError;
     this.onReady = options.onReady;
   }
 
-  /** Begin continuous decoding from `video` until `stop()` is called. */
+  /** Start scanning the already-running camera preview. */
   async start(video: HTMLVideoElement): Promise<void> {
     this.stop();
     this.stopped = false;
 
     try {
       const zxing = await loadZxing();
-      // The modal may have closed while ZXing was still loading.
       if (this.stopped) return;
+
       this.zxing = zxing;
-
-      this.reader = new zxing.BrowserMultiFormatReader(undefined, this.scanIntervalMs);
-      // Misses use a separate retry timer; ZXing defaults it to zero, which
-      // can spin continuously while the camera is pointed away from a barcode.
-      this.reader.timeBetweenDecodingAttempts = this.scanIntervalMs;
-
-      // ZXing waits for a `playing` event before it starts decoding. If the
-      // camera preview started before the reader was ready, that event has
-      // already happened and ZXing can wait forever. Restart playback so the
-      // reader always sees a fresh `playing` event.
-      video.muted = true;
-      video.playsInline = true;
-      if (!video.paused && video.readyState > 2) video.pause();
-
-      // One loop, managed by ZXing, for the life of this call.
-      await this.reader.decodeFromVideoElementContinuously(video, (result: Result, error?: Error) => {
-        if (this.stopped) return;
-        if (error) {
-          const expectedMiss =
-            error instanceof zxing.NotFoundException ||
-            error instanceof zxing.ChecksumException ||
-            error instanceof zxing.FormatException;
-          if (expectedMiss) return;
-          this.stopped = true;
-          this.onError?.(error);
-          return;
-        }
-        const text = result?.getText()?.trim();
-        if (!text) return;
-        const now = Date.now();
-        if (text === this.lastValue && now - this.lastValueAt < this.dedupeMs) return;
-        this.lastValue = text;
-        this.lastValueAt = now;
-        this.onResult({ text, format: formatName(this.zxing as ZxingModule, result.getBarcodeFormat()) });
-      });
-
-      // Resolves once the scan loop is live, so the UI can show "scanning".
-      if (!this.stopped) this.onReady?.();
+      this.video = video;
+      const hints = new Map();
+      if (this.tryHarder) hints.set(zxing.DecodeHintType.TRY_HARDER, true);
+      this.reader = new zxing.BrowserMultiFormatReader(hints.size ? hints : undefined);
+      this.onReady?.();
+      this.scanFrame();
     } catch (err) {
       if (this.stopped) return;
       this.stopped = true;
@@ -137,10 +104,44 @@ export class BarcodeEngine {
     }
   }
 
+  /** One decode attempt; a miss schedules exactly one later attempt. */
+  private scanFrame = (): void => {
+    if (this.stopped || !this.reader || !this.zxing || !this.video) return;
+
+    const video = this.video;
+    if (video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+      try {
+        const result: Result = this.reader.decode(video);
+        const text = result.getText()?.trim();
+        if (text) {
+          const now = Date.now();
+          if (text !== this.lastValue || now - this.lastValueAt >= this.dedupeMs) {
+            this.lastValue = text;
+            this.lastValueAt = now;
+            this.onResult({ text, format: formatName(this.zxing, result.getBarcodeFormat()) });
+          }
+        }
+      } catch (err) {
+        if (!isExpectedMiss(this.zxing, err)) {
+          this.stopped = true;
+          this.onError?.(err);
+          return;
+        }
+      }
+    }
+
+    if (!this.stopped) {
+      this.scanTimer = setTimeout(this.scanFrame, this.scanIntervalMs);
+    }
+  };
+
   /** Stop decoding and release the reader. Safe to call repeatedly. */
   stop(): void {
     this.stopped = true;
-    // `reset()` is what actually terminates ZXing's internal retry loop.
+    if (this.scanTimer !== null) {
+      clearTimeout(this.scanTimer);
+      this.scanTimer = null;
+    }
     try {
       this.reader?.reset();
     } catch {
@@ -148,33 +149,11 @@ export class BarcodeEngine {
     }
     this.reader = null;
     this.zxing = null;
+    this.video = null;
     this.lastValue = '';
   }
 
-  /** True while the decoder is live. */
   get isRunning(): boolean {
     return !this.stopped;
-  }
-}
-
-/** Convenience helper: decode a single still image (canvas, img, or data URL). */
-export async function decodeStillImage(
-  source: HTMLCanvasElement | HTMLImageElement | string
-): Promise<BarcodeHit | null> {
-  const zxing = await loadZxing();
-  const reader = new zxing.BrowserMultiFormatReader();
-  try {
-    const result = await reader.decodeFromImageElement(source as HTMLImageElement);
-    const text = result?.getText()?.trim();
-    if (!text) return null;
-    return { text, format: formatName(zxing, result.getBarcodeFormat()) };
-  } catch {
-    return null;
-  } finally {
-    try {
-      reader.reset();
-    } catch {
-      // no-op
-    }
   }
 }
