@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useToast } from '../components/Toast';
-import { WrenchIcon, TrashIcon, CheckIcon, PlusIcon, LockClosedIcon, SparklesIcon, MonitorIcon, SmartphoneIcon } from '../components/icons';
+import { WrenchIcon, TrashIcon, CheckIcon, PlusIcon, LockClosedIcon, SparklesIcon, SmartphoneIcon } from '../components/icons';
 import { Button, Card, Field, Input, PageTitle, Spinner, Textarea } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useShopSettings } from '../lib/settings';
@@ -161,101 +161,6 @@ export default function Settings() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Operation Mode & Package Selector */}
-        <Card className="space-y-4 p-5 bg-gradient-to-br from-slate-900 to-slate-950 text-white shadow-xl border border-slate-800">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-orange-400">
-                Active System Edition
-              </span>
-              <h3 className="text-base font-black text-white mt-0.5">
-                {form.enable_dealership_mode ? 'Dealership & Multi-Tech DMS' : 'Solo Rig Edition'}
-              </h3>
-            </div>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-black uppercase ${
-                form.enable_dealership_mode
-                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                  : 'bg-orange-500/20 text-orange-300 border border-orange-500/40'
-              }`}
-            >
-              {form.enable_dealership_mode ? '🏢 DMS Active' : '🚛 Solo Rig Active'}
-            </span>
-          </div>
-
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Choose your operating mode. Switching updates your navigation bar and departmental toolset instantly.
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            {/* Solo Rig Option Card */}
-            <div
-              onClick={async () => {
-                const newTagline = form.tagline === 'Sales, Service & Parts DMS' ? 'Mobile & Shop Management' : form.tagline;
-                if (form.enable_dealership_mode) {
-                  toast('Contact support to change your plan. Your dealership access will remain available.');
-                  return;
-                }
-                setForm((prev) => ({ ...prev, enable_dealership_mode: false, tagline: newTagline }));
-                await updateSettings({ enable_dealership_mode: false, tagline: newTagline });
-                toast('🚛 Switched to Solo Rig Mode');
-              }}
-              className={`cursor-pointer rounded-2xl p-4 transition border-2 text-left ${
-                !form.enable_dealership_mode
-                  ? 'border-orange-500 bg-slate-800/90 ring-1 ring-orange-500/50 shadow-lg'
-                  : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-black text-white flex items-center gap-2">
-                  🚛 Solo Rig Edition
-                </span>
-                {!form.enable_dealership_mode && (
-                  <span className="h-2.5 w-2.5 rounded-full bg-orange-500 animate-pulse" />
-                )}
-              </div>
-              <p className="text-[11px] text-orange-400 font-bold mt-1">$29 / month</p>
-              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                Streamlined for mobile mechanics and solo vans. Dispatch schedule, work orders, on-site invoicing, and parts catalog.
-              </p>
-            </div>
-
-            {/* Dealership DMS Option Card */}
-            <div
-              onClick={async () => {
-                if (!form.enable_dealership_mode) {
-                  setShowCodeBox(true);
-                  toast('A dealership plan or dealership activation code is required to use DMS.');
-                  return;
-                }
-                const newTagline = form.tagline === 'Mobile & Shop Management' ? 'Sales, Service & Parts DMS' : form.tagline;
-                setForm((prev) => ({ ...prev, enable_dealership_mode: true, tagline: newTagline }));
-                await updateSettings({ enable_dealership_mode: true, tagline: newTagline });
-                toast('🏢 Switched to Dealership & Multi-Tech DMS Mode!');
-              }}
-              className={`cursor-pointer rounded-2xl p-4 transition border-2 text-left ${
-                form.enable_dealership_mode
-                  ? 'border-purple-400 bg-purple-950/40 ring-1 ring-purple-400/50 shadow-lg'
-                  : 'border-slate-800 bg-slate-900/60 hover:border-slate-700'
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-black text-white flex items-center gap-2">
-                  🏢 Dealership &amp; Shop DMS
-                </span>
-                {form.enable_dealership_mode && (
-                  <span className="h-2.5 w-2.5 rounded-full bg-purple-400 animate-pulse" />
-                )}
-              </div>
-              <p className="text-[11px] text-purple-300 font-bold mt-1">$99 / month</p>
-              {!form.enable_dealership_mode && <p className="text-[11px] text-purple-200 font-bold mt-1">Upgrade or redeem a dealership code to unlock</p>}
-              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
-                Full dealership operations. Showroom unit inventory, commercial floorplan financing, Buyer's Orders &amp; bills of sale, and direct part invoices.
-              </p>
-            </div>
-          </div>
-        </Card>
-
         {/* Shop Logo Section */}
         <Card className="space-y-3 p-4">
           <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
@@ -556,7 +461,7 @@ export default function Settings() {
         <p className="text-xs text-slate-300 leading-relaxed">
           {form.enable_dealership_mode
             ? 'Complete dealership management suite: Showroom inventory, floorplan line financing, Buyer’s Orders & bills of sale, direct part invoicing, and multi-tech service bay scheduling.'
-            : 'Unlock unlimited work orders, cloud multi-tenant database sync, parts & inventory tracking, offline PDF invoicing, and customer SMS dispatches.'}
+            : 'Work orders, invoices, scheduling, customer records, and parts for mobile and independent shops.'}
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
@@ -591,7 +496,7 @@ export default function Settings() {
               </div>
               <div className="flex items-center gap-2">
                 <CheckIcon className="h-4 w-4 text-orange-400 shrink-0" />
-                <span>Multi-Tenant Cloud Sync (Supabase)</span>
+                <span>Shop records across devices</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckIcon className="h-4 w-4 text-orange-400 shrink-0" />
@@ -609,11 +514,11 @@ export default function Settings() {
               rel="noopener noreferrer"
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-orange-400 shadow-md active:scale-[0.99]"
             >
-              Start 14-Day Free Trial
+              View Subscription Options
               <span className="text-xs font-normal text-slate-900">(Then {sub.planPrice})</span>
             </a>
             <p className="text-center text-[11px] text-slate-400">
-              Secure 256-bit Stripe checkout. Lockout applies after Day 14 without active subscription.
+              Check plan and payment terms before subscribing. Access may be limited after the trial without an active plan.
             </p>
           </div>
         ) : (
@@ -660,54 +565,6 @@ export default function Settings() {
         </div>
       </Card>
 
-      {/* Screen & Layout Display Mode */}
-      <Card className="space-y-3 p-4">
-        <h3 className="border-b border-slate-100 pb-2 text-xs font-bold uppercase tracking-wide text-slate-700">
-          Display &amp; Layout Mode
-        </h3>
-        <p className="text-xs text-slate-500">
-          Choose how Outlaw Shop Systems adapts to your screen.
-        </p>
-        <div className="grid grid-cols-3 gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => {
-              localStorage.setItem('outlaw_view_mode', 'auto');
-              window.location.reload();
-            }}
-            className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-center transition hover:bg-slate-100 active:scale-95"
-          >
-            <SparklesIcon className="h-5 w-5 text-slate-700" />
-            <span className="text-xs font-bold text-slate-800">Automatic</span>
-            <span className="text-[10px] text-slate-400">Device adaptive</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              localStorage.setItem('outlaw_view_mode', 'desktop');
-              window.location.reload();
-            }}
-            className="flex flex-col items-center gap-1.5 rounded-xl border border-orange-300 bg-orange-50/60 p-3 text-center transition hover:bg-orange-100/60 active:scale-95"
-          >
-            <MonitorIcon className="h-5 w-5 text-orange-800" />
-            <span className="text-xs font-bold text-orange-900">Force Desktop</span>
-            <span className="text-[10px] text-orange-700">Widescreen + Nav</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              localStorage.setItem('outlaw_view_mode', 'mobile');
-              window.location.reload();
-            }}
-            className="flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-center transition hover:bg-slate-100 active:scale-95"
-          >
-            <SmartphoneIcon className="h-5 w-5 text-slate-700" />
-            <span className="text-xs font-bold text-slate-800">Force Mobile</span>
-            <span className="text-[10px] text-slate-400">Compact phone</span>
-          </button>
-        </div>
-      </Card>
-
       {/* Native Android APK Card */}
       <Card className="space-y-3 p-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -717,7 +574,7 @@ export default function Settings() {
               <h3 className="text-xs font-bold uppercase tracking-wide text-slate-800">
                 Native Android App (APK)
               </h3>
-              <p className="text-[11px] text-slate-500">Standalone offline app for Android phones &amp; tablets</p>
+              <p className="text-[11px] text-slate-500">Android app for phones &amp; tablets</p>
             </div>
           </div>
           <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
@@ -725,14 +582,14 @@ export default function Settings() {
           </span>
         </div>
         <p className="text-xs text-slate-600">
-          Standalone offline app for service truck phones and tablets with camera inspections, customer signatures, and native PDF printing.
+          Use the Android app in the field. Load needed records while connected; previously loaded records and supported offline edits can be available with a weak signal. Confirm queued changes after reconnecting.
         </p>
         {isNativePlatform ? (
           <div className="flex items-center gap-2.5 rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-emerald-950 text-xs font-semibold">
             <CheckIcon className="h-5 w-5 text-emerald-600 shrink-0" />
             <div>
               <p className="font-bold text-emerald-900">Installed &amp; Running Native APK</p>
-              <p className="text-[11px] text-emerald-700 font-normal">Offline database, camera photo storage, and direct Android printer spooler are active.</p>
+              <p className="text-[11px] text-emerald-700 font-normal">Camera access and Android printing are available. Supported offline edits sync after reconnecting.</p>
             </div>
           </div>
         ) : (

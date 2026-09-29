@@ -21,12 +21,44 @@ input[type="date"] {
    Print & PDF Styling
    Clean, full-width printout on Android APK, iOS & Desktop
    ========================================================= */
+.buyers-order-print { display: none; }
+
 @page {
   size: letter portrait;
   margin: 12mm 15mm 12mm 15mm;
 }
 
 @media print {
+  .buyers-order-screen { display: none !important; }
+  .buyers-order-print {
+    display: block !important;
+    color: #0f172a !important;
+    font: 11pt/1.35 Arial, sans-serif;
+  }
+  .buyers-order-print .buyers-order-print-header {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20mm;
+    border-bottom: 2px solid #0f172a;
+    padding-bottom: 5mm;
+    margin-bottom: 7mm;
+  }
+  .buyers-order-print h1 { font-size: 18pt; margin: 2mm 0 0; }
+  .buyers-order-print-details { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; margin-bottom: 7mm; }
+  .buyers-order-print-prices { width: 100%; border-collapse: collapse; }
+  .buyers-order-print-prices td, .buyers-order-print-prices th {
+    padding: 1.5mm 2mm;
+    border-bottom: 1px solid #cbd5e1;
+    text-align: left;
+  }
+  .buyers-order-print-prices td:last-child { text-align: right; white-space: nowrap; }
+  .buyers-order-print-total { font-weight: bold; border-top: 2px solid #0f172a; }
+  .buyers-order-print-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 12mm; margin-top: 16mm; break-inside: avoid; }
+  .buyers-order-print-signatures div { display: flex; flex-direction: column; }
+  .buyers-order-print-signatures span { border-bottom: 1px solid #0f172a; height: 11mm; }
+  .buyers-order-print-signatures strong { font-size: 9pt; margin-top: 1mm; }
+  .buyers-order-print-signatures p { margin: 5mm 0 0; font-size: 9pt; }
   /* Hide non-printable app navigation and buttons */
   .no-print,
   header,

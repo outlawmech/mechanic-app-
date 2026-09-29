@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS: ShopSettings = {
   address: 'Helena, MT',
   default_labor_rate: 95,
   internal_labor_cost_rate: 0,
-  default_tax_rate: 0.04,
+  default_tax_rate: 0,
   invoice_notes: 'Thank you for your business! Payments due on or before the due date.',
   logo_url: '',
   zelle_info: '',
@@ -92,12 +92,11 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
 
     const userLocal = getLocalSettings(user.id);
     const userMetaShopName = user.user_metadata?.shop_name;
-    const userMetaDms = user.user_metadata?.enable_dealership_mode;
 
     setSettings({
       ...userLocal,
       shop_name: userMetaShopName || userLocal.shop_name || DEFAULT_SETTINGS.shop_name,
-      enable_dealership_mode: typeof userMetaDms === 'boolean' ? userMetaDms : userLocal.enable_dealership_mode,
+      enable_dealership_mode: userLocal.enable_dealership_mode,
     });
 
     load();
@@ -129,22 +128,17 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
       const settingData = res.data && res.data[0] ? res.data[0] : null;
 
       if (settingData) {
-        let isDealer = Boolean(settingData.enable_dealership_mode);
-        if (ownerId === user.id && typeof user?.user_metadata?.enable_dealership_mode === 'boolean') {
-          isDealer = user.user_metadata.enable_dealership_mode;
-        }
-
         const loaded: ShopSettings = {
           ...DEFAULT_SETTINGS,
           ...settingData,
-          enable_dealership_mode: isDealer,
+          enable_dealership_mode: Boolean(settingData.enable_dealership_mode),
         };
         setSettings(loaded);
         saveLocalSettings(loaded, user.id);
       } else {
         if (ownerId !== user.id) throw new Error('Your shop settings could not be loaded.');
         const defaultShopName = user.user_metadata?.shop_name || DEFAULT_SETTINGS.shop_name;
-        const isDealer = Boolean(user.user_metadata?.enable_dealership_mode);
+        const isDealer = false;
         const initial: ShopSettings = {
           ...DEFAULT_SETTINGS,
           shop_name: defaultShopName,
@@ -165,7 +159,7 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
             email: user.email || '',
             enable_dealership_mode: isDealer,
             default_labor_rate: 95.0,
-            default_tax_rate: 0.04,
+            default_tax_rate: 0,
             dealership_doc_fee: 199,
             dealership_prep_fee: 250,
             dealership_freight_fee: 350,
@@ -184,16 +178,13 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
 
   async function updateSettings(newSettings: Partial<ShopSettings>): Promise<ShopSettings> {
     if (memberRole === 'staff') throw new Error('Only the shop owner can change shop settings.');
+    if (!user) throw new Error('Sign in before saving shop settings.');
     const updated: ShopSettings = { ...settings, ...newSettings, updated_at: new Date().toISOString() };
-    setSettings(updated);
-    saveLocalSettings(updated, user?.id);
-
-    try {
       const sb = requireSupabase();
-      const targetId = user?.id || 'default';
-      await sb.from('shop_settings').upsert({
+      const targetId = user.id;
+      const { data, error } = await sb.from('shop_settings').upsert({
         id: targetId,
-        user_id: user?.id || null,
+        user_id: user.id,
         shop_name: updated.shop_name,
         tagline: updated.tagline,
         phone: updated.phone,
@@ -213,20 +204,18 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
         dealership_prep_fee: Number(updated.dealership_prep_fee) || 0,
         dealership_freight_fee: Number(updated.dealership_freight_fee) || 0,
         updated_at: new Date().toISOString(),
-      });
+      }).select('user_id').single();
+      if (error || !data) throw new Error(error?.message || 'Shop settings were not saved. Please retry.');
+      setSettings(updated);
+      saveLocalSettings(updated, user.id);
 
       // Synchronize metadata in user auth record so subsequent logins retain the chosen mode
-      if (user) {
-        await sb.auth.updateUser({
+      const { error: metaError } = await sb.auth.updateUser({
           data: {
-            enable_dealership_mode: Boolean(updated.enable_dealership_mode),
             shop_name: updated.shop_name,
           },
         });
-      }
-    } catch (err) {
-      console.warn('Could not sync settings to remote database, saved locally:', err);
-    }
+      if (metaError) console.warn('Could not sync shop name to login metadata:', metaError);
     return updated;
   }
 

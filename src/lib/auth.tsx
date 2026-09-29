@@ -81,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: email.trim(),
       password: pass,
       options: {
+        emailRedirectTo: 'https://outlawshopsystems.netlify.app/',
         data: {
           shop_name: shopName?.trim() || 'Outlaw Shop Systems',
           enable_dealership_mode: Boolean(enableDealershipMode),
@@ -104,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: data.user.email || '',
           address: '',
           default_labor_rate: 95.0,
-          default_tax_rate: 0.04,
+          default_tax_rate: 0,
           invoice_notes: 'Thank you for your business! Payments due on or before the due date.',
           logo_url: '',
           enable_dealership_mode: Boolean(enableDealershipMode),

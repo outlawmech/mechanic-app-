@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 import {
   ArrowLeftIcon,
@@ -65,6 +65,7 @@ import PartScannerModal from '../components/PartScannerModal';
 
 export default function WorkOrderDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const toast = useToast();
   const { settings } = useShopSettings();
 
@@ -536,17 +537,14 @@ export default function WorkOrderDetail() {
           .select('id')
       );
 
-      await requireSupabase()
-        .from('work_orders')
-        .update({ status: 'invoiced' })
-        .eq('id', wo!.id);
+      check(await requireSupabase().from('work_orders').update({ status: 'invoiced' }).eq('id', wo!.id));
 
       const newInvId = ((invRes.data as Array<{ id: string }>)?.[0])?.id;
       toast('Invoice created');
       setShowInvoicePanel(false);
       await reload();
       if (newInvId) {
-        window.location.href = `#/invoices/${newInvId}`;
+        navigate(`/invoices/${newInvId}`);
       }
     } catch (e) {
       toast(errMsg(e), 'error');
@@ -777,7 +775,7 @@ export default function WorkOrderDetail() {
                   className="w-full text-xs font-bold"
                   onClick={() => setShowInvoicePanel(true)}
                 >
-                  <SendIcon className="h-4 w-4" /> Create &amp; Send Invoice
+                  <SendIcon className="h-4 w-4" /> Create Invoice
                 </Button>
               )}
 

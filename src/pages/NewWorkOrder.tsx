@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 import { ArrowLeftIcon, PlusIcon, UsersIcon, WrenchIcon, VehicleIcon } from '../components/icons';
-import { Button, Card, EmptyState, ErrorState, Field, Input, Textarea, PageTitle, Select, Spinner } from '../components/ui';
+import { Button, Card, ErrorState, Field, Input, Textarea, PageTitle, Select, Spinner } from '../components/ui';
 import CustomerSearchPicker from '../components/CustomerSearchPicker';
 import { useAsync } from '../lib/hooks';
 import { fullName, getVehicleTypeInfo, todayISO, vehicleLabel } from '../lib/format';
@@ -43,106 +43,57 @@ export default function NewWorkOrder() {
 
   // Quick Customer & Vehicle Intake Modal state
   const [quickCustOpen, setQuickCustOpen] = useState(false);
-  const [qFirstName, setQFirstName] = useState('');
-  const [qLastName, setQLastName] = useState('');
-  const [qPhone, setQPhone] = useState('');
-  const [qEmail, setQEmail] = useState('');
   const [qType, setQType] = useState<VehicleType>('auto');
   const [qYear, setQYear] = useState('');
   const [qMake, setQMake] = useState('');
   const [qModel, setQModel] = useState('');
   const [qPlate, setQPlate] = useState('');
   const [savingQuick, setSavingQuick] = useState(false);
+  const [addedCustomers, setAddedCustomers] = useState<CustomerWithVehicles[]>([]);
 
-  const customer = customers?.find((c) => c.id === customerId);
+  const availableCustomers = [...addedCustomers, ...(customers || []).filter(c => !addedCustomers.some(a => a.id === c.id))];
+  const customer = availableCustomers.find((c) => c.id === customerId);
   const selectedVehicle = customer?.vehicles?.find((v) => v.id === vehicleId);
   const vehicleTypeInfo = selectedVehicle ? getVehicleTypeInfo(selectedVehicle.type) : null;
 
-  async function handleCreateQuickCustomer(e: FormEvent) {
+  async function handleAddVehicle(e: FormEvent) {
     e.preventDefault();
-    if (!qFirstName.trim() && !qLastName.trim()) {
-      toast('Customer name is required', 'error');
+    if (!customer) return;
+    if (!qMake.trim() && !qModel.trim()) {
+      toast('Enter a make or model for the vehicle.', 'error');
       return;
     }
     setSavingQuick(true);
-
     try {
-      const newCustId = generateUUID();
       const newVehId = generateUUID();
-      const sb = requireSupabase();
-
-      const custPayload = {
-        id: newCustId,
-        first_name: qFirstName.trim(),
-        last_name: qLastName.trim(),
-        phone: qPhone.trim(),
-        email: qEmail.trim(),
-        address: '',
-        notes: 'Created via quick WO intake',
-        created_at: new Date().toISOString(),
-      };
-
-      const vehPayload = (qMake.trim() || qModel.trim()) ? {
+      const vehicle = {
         id: newVehId,
-        customer_id: newCustId,
+        customer_id: customer.id,
         type: qType,
         year: qYear.trim() || null,
         make: qMake.trim(),
         model: qModel.trim(),
-        trim: '',
-        vin: '',
-        plate: qPlate.trim(),
+        trim: '', vin: '', plate: qPlate.trim(),
         created_at: new Date().toISOString(),
-      } : null;
-
-      if (typeof navigator !== 'undefined' && navigator.onLine) {
-        await sb.from('customers').insert(custPayload);
-        if (vehPayload) {
-          await sb.from('vehicles').insert(vehPayload);
-        }
-      } else {
-        enqueueOfflineAction({
-          table: 'customers',
-          type: 'insert',
-          payload: custPayload,
-          description: `Add customer ${custPayload.first_name} ${custPayload.last_name}`,
-        });
-        if (vehPayload) {
-          enqueueOfflineAction({
-            table: 'vehicles',
-            type: 'insert',
-            payload: vehPayload,
-            description: `Add vehicle ${vehPayload.year || ''} ${vehPayload.make} ${vehPayload.model}`,
-          });
-        }
-      }
-
-      const fullNewCust: CustomerWithVehicles = {
-        ...custPayload,
-        vehicles: vehPayload ? [vehPayload] : [],
       };
-
-      const currentList = customers || [];
-      const updatedList = [fullNewCust, ...currentList];
-      cacheLocal('customers', updatedList);
-
-      setCustomerId(newCustId);
-      if (vehPayload) {
-        setVehicleId(newVehId);
+      if (navigator.onLine) {
+        check(await requireSupabase().from('vehicles').insert(vehicle));
+      } else {
+        enqueueOfflineAction({ table: 'vehicles', type: 'insert', payload: vehicle,
+          description: `Add vehicle ${vehicle.make} ${vehicle.model}` });
       }
-
-      toast(`Customer ${fullName(custPayload)} created & selected!`);
+      const updatedCustomer: CustomerWithVehicles = {
+        ...customer, vehicles: [...(customer.vehicles || []), vehicle],
+      };
+      const updatedList = availableCustomers.map(c => c.id === customer.id ? updatedCustomer : c);
+      cacheLocal('customers', updatedList);
+      setAddedCustomers(prev => [updatedCustomer, ...prev.filter(c => c.id !== customer.id)]);
+      setVehicleId(newVehId);
       setQuickCustOpen(false);
-      setQFirstName('');
-      setQLastName('');
-      setQPhone('');
-      setQEmail('');
-      setQYear('');
-      setQMake('');
-      setQModel('');
-      setQPlate('');
+      setQYear(''); setQMake(''); setQModel(''); setQPlate('');
+      toast('Vehicle added to this customer and selected.');
     } catch (err: any) {
-      toast(err?.message || 'Failed to create customer', 'error');
+      toast(err?.message || 'Could not add vehicle.', 'error');
     } finally {
       setSavingQuick(false);
     }
@@ -150,24 +101,6 @@ export default function NewWorkOrder() {
 
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
-
-  if (customers && customers.length === 0) {
-    return (
-      <div className="space-y-4">
-        <PageTitle title="New Work Order (WO)" />
-        <EmptyState
-          icon={<UsersIcon className="h-8 w-8" />}
-          title="No customers on file"
-          sub="Add a customer first, then start the work order."
-          action={
-            <Link to="/customers/new">
-              <Button variant="accent">+ Add Customer</Button>
-            </Link>
-          }
-        />
-      </div>
-    );
-  }
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -279,11 +212,12 @@ export default function NewWorkOrder() {
         <ArrowLeftIcon className="h-3.5 w-3.5" /> All Work Orders
       </Link>
       <PageTitle title="New Work Order (WO)" sub="What machine or vehicle are we servicing?" />
+      {availableCustomers.length === 0 && <p className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">First job? Use <strong>+ Quick New Customer</strong> below, then continue this work order.</p>}
 
       <form onSubmit={save} className="space-y-4">
         <Card className="space-y-4 p-4">
           <CustomerSearchPicker
-            customers={customers ?? []}
+            customers={availableCustomers}
             selectedCustomerId={customerId}
             onSelectCustomer={(c) => {
               setCustomerId(c?.id || '');
@@ -295,6 +229,7 @@ export default function NewWorkOrder() {
               }
             }}
             onCustomerCreated={(newCust) => {
+              setAddedCustomers(prev => [newCust as CustomerWithVehicles, ...prev.filter(c => c.id !== newCust.id)]);
               setCustomerId(newCust.id);
             }}
             placeholder="🔍 Search customer by name, phone #, email, or vehicle…"
@@ -387,8 +322,8 @@ export default function NewWorkOrder() {
                   <UsersIcon className="h-5 w-5" />
                 </span>
                 <div>
-                  <h3 className="text-base font-bold text-white">Quick Customer Intake</h3>
-                  <p className="text-xs text-slate-400">Add contact info and vehicle without leaving WO intake</p>
+                  <h3 className="text-base font-bold text-white">Add Vehicle</h3>
+                  <p className="text-xs text-slate-400">Add equipment to the selected customer without leaving intake</p>
                 </div>
               </div>
               <button
@@ -401,57 +336,11 @@ export default function NewWorkOrder() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateQuickCustomer} className="space-y-4">
+            <form onSubmit={handleAddVehicle} className="space-y-4">
               <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
-                    Customer Contact
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <Field label="First Name *">
-                    <Input
-                      value={qFirstName}
-                      onChange={(e) => setQFirstName(e.target.value)}
-                      placeholder="e.g. Dale"
-                      className="bg-slate-900 text-white"
-                      required
-                    />
-                  </Field>
-                  <Field label="Last Name *">
-                    <Input
-                      value={qLastName}
-                      onChange={(e) => setQLastName(e.target.value)}
-                      placeholder="e.g. Miller"
-                      className="bg-slate-900 text-white"
-                      required
-                    />
-                  </Field>
-                </div>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <Field label="Phone #">
-                    <Input
-                      value={qPhone}
-                      onChange={(e) => setQPhone(e.target.value)}
-                      placeholder="406-555-0199"
-                      className="bg-slate-900 text-white font-mono"
-                    />
-                  </Field>
-                  <Field label="Email">
-                    <Input
-                      value={qEmail}
-                      onChange={(e) => setQEmail(e.target.value)}
-                      placeholder="dale@example.com"
-                      className="bg-slate-900 text-white"
-                    />
-                  </Field>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3.5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-orange-400">
-                    Vehicle / Machine (Optional)
+                    Vehicle / Machine
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">

@@ -119,7 +119,8 @@ export default function Sales() {
   const soldUnits = allUnits.filter((u) => u.status === 'sold');
 
   // Commercial Floorplan Metrics
-  const activeFlooredUnits = inStockUnits.filter((u) => u.is_floored && !u.floorplan_paid_off);
+  const activeFlooredUnits = allUnits.filter((u) => u.is_floored && !u.floorplan_paid_off);
+  const showroomFlooredUnits = inStockUnits.filter((u) => u.is_floored && !u.floorplan_paid_off);
   const totalFloorplanBalance = activeFlooredUnits.reduce(
     (sum, u) => sum + num(u.floorplan_balance || u.cost_price),
     0
@@ -127,14 +128,12 @@ export default function Sales() {
 
   // Filtered Units List
   const filteredUnits = useMemo(() => {
-    let list = allUnits;
+    let list = allUnits.filter((u) => u.status !== 'sold');
     if (filterCondition !== 'all') {
       if (filterCondition === 'in_stock') {
         list = list.filter((u) => u.status === 'in_stock');
       } else if (filterCondition === 'floored') {
-        list = list.filter((u) => u.is_floored);
-      } else if (filterCondition === 'sold') {
-        list = list.filter((u) => u.status === 'sold');
+        list = list.filter((u) => u.is_floored && !u.floorplan_paid_off);
       } else {
         list = list.filter((u) => u.condition === filterCondition);
       }
@@ -560,7 +559,7 @@ export default function Sales() {
           </div>
           <p className="text-2xl font-black text-orange-900">{money(totalFloorplanBalance)}</p>
           <p className="text-[11px] text-orange-700 font-medium">
-            {activeFlooredUnits.length} floored unit{activeFlooredUnits.length === 1 ? '' : 's'} on line
+            {activeFlooredUnits.length} unpaid floorplan unit{activeFlooredUnits.length === 1 ? '' : 's'} (including sold)
           </p>
         </Card>
 
@@ -582,7 +581,7 @@ export default function Sales() {
               : 'border-transparent text-slate-400 hover:text-slate-700'
           }`}
         >
-          Showroom Units ({allUnits.length})
+          Showroom Units ({allUnits.length - soldUnits.length})
         </button>
         <button
           type="button"
@@ -896,10 +895,9 @@ export default function Sales() {
               {[
                 { id: 'all', label: 'All Units' },
                 { id: 'in_stock', label: 'In Stock' },
-                { id: 'floored', label: `🏦 Floored (${activeFlooredUnits.length})` },
+                { id: 'floored', label: `🏦 Floored (${showroomFlooredUnits.length})` },
                 { id: 'new', label: 'New' },
                 { id: 'used', label: 'Used' },
-                { id: 'sold', label: 'Sold' },
               ].map((c) => (
                 <Chip
                   key={c.id}
@@ -1040,13 +1038,15 @@ export default function Sales() {
 
                     {/* Action Buttons */}
                     <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5">
-                      <Link
-                        to={`/sales/deal/new?unit_id=${u.id}`}
-                        className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-orange-400 px-2.5 py-1.5 text-xs font-bold text-slate-950 hover:bg-orange-300 transition shadow-xs"
-                      >
-                        <ReceiptIcon className="h-3.5 w-3.5" />
-                        <span>Buyer's Order</span>
-                      </Link>
+                      {u.status !== 'sold' && (
+                        <Link
+                          to={`/sales/deal/new?unit_id=${u.id}`}
+                          className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-orange-400 px-2.5 py-1.5 text-xs font-bold text-slate-950 hover:bg-orange-300 transition shadow-xs"
+                        >
+                          <ReceiptIcon className="h-3.5 w-3.5" />
+                          <span>Buyer's Order</span>
+                        </Link>
+                      )}
 
                       <button
                         type="button"

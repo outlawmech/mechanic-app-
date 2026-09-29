@@ -89,7 +89,7 @@ export default function Dashboard() {
     const key = (name: string) => `dashboard_${user.id}_${name}`;
 
     try {
-      const [ordersRes, invoicesRes, customersRes, unitsRes, soRes] = await Promise.all([
+      const [ordersRes, invoicesRes, customersRes, unitsRes, soRes, activeCountRes, progressCountRes, completedCountRes] = await Promise.all([
         supabase
           .from('work_orders')
           .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
@@ -118,11 +118,19 @@ export default function Dashboard() {
           .in('status', ['ordered', 'in_transit', 'received', 'notified'])
           .order('created_at', { ascending: false })
           .limit(6),
+        supabase.from('work_orders').select('id', { count: 'exact', head: true })
+          .eq('user_id', shopId).in('status', ['open', 'in_progress']),
+        supabase.from('work_orders').select('id', { count: 'exact', head: true })
+          .eq('user_id', shopId).eq('status', 'in_progress'),
+        supabase.from('work_orders').select('id', { count: 'exact', head: true })
+          .eq('user_id', shopId).eq('status', 'completed'),
       ]);
 
       const failures = [
         ['work orders', ordersRes], ['invoices', invoicesRes], ['customers', customersRes],
         ['showroom units', unitsRes], ['special orders', soRes],
+        ['active work order count', activeCountRes], ['in-progress count', progressCountRes],
+        ['completed count', completedCountRes],
       ] as const;
       const failed = failures.filter(([, result]) => result.error);
       setUnavailable(failed.map(([source]) => source));
@@ -145,9 +153,9 @@ export default function Dashboard() {
       });
       setUpcomingCurtailments(dueSoon);
 
-      const inProgress = orders.filter((o) => o.status === 'in_progress').length;
-      const completed = orders.filter((o) => o.status === 'completed').length;
-      const open = orders.filter((o) => o.status === 'open' || o.status === 'in_progress').length;
+      const inProgress = progressCountRes.count ?? 0;
+      const completed = completedCountRes.count ?? 0;
+      const open = activeCountRes.count ?? 0;
 
       const unpaidList = allInvoices.filter((invoice) => getInvoiceBalanceDue(invoice) > 0);
       const unpaidTotal = unpaidList.reduce((sum, invoice) => sum + getInvoiceBalanceDue(invoice), 0);
@@ -334,7 +342,7 @@ export default function Dashboard() {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Active WOs</p>
-              <p className="text-2xl font-black text-slate-900">{loading ? '…' : unavailable.includes('work orders') ? '—' : metrics.openCount}</p>
+              <p className="text-2xl font-black text-slate-900">{loading ? '…' : unavailable.includes('active work order count') ? '—' : metrics.openCount}</p>
             </div>
           </Card>
         </Link>
@@ -346,7 +354,7 @@ export default function Dashboard() {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">In Bay / Progress</p>
-              <p className="text-2xl font-black text-slate-900">{loading ? '…' : unavailable.includes('work orders') ? '—' : metrics.inProgressCount}</p>
+              <p className="text-2xl font-black text-slate-900">{loading ? '…' : unavailable.includes('in-progress count') ? '—' : metrics.inProgressCount}</p>
             </div>
           </Card>
         </Link>
@@ -413,12 +421,13 @@ export default function Dashboard() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-2">
               <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800">
-                Shop Floor Work Orders
+                Recent Work Orders
               </h2>
               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
                 {filteredOrders.length}
               </span>
             </div>
+            <Link to="/work" className="text-xs font-bold text-orange-700 underline">View all →</Link>
 
             {/* Quick Segmented Status Filter */}
             <div className="flex rounded-xl bg-slate-200 p-1 text-xs font-bold">
@@ -429,7 +438,7 @@ export default function Dashboard() {
                   activeTab === 'active' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Active ({metrics.openCount})
+                Active ({unavailable.includes('active work order count') ? '—' : metrics.openCount})
               </button>
               <button
                 type="button"
@@ -438,7 +447,7 @@ export default function Dashboard() {
                   activeTab === 'in_progress' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                In Bay ({metrics.inProgressCount})
+                In Bay ({unavailable.includes('in-progress count') ? '—' : metrics.inProgressCount})
               </button>
               <button
                 type="button"
@@ -447,7 +456,7 @@ export default function Dashboard() {
                   activeTab === 'completed' ? 'bg-white text-slate-950 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Completed ({metrics.completedCount})
+                Completed ({unavailable.includes('completed count') ? '—' : metrics.completedCount})
               </button>
             </div>
           </div>
@@ -461,14 +470,14 @@ export default function Dashboard() {
           ) : filteredOrders.length === 0 ? (
             <EmptyState
               icon={<ClipboardIcon className="h-8 w-8 text-slate-400" />}
-              title="No active work orders"
-              sub="Create a new work order to track diagnostic time, parts, and machine repair history."
+              title={`No recent ${activeTab === 'in_progress' ? 'in-bay' : activeTab} work orders shown`}
+              sub="This home preview shows only recent jobs. Open Work Orders to see the full list."
               action={
                 <Link
-                  to="/work/new"
+                  to="/work"
                   className="inline-flex rounded-xl bg-orange-500 px-4 py-2 text-xs font-black text-slate-950 shadow shadow-orange-500/20 hover:bg-orange-400"
                 >
-                  + Create Work Order
+                  View All Work Orders
                 </Link>
               }
             />

@@ -68,12 +68,13 @@ export default function BuyersOrderDetail() {
   const [tradeInAllowance, setTradeInAllowance] = useState('0');
   const [tradeInPayoff, setTradeInPayoff] = useState('0');
   const [tradeInInfo, setTradeInInfo] = useState('');
+  const [showTradeIn, setShowTradeIn] = useState(false);
   const [taxRate, setTaxRate] = useState(() => String(num(settings.default_tax_rate) * 100));
   const [titleRegFee, setTitleRegFee] = useState('50');
   const [rebateAmount, setRebateAmount] = useState('0');
   const [downPayment, setDownPayment] = useState('0');
   const [notes, setNotes] = useState('');
-  const [markFloorplanPaidOff, setMarkFloorplanPaidOff] = useState(true);
+  const [markFloorplanPaidOff, setMarkFloorplanPaidOff] = useState(false);
 
   // Load Universal Customers from shared database, Showroom Units, and Existing Order (if editing)
   const { data, error, loading, reload } = useAsync(async () => {
@@ -158,6 +159,7 @@ export default function BuyersOrderDetail() {
       setTradeInAllowance(String(existingOrder.trade_in_allowance || '0'));
       setTradeInPayoff(String(existingOrder.trade_in_payoff || '0'));
       setTradeInInfo(existingOrder.trade_in_info || '');
+      setShowTradeIn(Boolean(existingOrder.trade_in_info || num(existingOrder.trade_in_allowance) || num(existingOrder.trade_in_payoff)));
       setTaxRate(String(num(existingOrder.tax_rate) * 100));
       setTitleRegFee(String(existingOrder.title_reg_fee || '0'));
       setRebateAmount(String(existingOrder.rebate_amount || '0'));
@@ -244,6 +246,11 @@ export default function BuyersOrderDetail() {
       toast('Vehicle Make and Model are required', 'error');
       return;
     }
+    const linkedUnit = units.find((u) => u.id === unitId);
+    if (linkedUnit?.status === 'sold' && (isNew || existingOrder?.unit_id !== unitId)) {
+      toast('This showroom unit is already sold. Open its existing Buyer’s Order instead.', 'error');
+      return;
+    }
     setSaving(true);
 
     const dealPayload = {
@@ -322,26 +329,29 @@ export default function BuyersOrderDetail() {
       // If deal is finalized/completed, automatically sync sold vehicle to customer's service garage
       if (customerId && status === 'completed' && unitMake && unitModel) {
         try {
-          const checkVeh = await sb
-            .from('vehicles')
-            .select('id')
-            .eq('customer_id', customerId)
-            .eq('vin', unitVin.trim().toUpperCase())
-            .limit(1);
+          const normalizedVin = unitVin.trim().toUpperCase();
+          const vehicleLookup = sb.from('vehicles').select('id').eq('customer_id', customerId);
+          const checkVeh = check(await (normalizedVin
+            ? vehicleLookup.eq('vin', normalizedVin)
+            : vehicleLookup.eq('vin', '').eq('year', parseInt(unitYear, 10) || new Date().getFullYear()).eq('make', unitMake.trim()).eq('model', unitModel.trim())
+          ).limit(1));
 
           if (!checkVeh.data || checkVeh.data.length === 0) {
-            await sb.from('vehicles').insert({
+            check(await sb.from('vehicles').insert({
               customer_id: customerId,
               year: parseInt(unitYear, 10) || new Date().getFullYear(),
               make: unitMake.trim(),
               model: unitModel.trim(),
-              vin: unitVin.trim().toUpperCase(),
-              color: unitColor.trim(),
-              type: 'motorcycle',
-            });
+              vin: normalizedVin,
+              trim: selectedUnit?.trim || '',
+              type: selectedUnit?.type || 'other',
+              engine_info: selectedUnit?.engine_info || '',
+              engine_serial: selectedUnit?.engine_serial || '',
+            }));
           }
         } catch (vehErr) {
           console.warn('Vehicle sync to customer garage error:', vehErr);
+          toast('Deal saved, but the sold unit was not added to the customer garage.', 'error');
         }
       }
     } catch (err: any) {
@@ -454,8 +464,42 @@ export default function BuyersOrderDetail() {
         </Card>
       )}
 
+      {!isNew && (
+        <section className="buyers-order-print" aria-label="Printable Buyer’s Order">
+          <header className="buyers-order-print-header">
+            <div><strong>{settings.shop_name}</strong><h1>Buyer’s Order &amp; Bill of Sale</h1></div>
+            <div>Order {orderNumber}<br />Status: {status.replace('_', ' ')}</div>
+          </header>
+          <div className="buyers-order-print-details">
+            <div><strong>Buyer</strong><br />{fullName(selectedCustomer)}<br />{selectedCustomer?.address || ''}<br />{selectedCustomer?.phone || ''}</div>
+            <div><strong>Unit</strong><br />{unitYear} {unitMake} {unitModel}<br />{unitColor && <>Color: {unitColor}<br /></>}VIN / HIN: {unitVin || '—'}{selectedUnit && <><br />Stock #: {selectedUnit.stock_number}</>}</div>
+          </div>
+          <table className="buyers-order-print-prices"><tbody>
+            <tr><td>Unit selling price</td><td>{money(unitPrice)}</td></tr>
+            <tr><td>Freight / destination</td><td>{money(freightFee)}</td></tr>
+            <tr><td>Assembly / dealer prep</td><td>{money(prepFee)}</td></tr>
+            <tr><td>Documentation fee</td><td>{money(docFee)}</td></tr>
+            <tr><td>Installed parts &amp; accessories</td><td>{money(accessoriesTotal)}</td></tr>
+            <tr><td>Trade-in allowance</td><td>− {money(tradeInAllowance)}</td></tr>
+            <tr><td>Trade-in lien payoff</td><td>{money(tradeInPayoff)}</td></tr>
+            <tr><td>Sales tax ({taxRate}%)</td><td>{money(calculations.calculatedTax)}</td></tr>
+            <tr><td>Title / registration</td><td>{money(titleRegFee)}</td></tr>
+            <tr><td>Rebate / promotion</td><td>− {money(rebateAmount)}</td></tr>
+            <tr className="buyers-order-print-total"><th>Total delivered price</th><td>{money(calculations.totalPrice)}</td></tr>
+            <tr><td>Deposit / down payment</td><td>− {money(downPayment)}</td></tr>
+            <tr className="buyers-order-print-total"><th>Balance due / financed</th><td>{money(calculations.balanceDue)}</td></tr>
+          </tbody></table>
+          {tradeInInfo && <p><strong>Trade-in:</strong> {tradeInInfo}</p>}
+          {notes && <p><strong>Deal notes:</strong> {notes}</p>}
+          <div className="buyers-order-print-signatures">
+            <div><span></span><strong>Buyer signature</strong><p>Printed name: {fullName(selectedCustomer)}</p><span></span><strong>Date</strong></div>
+            <div><span></span><strong>Salesperson signature</strong><p>Printed name: __________________________</p><span></span><strong>Date</strong></div>
+          </div>
+        </section>
+      )}
+
       {/* Main Deal Form */}
-      <form onSubmit={handleSaveDeal} className="space-y-6">
+      <form onSubmit={handleSaveDeal} className="space-y-6 buyers-order-screen">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Left 7 Cols: Customer & Vehicle Selection */}
           <div className="space-y-6 lg:col-span-7">
@@ -502,7 +546,7 @@ export default function BuyersOrderDetail() {
               <Field label="Link From Showroom Inventory (Optional)">
                 <Select value={unitId} onChange={(e) => handleSelectUnit(e.target.value)}>
                   <option value="">-- Manual Entry or Select Showroom Unit --</option>
-                  {units.map((u) => (
+                  {units.filter((u) => u.status !== 'sold' || (!isNew && u.id === existingOrder?.unit_id)).map((u) => (
                     <option key={u.id} value={u.id}>
                       [{u.stock_number}] {u.year} {u.make} {u.model} - {money(u.sale_price || u.msrp_price)} ({u.status})
                     </option>
@@ -575,9 +619,10 @@ export default function BuyersOrderDetail() {
 
             {/* Trade-in Section */}
             <Card className="p-5 space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-2">
-                3. Trade-In Vehicle (If Applicable)
-              </h3>
+              <button type="button" aria-expanded={showTradeIn} onClick={() => setShowTradeIn(!showTradeIn)} className="w-full text-left text-xs font-bold uppercase tracking-wider text-slate-700 border-b border-slate-100 pb-2">
+                3. Trade-In Vehicle {showTradeIn ? '−' : '(Optional) +'}
+              </button>
+              {showTradeIn && <>
 
               <Field label="Trade-in Year, Make, Model &amp; VIN">
                 <Input
@@ -607,6 +652,7 @@ export default function BuyersOrderDetail() {
                   />
                 </Field>
               </div>
+              </>}
             </Card>
           </div>
 
@@ -799,7 +845,7 @@ export default function BuyersOrderDetail() {
                     className="h-4 w-4 rounded text-orange-500 focus:ring-orange-400 mt-0.5 shrink-0"
                   />
                   <span>
-                    <strong>Remit Floorplan Payoff ({money(selectedUnit.floorplan_balance || selectedUnit.cost_price)})</strong> to {selectedUnit.floorplan_company || 'Lender Line'} &amp; mark title/MSO released upon deal completion.
+                    I confirm the floorplan payoff of <strong>{money(selectedUnit.floorplan_balance || selectedUnit.cost_price)}</strong> to {selectedUnit.floorplan_company || 'the lender'} has been paid. Mark this unit paid off.
                   </span>
                 </label>
               )}
