@@ -47,9 +47,9 @@ function AndroidBackButtonHandler() {
 
 function AppRoutes() {
   const { user, loading: authLoading, passwordRecovery } = useAuth();
-  const { settings, loading: settingsLoading } = useShopSettings();
+  const { settings, loading: settingsLoading, loadedUserId, settingsError, reloadSettings } = useShopSettings();
 
-  if (authLoading || (user && settingsLoading && !passwordRecovery)) {
+  if (authLoading || (user && (settingsLoading || loadedUserId !== user.id) && !passwordRecovery)) {
     return (
       <div className="grid min-h-dvh place-items-center bg-slate-900">
         <Spinner />
@@ -61,6 +61,24 @@ function AppRoutes() {
 
   if (!user) {
     return <Auth />;
+  }
+
+  if (settingsError) {
+    return (
+      <div className="grid min-h-dvh place-items-center bg-slate-950 px-4 text-slate-100">
+        <div className="w-full max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-6 text-center">
+          <h1 className="text-lg font-bold">Shop access could not be verified</h1>
+          <p className="text-sm text-slate-300">{settingsError}</p>
+          <button
+            type="button"
+            onClick={() => void reloadSettings()}
+            className="w-full rounded-xl bg-orange-500 px-4 py-3 font-bold text-slate-950"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const sub = getSubscriptionInfo(user, settings);

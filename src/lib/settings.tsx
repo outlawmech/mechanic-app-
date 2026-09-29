@@ -55,8 +55,19 @@ interface ShopSettingsContextType {
   memberRole: 'owner' | 'staff';
   memberName: string;
   loading: boolean;
+  loadedUserId: string | null;
+  settingsError: string | null;
   updateSettings: (newSettings: Partial<ShopSettings>) => Promise<ShopSettings>;
   reloadSettings: () => Promise<void>;
+}
+
+interface ShopEntitlement {
+  shop_id: string;
+  member_role: 'owner' | 'staff';
+  member_name: string | null;
+  subscription_status: ShopSettings['subscription_status'] | null;
+  trial_ends_at: string | null;
+  enable_dealership_mode: boolean;
 }
 
 const ShopSettingsContext = createContext<ShopSettingsContextType>({
@@ -65,16 +76,26 @@ const ShopSettingsContext = createContext<ShopSettingsContextType>({
   memberRole: 'owner',
   memberName: '',
   loading: false,
+  loadedUserId: null,
+  settingsError: null,
   updateSettings: async (s) => ({ ...DEFAULT_SETTINGS, ...s }),
   reloadSettings: async () => {},
 });
 
+function getCachedProfileSettings(userId?: string | null): ShopSettings {
+  const cached = getLocalSettings(userId);
+  // Local storage restores profile preferences only, never shop entitlements.
+  return { ...cached, subscription_status: undefined, trial_ends_at: null, enable_dealership_mode: false };
+}
+
 export function ShopSettingsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [settings, setSettings] = useState<ShopSettings>(() => {
-    return getLocalSettings(user?.id);
+    return getCachedProfileSettings(user?.id);
   });
   const [loading, setLoading] = useState(true);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [shopId, setShopId] = useState<string | null>(null);
   const [memberRole, setMemberRole] = useState<'owner' | 'staff'>('owner');
   const [memberName, setMemberName] = useState('');
@@ -86,17 +107,21 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
       setShopId(null);
       setMemberRole('owner');
       setMemberName('');
+      setSettingsError(null);
+      setLoadedUserId(null);
       setLoading(false);
       return;
     }
 
-    const userLocal = getLocalSettings(user.id);
+    setLoading(true);
+    setSettingsError(null);
+    const userLocal = getCachedProfileSettings(user.id);
     const userMetaShopName = user.user_metadata?.shop_name;
 
     setSettings({
       ...userLocal,
       shop_name: userMetaShopName || userLocal.shop_name || DEFAULT_SETTINGS.shop_name,
-      enable_dealership_mode: userLocal.enable_dealership_mode,
+      enable_dealership_mode: false,
     });
 
     load();
@@ -110,33 +135,38 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
     }
 
     setLoading(true);
+    setSettingsError(null);
     try {
       const sb = requireSupabase();
-      const { data: membership, error: memberError } = await sb.from('shop_members')
-        .select('shop_id, role, display_name').eq('member_id', user.id).maybeSingle();
-      if (memberError && !['42P01', 'PGRST205'].includes(memberError.code)) throw memberError;
-      const ownerId = membership?.shop_id || user.id;
+      const { data: rawEntitlement, error: entitlementError } = await sb.rpc('get_shop_entitlement').maybeSingle();
+      if (entitlementError) throw entitlementError;
+      const entitlement = rawEntitlement as ShopEntitlement | null;
+      if (!entitlement?.shop_id) throw new Error('The server did not return this login’s shop.');
+      const ownerId = entitlement.shop_id;
       setShopId(ownerId);
-      setMemberRole(membership?.role === 'staff' ? 'staff' : 'owner');
-      setMemberName(membership?.display_name || user.email?.split('@')[0] || 'Shop owner');
-      const res = await sb
+      setMemberRole(entitlement.member_role === 'staff' ? 'staff' : 'owner');
+      setMemberName(entitlement.member_name || user.email?.split('@')[0] || 'Shop owner');
+      const { data: settingData, error: settingsReadError } = await sb
         .from('shop_settings')
         .select('*')
         .eq('user_id', ownerId)
-        .limit(1);
-
-      const settingData = res.data && res.data[0] ? res.data[0] : null;
+        .maybeSingle();
+      if (settingsReadError) throw settingsReadError;
 
       if (settingData) {
         const loaded: ShopSettings = {
           ...DEFAULT_SETTINGS,
           ...settingData,
-          enable_dealership_mode: Boolean(settingData.enable_dealership_mode),
+          subscription_status: entitlement.subscription_status ?? settingData.subscription_status,
+          trial_ends_at: entitlement.trial_ends_at ?? settingData.trial_ends_at ?? null,
+          enable_dealership_mode: Boolean(entitlement.enable_dealership_mode ?? settingData.enable_dealership_mode),
         };
         setSettings(loaded);
         saveLocalSettings(loaded, user.id);
       } else {
-        if (ownerId !== user.id) throw new Error('Your shop settings could not be loaded.');
+        if (entitlement.member_role === 'staff' || ownerId !== user.id) {
+          throw new Error('This shop does not have a settings record.');
+        }
         const defaultShopName = user.user_metadata?.shop_name || DEFAULT_SETTINGS.shop_name;
         const isDealer = false;
         const initial: ShopSettings = {
@@ -144,14 +174,14 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
           shop_name: defaultShopName,
           tagline: isDealer ? 'Sales, Service & Parts DMS' : 'Mobile & Shop Management',
           enable_dealership_mode: isDealer,
+          subscription_status: 'trialing',
           email: user.email || DEFAULT_SETTINGS.email,
         };
         setSettings(initial);
         saveLocalSettings(initial, user.id);
 
         // Auto-create initial row in Supabase scoped to this user
-        try {
-          await sb.from('shop_settings').upsert({
+        const { error: createSettingsError } = await sb.from('shop_settings').upsert({
             id: user.id,
             user_id: user.id,
             shop_name: defaultShopName,
@@ -165,13 +195,14 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
             dealership_freight_fee: 350,
             updated_at: new Date().toISOString(),
           });
-        } catch (e) {
-          console.warn('Initial shop settings upsert failed:', e);
-        }
+        if (createSettingsError) throw createSettingsError;
       }
     } catch (err) {
       console.warn('Could not load remote shop settings:', err);
+      setSettingsError('We could not verify this shop’s access. Check your connection and try again.');
+      setSettings(getCachedProfileSettings(user.id));
     } finally {
+      setLoadedUserId(user.id);
       setLoading(false);
     }
   }
@@ -227,6 +258,8 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
         memberRole,
         memberName,
         loading,
+        loadedUserId,
+        settingsError,
         updateSettings,
         reloadSettings: load,
       }}
