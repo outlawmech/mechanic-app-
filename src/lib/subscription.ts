@@ -54,27 +54,28 @@ export async function redeemActivationCode(
   if (!cleanCode) {
     return { success: false, error: 'Please enter an activation code.' };
   }
+  if (!user) return { success: false, error: 'Sign in before redeeming a code.' };
 
   const isDmsKey = DMS_BETA_KEYS.includes(cleanCode) || MASTER_UNLOCK_KEYS.includes(cleanCode);
   const isMasterKey = MASTER_UNLOCK_KEYS.includes(cleanCode);
   const targetTier: 'solo' | 'dealer' = isDmsKey ? 'dealer' : 'solo';
 
+  async function saveLegacyGrant(dealer: boolean) {
+    const sb = requireSupabase();
+    const { data, error } = await sb.from('shop_settings')
+      .update({ subscription_status: 'active',
+        ...(dealer ? { enable_dealership_mode: true } : {}),
+        updated_at: new Date().toISOString() })
+      .eq('user_id', user!.id).select('user_id');
+    if (error || !data?.length) throw new Error(error?.message || 'Could not save this activation to your shop. Try again after signing in.');
+    setLocalUnlocked(true, dealer ? 'dealer' : 'solo');
+  }
+
   // 1. Check Master Owner Keys (Unlimited Owner Bypass)
   if (isMasterKey) {
-    setLocalUnlocked(true, 'dealer');
     try {
-      if (user) {
-        const sb = requireSupabase();
-        await sb
-          .from('shop_settings')
-          .update({
-            subscription_status: 'active',
-            enable_dealership_mode: true,
-            updated_at: new Date().toISOString(),
-          })
-          .or(`user_id.eq.${user.id},id.eq.${user.id}`);
-      }
-    } catch {}
+      await saveLegacyGrant(true);
+    } catch (e: any) { return { success: false, error: e.message }; }
     return {
       success: true,
       tier: 'dealer',
@@ -84,20 +85,9 @@ export async function redeemActivationCode(
 
   // 2. Check DMS Beta Keys
   if (DMS_BETA_KEYS.includes(cleanCode)) {
-    setLocalUnlocked(true, 'dealer');
     try {
-      if (user) {
-        const sb = requireSupabase();
-        await sb
-          .from('shop_settings')
-          .update({
-            subscription_status: 'active',
-            enable_dealership_mode: true,
-            updated_at: new Date().toISOString(),
-          })
-          .or(`user_id.eq.${user.id},id.eq.${user.id}`);
-      }
-    } catch {}
+      await saveLegacyGrant(true);
+    } catch (e: any) { return { success: false, error: e.message }; }
     return {
       success: true,
       tier: 'dealer',
@@ -107,19 +97,9 @@ export async function redeemActivationCode(
 
   // 3. Check Solo Rig Beta Keys
   if (SOLO_BETA_KEYS.includes(cleanCode)) {
-    setLocalUnlocked(true, 'solo');
     try {
-      if (user) {
-        const sb = requireSupabase();
-        await sb
-          .from('shop_settings')
-          .update({
-            subscription_status: 'active',
-            updated_at: new Date().toISOString(),
-          })
-          .or(`user_id.eq.${user.id},id.eq.${user.id}`);
-      }
-    } catch {}
+      await saveLegacyGrant(false);
+    } catch (e: any) { return { success: false, error: e.message }; }
     return {
       success: true,
       tier: 'solo',

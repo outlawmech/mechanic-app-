@@ -84,9 +84,9 @@ jobs:
             ### 📱 Outlaw Shop Systems Standalone Android APK
 
             Download and install the native Android `.apk` below:
-            - **100% True Offline Field Operation**
-            - **Seamless 1-Tap Updates (No uninstall required)**
-            - **Fast local database with background Supabase cloud sync**
+            - Mobile work orders, scheduling, customers, and invoicing
+            - Previously loaded records and supported offline edits can be available on the device; queued edits sync when the app reconnects
+            - Web and Android layouts for field and shop use
 
             **Installation Instructions:**
             1. Download `OutlawShopSystems-v1.0.apk` below on your Android phone or tablet.

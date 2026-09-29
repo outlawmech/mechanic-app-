@@ -1,4 +1,4 @@
-import { useNetworkStatus } from '../lib/offlineSync';
+import { claimUnassignedOfflineQueue, getUnassignedOfflineQueueCount, useNetworkStatus } from '../lib/offlineSync';
 import { useToast } from './Toast';
 import { useEffect, useState } from 'react';
 
@@ -25,8 +25,9 @@ export default function NetworkStatusBadge() {
       const res = await syncNow();
       if (res.synced > 0) {
         toast(`✓ Synced ${res.synced} offline ${res.synced === 1 ? 'item' : 'items'} to cloud!`);
-      } else if (res.failed > 0 && pendingCount === 0) {
-        toast('Queue cleaned & refreshed!');
+      }
+      if (res.failed > 0) {
+        toast(`${res.failed} change${res.failed === 1 ? '' : 's'} could not sync. Saved on this device; tap to retry later.`, 'error');
       } else if (pendingCount === 0) {
         toast('All records are up to date!');
       }
@@ -35,6 +36,16 @@ export default function NetworkStatusBadge() {
     } finally {
       setManualSyncing(false);
     }
+  }
+
+  if (getUnassignedOfflineQueueCount() > 0) {
+    return <button type="button" className="rounded-full border border-amber-400/50 bg-amber-500/20 px-2.5 py-1 text-[11px] font-bold text-amber-200"
+      title="Only restore these older offline edits if they were made under this login."
+      onClick={() => {
+        if (!window.confirm('Restore older offline edits to this login? Only continue if you made those edits in this account on this device.')) return;
+        try { const count = claimUnassignedOfflineQueue(); toast(`${count} older edits restored to this account. Tap to sync when online.`); }
+        catch (e: any) { toast(e.message || 'Could not restore offline edits.', 'error'); }
+      }}>Review {getUnassignedOfflineQueueCount()} older offline edits</button>;
   }
 
   if (isOnline && pendingCount === 0 && !isSyncing && !manualSyncing) {

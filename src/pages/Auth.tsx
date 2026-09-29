@@ -14,19 +14,19 @@ import {
 } from '../components/icons';
 import { Button, Card, Field, Input } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { redeemActivationCode, STRIPE_PAYMENT_URL } from '../lib/subscription';
+import { STRIPE_PAYMENT_URL } from '../lib/subscription';
 import { saveLocalSettings, DEFAULT_SETTINGS } from '../lib/settings';
 import { ANDROID_APK_DOWNLOAD_URL } from '../lib/supabase';
+import { requireSupabase } from '../lib/supabase';
 
 const APK_PUBLIC_DOWNLOAD_URL = ANDROID_APK_DOWNLOAD_URL;
 
 export default function Auth() {
   const { signIn, signUp } = useAuth();
-  const [mode, setMode] = useState<'login' | 'signup'>('signup');
+  const [mode, setMode] = useState<'login' | 'signup' | 'reset'>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [shopName, setShopName] = useState('');
-  const [betaCode, setBetaCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -35,6 +35,20 @@ export default function Auth() {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+
+    if (mode === 'reset') {
+      if (!email.trim()) { setErrorMsg('Enter your account email.'); return; }
+      setLoading(true);
+      try {
+        const { error } = await requireSupabase().auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: 'https://outlawshopsystems.netlify.app/',
+        });
+        if (error) throw error;
+        setSuccessMsg('If this account exists, a password reset email is on its way. Check your inbox and spam folder.');
+      } catch (err: any) { setErrorMsg(err.message || 'Could not send reset email.'); }
+      finally { setLoading(false); }
+      return;
+    }
 
     if (!email.trim() || !password) {
       setErrorMsg('Please enter both email and password.');
@@ -63,10 +77,6 @@ export default function Auth() {
             enable_dealership_mode: isDealer,
           });
 
-          // If beta code provided, attempt redemption
-          if (betaCode.trim()) {
-            await redeemActivationCode(betaCode.trim(), null);
-          }
           if (res.needsEmailConfirmation) {
             setSuccessMsg(
               'Account created! Please check your email to confirm your account before logging in.'
@@ -86,7 +96,7 @@ export default function Auth() {
     }
   }
 
-  const scrollToAuth = (newMode: 'login' | 'signup') => {
+  const scrollToAuth = (newMode: 'login' | 'signup' | 'reset') => {
     setMode(newMode);
     const el = document.getElementById('auth-section');
     if (el) {
@@ -160,7 +170,7 @@ export default function Auth() {
           </h1>
 
           <p className="mx-auto max-w-2xl text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
-            Outlaw Shop Systems brings customers, schedules, work orders, and invoices into one place. Start with Solo Rig for service work; dealership tools for parts and unit sales are available with a DMS upgrade.
+            Outlaw Shop Systems brings customers, schedules, work orders, and invoices into one place on your phone or desktop. Start with Solo Rig for mobile service work; dealership tools for parts and unit sales are available with a DMS upgrade.
           </p>
 
           {/* Hero CTAs */}
@@ -188,10 +198,10 @@ export default function Auth() {
           {/* Highlights Badges */}
           <div className="flex flex-wrap items-center justify-center gap-2 pt-4 text-xs font-bold text-slate-400">
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
-              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Android and desktop views
+              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Mobile and desktop layouts
             </span>
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
-              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Customer and vehicle records
+              <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Offline support for field work
             </span>
             <span className="rounded-lg bg-slate-900/80 px-3 py-1 ring-1 ring-slate-800 flex items-center gap-1.5">
               <CheckIcon className="h-3.5 w-3.5 text-emerald-400" /> Work orders and invoices
@@ -209,7 +219,7 @@ export default function Auth() {
           <div className="mb-10 max-w-2xl">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-400">A look inside</p>
             <h2 className="mt-3 text-3xl font-black tracking-tight text-white sm:text-4xl">From the day’s jobs to the deal desk.</h2>
-            <p className="mt-4 text-sm leading-relaxed text-slate-400">Actual Android app screens from a sample account. Solo Rig handles service work; the buyer’s order screen is part of the dealership upgrade.</p>
+            <p className="mt-4 text-sm leading-relaxed text-slate-400">The same shop can use the Android app in the field and the web interface at a desk. These screens use sample account data.</p>
           </div>
           <div className="grid gap-6 md:grid-cols-2 md:gap-10">
             <figure className="overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 p-3 shadow-2xl shadow-black/30 sm:p-5">
@@ -222,6 +232,32 @@ export default function Auth() {
               <div className="mx-auto max-w-[340px] overflow-hidden rounded-2xl border border-slate-700 shadow-xl"><img src="/screenshots/buyers-order.jpg" alt="Android buyer’s order form with customer and vehicle fields" loading="lazy" className="block h-auto w-full" /></div>
               <figcaption className="px-1 pt-4 text-xs leading-relaxed text-slate-400">Connect a buyer and a unit in the dealership workflow.</figcaption>
             </figure>
+          </div>
+          <div className="mt-16 mb-7">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-400">At the shop desk</p>
+            <h3 className="mt-3 text-2xl font-black text-white sm:text-3xl">More room to see the whole operation.</h3>
+            <p className="mt-3 text-sm text-slate-400">Desktop views from a sample dealership account.</p>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <figure className="overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 p-3 shadow-2xl shadow-black/30 sm:p-5">
+              <figcaption className="mb-4 px-1 text-sm font-bold text-white">Service work orders</figcaption>
+              <img src="/screenshots/desktop-work-orders.jpg" alt="Desktop service work order list in a sample dealership account" loading="lazy" className="block aspect-[16/10] w-full rounded-xl border border-slate-700 object-cover object-top" />
+            </figure>
+            <figure className="overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 p-3 shadow-2xl shadow-black/30 sm:p-5">
+              <figcaption className="mb-4 px-1 text-sm font-bold text-white">Showroom inventory <span className="font-normal text-slate-400">· DMS</span></figcaption>
+              <img src="/screenshots/desktop-showroom.jpg" alt="Desktop showroom with a synthetic sample unit and PDI status" loading="lazy" className="block aspect-[16/10] w-full rounded-xl border border-slate-700 object-cover object-top" />
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-slate-800/80 bg-slate-950 px-4 py-12 sm:px-6">
+        <div className="mx-auto flex max-w-6xl flex-col gap-5 rounded-3xl border border-orange-500/30 bg-gradient-to-r from-orange-500/10 to-slate-900 p-7 sm:flex-row sm:items-center sm:gap-8 sm:p-9">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-orange-500 text-slate-950"><SmartphoneIcon className="h-6 w-6" /></div>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest text-orange-400">Built for calls beyond the shop</p>
+            <h2 className="mt-2 text-xl font-black text-white sm:text-2xl">A weak signal shouldn’t stop the whole workday.</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-300">The app can show previously loaded records and queue supported changes on your device when offline, then attempt to sync them when service returns. Load the jobs you need while connected before heading into a low-signal area.</p>
           </div>
         </div>
       </section>
@@ -468,10 +504,10 @@ export default function Auth() {
             className="mx-auto h-14 w-14 rounded-2xl object-cover ring-1 ring-orange-500/40 shadow-xl shadow-orange-500/20"
           />
           <h2 className="text-2xl font-black tracking-tight text-white">
-            {mode === 'signup' ? 'Start 14-Day Free Trial' : 'Sign In to Your Shop'}
+            {mode === 'signup' ? 'Start 14-Day Free Trial' : mode === 'reset' ? 'Reset Your Password' : 'Sign In to Your Shop'}
           </h2>
           <p className="text-xs text-slate-400">
-            {mode === 'signup'
+            {mode === 'reset' ? 'Enter your existing account email. We’ll send a recovery link.' : mode === 'signup'
                 ? 'Create a Solo Rig account. Dealership tools require an upgrade.'
               : 'Welcome back! Enter your login credentials.'}
           </p>
@@ -557,7 +593,7 @@ export default function Auth() {
               />
             </Field>
 
-            <Field label="Password">
+            {mode !== 'reset' && <Field label="Password">
               <Input
                 type="password"
                 value={password}
@@ -566,17 +602,9 @@ export default function Auth() {
                 required
                 autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
               />
-            </Field>
+            </Field>}
 
-            {mode === 'signup' && (
-              <Field label="Beta / License Code (Optional)">
-                <Input
-                  value={betaCode}
-                  onChange={(e) => setBetaCode(e.target.value.toUpperCase())}
-                  placeholder="Enter activation code if provided"
-                />
-              </Field>
-            )}
+            {mode === 'signup' && <p className="text-xs text-slate-400">Have a plan code? Create your login first, then redeem it in Shop Settings.</p>}
 
             {errorMsg && (
               <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs font-medium text-red-400">
@@ -598,11 +626,16 @@ export default function Auth() {
             >
               {loading
                 ? 'Please wait…'
+                : mode === 'reset'
+                  ? 'Send Password Reset Email'
                 : mode === 'signup'
                   ? 'Start Solo Rig Free Trial'
                   : 'Log In to Shop'}
             </Button>
           </form>
+
+          {mode === 'login' && <button type="button" onClick={() => scrollToAuth('reset')} className="mt-4 w-full text-center text-xs text-orange-300 underline">Forgot password?</button>}
+          {mode === 'reset' && <button type="button" onClick={() => scrollToAuth('login')} className="mt-4 w-full text-center text-xs text-orange-300 underline">Back to sign in</button>}
 
           {mode === 'signup' && (
             <p className="mt-4 text-center text-[11px] text-slate-400">

@@ -1,11 +1,14 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { requireSupabase } from './supabase';
+import { setOfflineQueueOwner } from './offlineSync';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  passwordRecovery: boolean;
+  finishPasswordRecovery: () => void;
   signIn: (email: string, pass: string) => Promise<{ error: Error | null }>;
   signUp: (
     email: string,
@@ -20,6 +23,8 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   session: null,
   loading: true,
+  passwordRecovery: false,
+  finishPasswordRecovery: () => {},
   signIn: async () => ({ error: null }),
   signUp: async () => ({ error: null }),
   signOut: async () => {},
@@ -29,11 +34,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [passwordRecovery, setPasswordRecovery] = useState(() => window.location.hash.includes('type=recovery'));
 
   useEffect(() => {
     const sb = requireSupabase();
 
     sb.auth.getSession().then(({ data: { session: s } }) => {
+      setOfflineQueueOwner(s?.user.id ?? null);
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
@@ -41,7 +48,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = sb.auth.onAuthStateChange((_event, s) => {
+    } = sb.auth.onAuthStateChange((event, s) => {
+      if (event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
+      setOfflineQueueOwner(s?.user.id ?? null);
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
@@ -127,10 +136,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch {}
     await sb.auth.signOut();
+    setOfflineQueueOwner(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, passwordRecovery,
+      finishPasswordRecovery: () => setPasswordRecovery(false), signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

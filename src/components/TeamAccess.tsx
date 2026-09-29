@@ -7,6 +7,7 @@ import { useToast } from './Toast';
 
 type Member = { member_id: string; display_name: string; role: 'owner' | 'staff' };
 type Activity = { id: number; actor_name: string; record_type: string; action: string; happened_at: string };
+type PendingInvite = { token: string; email: string; expires_at: string; redeemed_at: string | null };
 
 export default function TeamAccess() {
   const { user } = useAuth();
@@ -17,7 +18,10 @@ export default function TeamAccess() {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [invite, setInvite] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [inviteCode, setInviteCode] = useState('');
+  const [showJoin, setShowJoin] = useState(false);
   const [myName, setMyName] = useState(memberName);
   const [busy, setBusy] = useState(false);
 
@@ -32,7 +36,12 @@ export default function TeamAccess() {
     requireSupabase().from('shop_activity').select('id,actor_name,record_type,action,happened_at')
       .eq('shop_id', shopId).order('happened_at', { ascending: false }).limit(15)
       .then(({ data }) => setActivity((data || []) as Activity[]));
-  }, [shopId, settings.enable_dealership_mode]);
+    if (memberRole === 'owner') requireSupabase().from('shop_invites')
+      .select('token,email,expires_at,redeemed_at').eq('shop_id', shopId)
+      .is('redeemed_at', null).gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false }).limit(10)
+      .then(({ data }) => setPendingInvites((data || []) as PendingInvite[]));
+  }, [shopId, memberRole, settings.enable_dealership_mode]);
 
   async function createInvite() {
     if (!email.trim() || !name.trim()) return;
@@ -41,7 +50,9 @@ export default function TeamAccess() {
       const { data, error } = await requireSupabase().rpc('create_shop_invite', { p_email: email.trim(), p_name: name.trim() });
       if (error) throw error;
       setInvite(String(data));
-      toast('Invite created. Give this code only to the person at the specified email address.');
+      setInviteEmail(email.trim());
+      setPendingInvites((prev) => [{ token: String(data), email: email.trim(), expires_at: new Date(Date.now() + 7 * 86400000).toISOString(), redeemed_at: null }, ...prev]);
+      toast('Join code created. Copy it and share it with the invited person; no email was sent.');
     } catch (e: any) { toast(e.message || 'Invite failed.', 'error'); }
     finally { setBusy(false); }
   }
@@ -83,7 +94,7 @@ export default function TeamAccess() {
 
   return <Card className="space-y-4 p-4">
     <h3 className="text-sm font-bold text-slate-900">Dealership staff accounts</h3>
-    <p className="text-xs text-slate-600">Each person signs in with their own email and password. All staff share this shop’s records; only the owner manages access and settings.</p>
+    <p className="text-xs text-slate-600">Each person signs in with their own email and password. The code is shown here for you to share; the app does not email it. Only the owner manages access and settings.</p>
     {settings.enable_dealership_mode && <div className="flex items-end gap-2">
       <div className="flex-1"><Field label="Your name on payments"><Input value={myName} onChange={(e) => setMyName(e.target.value)} /></Field></div>
       <Button type="button" onClick={saveName} disabled={busy || !myName.trim()}>Save name</Button>
@@ -91,15 +102,19 @@ export default function TeamAccess() {
     {memberRole === 'owner' && settings.enable_dealership_mode && <>
       <div className="grid gap-2 sm:grid-cols-2">
         <Field label="Staff name"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Alex Smith" /></Field>
-        <Field label="Staff email"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="alex@example.com" /></Field>
+        <Field label="Staff email (must match their login)"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="alex@example.com" /></Field>
       </div>
-      <Button type="button" onClick={createInvite} disabled={busy || !name.trim() || !email.trim()}>Create staff invite</Button>
-      {invite && <p className="break-all rounded-lg bg-slate-100 p-3 text-xs text-slate-800">Invite code for {email}: <strong>{invite}</strong><br />Expires in 7 days. Staff must create their own login with this exact email, then enter the code below.</p>}
+      <Button type="button" onClick={createInvite} disabled={busy || !name.trim() || !email.trim()}>Generate join code (no email sent)</Button>
+      {invite && <p className="break-all rounded-lg bg-slate-100 p-3 text-xs text-slate-800">Join code for {inviteEmail}: <strong>{invite}</strong><br />Expires in 7 days. Share this code privately. The recipient signs in with that exact email, then enters it in their own Settings.</p>}
+      {pendingInvites.length > 0 && <div className="space-y-1 text-xs text-slate-600"><p className="font-bold">Unclaimed codes</p>{pendingInvites.map((item) => <p key={item.token} className="break-all">{item.email}: <code>{item.token}</code> · expires {new Date(item.expires_at).toLocaleDateString()}</p>)}</div>}
       {members.length > 0 && <div className="space-y-2">{members.map((m) => <div key={m.member_id} className="flex items-center justify-between gap-2 text-xs"><span>{m.display_name} · {m.role}</span>{m.role === 'staff' && <button type="button" disabled={busy} className="text-red-700 underline" onClick={() => removeMember(m)}>Remove access</button>}</div>)}</div>}
     </>}
-    {user && memberRole !== 'staff' && members.length === 0 && <div className="border-t border-slate-200 pt-3">
-      <Field label="Join an existing dealership (invited staff only)"><Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Paste your invitation code" /></Field>
-      <Button type="button" onClick={redeemInvite} disabled={busy || !inviteCode.trim()} className="mt-2">Join dealership</Button>
+    {user && memberRole !== 'staff' && <div className="border-t border-slate-200 pt-3">
+      <button type="button" className="text-xs font-semibold text-orange-700 underline" onClick={() => setShowJoin(!showJoin)}>Have a staff join code for this login?</button>
+      {showJoin && <div className="mt-3"><p className="mb-2 text-xs text-slate-600">You can join with an existing login if its own shop has no records. The code must match your account email; it does not go in the activation key field.</p>
+        <Field label="Staff join code"><Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Paste your staff join code" /></Field>
+        <Button type="button" onClick={redeemInvite} disabled={busy || !inviteCode.trim()} className="mt-2">Join dealership</Button>
+      </div>}
     </div>}
     {memberRole === 'staff' && <p className="text-xs text-emerald-700">You are signed in as dealership staff.</p>}
     {activity.length > 0 && <div className="border-t border-slate-200 pt-3">

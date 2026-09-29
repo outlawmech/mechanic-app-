@@ -11,10 +11,41 @@ export interface OfflineAction {
   matchField?: string;
   matchValue?: any;
   description: string;
+  lastError?: string;
 }
 
 const QUEUE_KEY = 'outlaw_offline_queue';
 const CACHE_PREFIX = 'outlaw_cache_';
+let queueOwner: string | null = null;
+
+export function setOfflineQueueOwner(userId: string | null) {
+  queueOwner = userId;
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('outlaw_queue_changed', { detail: { count: getOfflineQueue().length } }));
+  }
+}
+
+function queueStorageKey(): string | null {
+  return queueOwner ? `${QUEUE_KEY}_${queueOwner}` : null;
+}
+
+export function getUnassignedOfflineQueueCount(): number {
+  try {
+    const oldQueue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+    return Array.isArray(oldQueue) ? oldQueue.length : 0;
+  } catch { return 0; }
+}
+
+export function claimUnassignedOfflineQueue(): number {
+  if (!queueStorageKey()) throw new Error('Sign in before restoring offline edits.');
+  const oldQueue = JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]');
+  if (!Array.isArray(oldQueue)) throw new Error('Older offline edits could not be read.');
+  if (oldQueue.length === 0) return 0;
+  saveOfflineQueue([...getOfflineQueue(), ...oldQueue]);
+  localStorage.removeItem(QUEUE_KEY);
+  window.dispatchEvent(new CustomEvent('outlaw_queue_changed', { detail: { count: getOfflineQueue().length } }));
+  return oldQueue.length;
+}
 
 // ---------------- UUID Generator ----------------
 
@@ -90,8 +121,11 @@ export async function safeFetchWithCache<T>(
 
 export function getOfflineQueue(): OfflineAction[] {
   try {
-    const raw = localStorage.getItem(QUEUE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const key = queueStorageKey();
+    if (!key) return [];
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -99,16 +133,21 @@ export function getOfflineQueue(): OfflineAction[] {
 
 export function saveOfflineQueue(queue: OfflineAction[]) {
   try {
-    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+    const key = queueStorageKey();
+    if (!key) throw new Error('Sign in before saving offline changes.');
+    localStorage.setItem(key, JSON.stringify(queue));
     window.dispatchEvent(new CustomEvent('outlaw_queue_changed', { detail: { count: queue.length } }));
   } catch (e) {
     console.error('Failed to save offline queue:', e);
+    throw e;
   }
 }
 
 export function clearOfflineQueue() {
   try {
-    localStorage.removeItem(QUEUE_KEY);
+    const key = queueStorageKey();
+    if (!key) return;
+    localStorage.removeItem(key);
     window.dispatchEvent(new CustomEvent('outlaw_queue_changed', { detail: { count: 0 } }));
   } catch (e) {
     console.error('Failed to clear offline queue:', e);
@@ -116,6 +155,7 @@ export function clearOfflineQueue() {
 }
 
 export function enqueueOfflineAction(action: Omit<OfflineAction, 'id' | 'createdAt'>) {
+  if (!queueStorageKey()) throw new Error('Sign in before saving offline changes.');
   const queue = getOfflineQueue();
   const newAction: OfflineAction = {
     ...action,
@@ -133,11 +173,12 @@ export function enqueueOfflineAction(action: Omit<OfflineAction, 'id' | 'created
 let isSyncingGlobal = false;
 
 export async function processOfflineSyncQueue(): Promise<{ synced: number; failed: number }> {
-  if (isSyncingGlobal || !navigator.onLine || !supabase) {
+  if (isSyncingGlobal || !navigator.onLine || !supabase || !queueOwner) {
     return { synced: 0, failed: 0 };
   }
 
   const queue = getOfflineQueue();
+  const syncingOwner = queueOwner;
   if (queue.length === 0) return { synced: 0, failed: 0 };
 
   isSyncingGlobal = true;
@@ -148,6 +189,10 @@ export async function processOfflineSyncQueue(): Promise<{ synced: number; faile
   const remainingQueue: OfflineAction[] = [];
 
   for (const action of queue) {
+    if (queueOwner !== syncingOwner) {
+      remainingQueue.push(action);
+      continue;
+    }
     try {
       if (action.type === 'insert') {
         const res = await supabase.from(action.table).insert(action.payload);
@@ -170,29 +215,28 @@ export async function processOfflineSyncQueue(): Promise<{ synced: number; faile
       synced++;
     } catch (err: any) {
       console.warn(`Offline sync item failed for table "${action.table}":`, err?.message || err);
-      const retries = (action.retryCount || 0) + 1;
-      
-      // Check for permanent fatal syntax or constraint errors (e.g. invalid old temp non-UUID strings)
-      const errStr = (err?.message || JSON.stringify(err) || '').toLowerCase();
-      const isFatal =
-        err?.code === '22P02' ||
-        errStr.includes('invalid input syntax for type uuid') ||
-        errStr.includes('foreign key constraint') ||
-        errStr.includes('does not exist') ||
-        retries >= 3;
-
-      if (!isFatal) {
-        remainingQueue.push({ ...action, retryCount: retries });
-      } else {
-        console.warn(`Discarding non-recoverable offline action for "${action.table}" to prevent queue blockage:`, action);
-      }
+      remainingQueue.push({ ...action, retryCount: (action.retryCount || 0) + 1,
+        lastError: err?.message || 'Could not sync this change.' });
       failed++;
     }
   }
 
-  saveOfflineQueue(remainingQueue);
-  isSyncingGlobal = false;
-  window.dispatchEvent(new CustomEvent('outlaw_sync_status', { detail: { isSyncing: false } }));
+  // Keep actions added while the sync was running and finish the original account's queue.
+  try {
+    const key = `${QUEUE_KEY}_${syncingOwner}`;
+    const current = JSON.parse(localStorage.getItem(key) || '[]');
+    const processedIds = new Set(queue.map(action => action.id));
+    const addedDuringSync = Array.isArray(current)
+      ? current.filter((action: OfflineAction) => !processedIds.has(action.id)) : [];
+    const finalQueue = [...remainingQueue, ...addedDuringSync];
+    localStorage.setItem(key, JSON.stringify(finalQueue));
+    if (queueOwner === syncingOwner) {
+      window.dispatchEvent(new CustomEvent('outlaw_queue_changed', { detail: { count: finalQueue.length } }));
+    }
+  } finally {
+    isSyncingGlobal = false;
+    window.dispatchEvent(new CustomEvent('outlaw_sync_status', { detail: { isSyncing: false } }));
+  }
 
   if (synced > 0 || (failed > 0 && remainingQueue.length === 0)) {
     window.dispatchEvent(

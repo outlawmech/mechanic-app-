@@ -8,6 +8,7 @@ import { ShopSettingsProvider, useShopSettings } from './lib/settings';
 import { getSubscriptionInfo } from './lib/subscription';
 import SubscriptionLockout from './components/SubscriptionLockout';
 import Auth from './pages/Auth';
+import PasswordRecovery from './pages/PasswordRecovery';
 import CustomerDetail from './pages/CustomerDetail';
 import Customers from './pages/Customers';
 import Dashboard from './pages/Dashboard';
@@ -45,16 +46,18 @@ function AndroidBackButtonHandler() {
 }
 
 function AppRoutes() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, passwordRecovery } = useAuth();
   const { settings, loading: settingsLoading } = useShopSettings();
 
-  if (authLoading || (user && settingsLoading)) {
+  if (authLoading || (user && settingsLoading && !passwordRecovery)) {
     return (
       <div className="grid min-h-dvh place-items-center bg-slate-900">
         <Spinner />
       </div>
     );
   }
+
+  if (passwordRecovery) return <PasswordRecovery />;
 
   if (!user) {
     return <Auth />;
