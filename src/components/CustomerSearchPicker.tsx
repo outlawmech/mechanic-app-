@@ -12,6 +12,7 @@ import { fullName, getVehicleTypeInfo, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
 import { enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
 import { useToast } from './Toast';
+import DocumentScannerModal from './DocumentScannerModal';
 import type { Customer, CustomerWithVehicles, Vehicle, VehicleType } from '../types';
 
 export interface CustomerSearchPickerProps {
@@ -48,6 +49,7 @@ export default function CustomerSearchPicker({
   const [isOpen, setIsOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [scanIdOpen, setScanIdOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -547,6 +549,7 @@ export default function CustomerSearchPicker({
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <button type="button" onClick={() => setScanIdOpen(true)} className="rounded-lg bg-orange-100 px-2 py-1 text-xs font-bold text-orange-900">Scan ID</button>
                 <button
                   type="button"
                   onClick={() => setQuickAddOpen(false)}
@@ -629,6 +632,11 @@ export default function CustomerSearchPicker({
           </div>
         </div>
       )}
+      {scanIdOpen && <DocumentScannerModal mode="id" onClose={() => setScanIdOpen(false)} onId={(id) => {
+        setQFirstName(id.firstName);
+        setQLastName(id.lastName);
+        if (id.address) setQAddress(id.address);
+      }} />}
     </div>
   );
 }
