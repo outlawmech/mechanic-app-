@@ -7,7 +7,6 @@ import { getVehicleTypeInfo, VEHICLE_TYPES } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
 import { decodeVehicleVIN } from '../lib/vinDecoder';
-import DocumentScannerModal from '../components/DocumentScannerModal';
 import type { CustomerWithVehicles, Vehicle, VehicleType } from '../types';
 
 const empty = {
@@ -40,7 +39,6 @@ export default function NewCustomer() {
   const [form, setForm] = useState(empty);
   const [saving, setSaving] = useState(false);
   const [decoding, setDecoding] = useState(false);
-  const [scanner, setScanner] = useState<'id' | 'vin' | null>(null);
 
   const set =
     (k: keyof typeof empty) =>
@@ -205,7 +203,6 @@ export default function NewCustomer() {
               <p className="text-xs font-bold uppercase tracking-wide text-slate-700">Customer Profile</p>
               <p className="text-[11px] text-slate-500">Enter the customer's details below</p>
             </div>
-            <Button type="button" variant="ghost" onClick={() => setScanner('id')} className="text-xs">Scan ID</Button>
           </div>
 
           <Field label="First name *">
@@ -310,7 +307,6 @@ export default function NewCustomer() {
                   placeholder={form.type === 'marine' ? 'HIN # (12 chars)' : 'VIN (17 chars)'}
                   className="font-mono uppercase text-xs flex-1"
                 />
-                <button type="button" onClick={() => setScanner('vin')} className="rounded-xl bg-slate-200 px-3 text-xs font-bold">Scan</button>
                 <button
                   type="button"
                   onClick={handleDecodeVin}
@@ -420,9 +416,6 @@ export default function NewCustomer() {
           {saving ? 'Saving…' : 'Save Customer & Vehicle'}
         </Button>
       </form>
-      {scanner && <DocumentScannerModal mode={scanner} onClose={() => setScanner(null)}
-        onVin={(vin) => setForm((prev) => ({ ...prev, vin }))}
-        onId={(id) => setForm((prev) => ({ ...prev, first_name: id.firstName, last_name: id.lastName, address: id.address || prev.address }))} />}
     </div>
   );
 }

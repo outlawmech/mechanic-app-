@@ -43,8 +43,8 @@ const topics: Topic[] = [
   {
     title: 'Add customers and equipment', summary: 'Create a customer and keep service history together', path: '/customers',
     steps: [
-      'Open Customers and choose Add Customer. Enter a first name, or scan an ID to review and fill name and address. The ID image and license number are not saved.',
-      'Add a vehicle or piece of equipment. Scan a VIN barcode or printed VIN, confirm the 17 characters, then Decode to fill available vehicle specs. Enter missing details manually.',
+      'Open Customers and choose Add Customer. Enter a first name and any available contact details.',
+      'Add a vehicle or piece of equipment with its category, year, make, model, VIN/HIN, and mileage or hours.',
       'Open the customer record later to edit details, add equipment, or review related work and invoices.',
     ],
     notes: ['Check decoded VIN information against the actual unit. Enter missing or incorrect details manually.'],
@@ -92,7 +92,7 @@ const topics: Topic[] = [
     title: 'Make a counter sale', summary: 'Walk-in parts purchases', path: '/parts/counter',
     steps: [
       'Open Parts Counter and select an existing customer or use a walk-in name.',
-      'Search or scan a SKU. If the barcode is damaged, choose Read printed number or take a photo, then confirm the matching part number. Check the price and stock before adding it.',
+      'Search or scan a SKU, add the quantity, and check the price and stock.',
       'Review the discount, tax, and total, then complete the sale with the correct payment method.',
       'Open the receipt and verify that payment and stock quantity were recorded.',
     ],

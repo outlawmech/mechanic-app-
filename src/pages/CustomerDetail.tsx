@@ -31,7 +31,6 @@ import { useAsync } from '../lib/hooks';
 import { fullName, getVehicleTypeInfo, longDate, money, num, VEHICLE_TYPES, vehicleLabel } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { decodeVehicleVIN } from '../lib/vinDecoder';
-import DocumentScannerModal from '../components/DocumentScannerModal';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
 import type { Customer, Invoice, Vehicle, VehicleType, WorkOrder } from '../types';
 
@@ -98,7 +97,6 @@ export default function CustomerDetail() {
   const [saving, setSaving] = useState(false);
   const [decoding, setDecoding] = useState(false);
   const [v, setV] = useState(emptyVehicle);
-  const [scanner, setScanner] = useState<'id' | 'vin' | null>(null);
 
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
@@ -388,7 +386,6 @@ export default function CustomerDetail() {
                 Update name, phone number, email, billing/service address, and customer notes.
               </p>
             </div>
-            <Button type="button" variant="ghost" onClick={() => setScanner('id')} className="text-xs">Scan ID</Button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -656,7 +653,6 @@ export default function CustomerDetail() {
                         placeholder={v.type === 'marine' ? 'HIN # (12 chars)' : 'VIN (17 chars)'}
                         className="font-mono uppercase text-xs flex-1"
                       />
-                      <button type="button" onClick={() => setScanner('vin')} className="rounded-xl bg-slate-200 px-3 text-xs font-bold">Scan</button>
                       <button
                         type="button"
                         onClick={handleDecodeVin}
@@ -848,9 +844,6 @@ export default function CustomerDetail() {
           </section>
         </div>
       </div>
-      {scanner && <DocumentScannerModal mode={scanner} onClose={() => setScanner(null)}
-        onVin={(vin) => setV((prev) => ({ ...prev, vin }))}
-        onId={(id) => setCustForm((prev) => ({ ...prev, first_name: id.firstName, last_name: id.lastName, address: id.address || prev.address }))} />}
     </div>
   );
 }
