@@ -10,9 +10,7 @@ import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
 import android.webkit.JavascriptInterface;
-import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
-import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import androidx.activity.OnBackPressedCallback;
@@ -96,20 +94,8 @@ public class MainActivity extends BridgeActivity {
                 webView.addJavascriptInterface(new OutlawPrintInterface(this, webView), "AndroidNativePrinter");
                 webView.addJavascriptInterface(new OutlawFlashlightInterface(this), "AndroidNativeFlashlight");
                 
-                // Ensure WebView grants camera / audio WebRTC permission requests
-                webView.setWebChromeClient(new WebChromeClient() {
-                    @Override
-                    public void onPermissionRequest(final PermissionRequest request) {
-                        MainActivity.this.runOnUiThread(() -> {
-                            if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                                request.grant(request.getResources());
-                            } else {
-                                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST);
-                                request.grant(request.getResources());
-                            }
-                        });
-                    }
-                });
+                // Capacitor's BridgeWebChromeClient handles camera permission and
+                // photo/file selection. Replacing it breaks capture inputs.
             }
         } catch (Exception e) {
             e.printStackTrace();

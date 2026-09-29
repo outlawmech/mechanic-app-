@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { IScannerControls } from '@zxing/browser';
 import {
   BookOpenIcon,
   CheckIcon,
@@ -9,6 +10,7 @@ import { Button, Card, Input } from './ui';
 import type { Part } from '../types';
 import { money, num } from '../lib/format';
 import { lookupPriceBookSku, type PriceBookEntry } from '../lib/priceBooks';
+import { fileAsImage, partNumberCandidates, readBarcodeImage, recognizeImage } from '../lib/scanRecognition';
 
 interface PartScannerModalProps {
   isOpen: boolean;
@@ -28,6 +30,7 @@ export default function PartScannerModal({
   onAddNewPart,
 }: PartScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const resultLocked = useRef(false);
 
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scannerReady, setScannerReady] = useState(false);
@@ -36,6 +39,8 @@ export default function PartScannerModal({
   const [matchedPb, setMatchedPb] = useState<PriceBookEntry | null>(null);
   const [manualQuery, setManualQuery] = useState('');
   const [engineError, setEngineError] = useState<string | null>(null);
+  const [readingText, setReadingText] = useState(false);
+  const [ocrCandidates, setOcrCandidates] = useState<string[]>([]);
 
   // Reuse the app's original on-device barcode reader. This keeps barcode
   // decoding in the Android/WebView platform and avoids the later ZXing path
@@ -45,6 +50,7 @@ export default function PartScannerModal({
     let stream: MediaStream | null = null;
     let scanInterval: ReturnType<typeof setInterval> | null = null;
     let detecting = false;
+    let controls: IScannerControls | null = null;
     let lastValue = '';
     let lastValueAt = 0;
 
@@ -55,6 +61,21 @@ export default function PartScannerModal({
       setCameraError(null);
       setScannerReady(false);
       setEngineError(null);
+      setOcrCandidates([]);
+      resultLocked.current = false;
+
+      const startZxing = async (video: HTMLVideoElement) => {
+        try {
+          const { BrowserMultiFormatReader } = await import('@zxing/browser');
+          controls = await new BrowserMultiFormatReader().decodeFromVideoElement(video, (result) => {
+            if (!cancelled && !resultLocked.current && result) handleDetectedValue(result.getText());
+          });
+          if (cancelled) { controls.stop(); return; }
+          if (!cancelled) setScannerReady(true);
+        } catch {
+          if (!cancelled) setEngineError('Barcode reader unavailable. Take a photo of the printed part number or type the SKU.');
+        }
+      };
 
       const startCamera = async () => {
         try {
@@ -88,7 +109,7 @@ export default function PartScannerModal({
 
           const Detector = (window as any).BarcodeDetector;
           if (!Detector) {
-            setEngineError('This device does not provide the original barcode reader. You can still search by SKU below.');
+            await startZxing(video);
             return;
           }
 
@@ -107,7 +128,7 @@ export default function PartScannerModal({
             formats = preferredFormats.filter((format) => supportedFormats.includes(format));
           }
           if (!formats.length) {
-            setEngineError('This device does not support the part barcode formats. You can still search by SKU below.');
+            await startZxing(video);
             return;
           }
 
@@ -115,7 +136,7 @@ export default function PartScannerModal({
           setScannerReady(true);
           scanInterval = setInterval(async () => {
             const activeVideo = videoRef.current;
-            if (cancelled || detecting || !activeVideo || activeVideo.readyState < 2) return;
+            if (cancelled || resultLocked.current || detecting || !activeVideo || activeVideo.readyState < 2) return;
 
             detecting = true;
             try {
@@ -132,7 +153,7 @@ export default function PartScannerModal({
               console.warn('Part barcode detection error:', err);
               if (!cancelled) {
                 setScannerReady(false);
-                setEngineError('The barcode reader hit a decoding error. Reopen the scanner or search by SKU below.');
+                void startZxing(activeVideo);
               }
               if (scanInterval !== null) clearInterval(scanInterval);
               scanInterval = null;
@@ -157,6 +178,7 @@ export default function PartScannerModal({
     return () => {
       cancelled = true;
       if (scanInterval !== null) clearInterval(scanInterval);
+      controls?.stop();
       if (videoRef.current) {
         videoRef.current.pause();
         videoRef.current.srcObject = null;
@@ -168,8 +190,10 @@ export default function PartScannerModal({
   function handleDetectedValue(val: string) {
     const clean = val.trim();
     if (!clean) return;
+    resultLocked.current = true;
 
     setRecognizedText(clean);
+    setOcrCandidates([]);
     // 1. Check in-stock parts first
     const match = parts.find(
       (p) =>
@@ -190,6 +214,45 @@ export default function PartScannerModal({
     }
   }
 
+  async function readPrintedNumber(source: File | HTMLCanvasElement) {
+    resultLocked.current = true;
+    setReadingText(true);
+    setEngineError(null);
+    try {
+      const candidates = partNumberCandidates(await recognizeImage(source));
+      const normalized = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const known = candidates.filter((candidate) => parts.some((part) => normalized(part.sku) === normalized(candidate)));
+      setOcrCandidates([...known, ...candidates.filter((candidate) => !known.includes(candidate))].slice(0, 12));
+      if (!candidates.length) setEngineError('Could not read a part number. Move closer, improve lighting, or type the SKU.');
+    } catch {
+      setEngineError('Text recognition could not start. Type the SKU below.');
+    } finally { setReadingText(false); }
+  }
+
+  async function processPhoto(file: File) {
+    resultLocked.current = true;
+    setReadingText(true);
+    try {
+      const { image, release } = await fileAsImage(file);
+      try {
+        const barcode = await readBarcodeImage(image);
+        if (barcode) { handleDetectedValue(barcode); return; }
+      } finally { release(); }
+      await readPrintedNumber(file);
+    } catch { setEngineError('Could not read this photo. Retake it or type the SKU.'); }
+    finally { setReadingText(false); }
+  }
+
+  function captureText() {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2) { setEngineError('Camera not ready. Take or choose a photo instead.'); return; }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d')?.drawImage(video, 0, 0);
+    void readPrintedNumber(canvas);
+  }
+
   if (!isOpen) return null;
 
   return (
@@ -208,8 +271,8 @@ export default function PartScannerModal({
               <ScanIcon className="h-4 w-4" />
             </span>
             <div>
-              <h3 className="text-sm font-black text-white">Part Barcode Scanner</h3>
-              <p className="text-[10px] text-slate-400">Scan a part barcode or QR code</p>
+              <h3 className="text-sm font-black text-white">Scan Part</h3>
+              <p className="text-[10px] text-slate-400">Barcode or printed part number</p>
             </div>
           </div>
           <button
@@ -260,6 +323,18 @@ export default function PartScannerModal({
 
         {/* Scan Results & Part Matching Drawer */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-900/90">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={readingText} onClick={captureText} className="rounded-lg bg-orange-500 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-50">Read printed number</button>
+            <label className="cursor-pointer rounded-lg bg-slate-700 px-3 py-2 text-xs font-bold">Take / choose photo
+              <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; if (file) void processPhoto(file); e.target.value = ''; }} />
+            </label>
+            {resultLocked.current && <button type="button" onClick={() => { resultLocked.current = false; setOcrCandidates([]); setRecognizedText(''); setMatchedPart(null); setMatchedPb(null); setEngineError(null); }} className="rounded-lg border border-slate-600 px-3 py-2 text-xs">Retry barcode</button>}
+          </div>
+          {readingText && <p role="status" className="text-xs text-orange-300">Reading on this device…</p>}
+          {ocrCandidates.length > 0 && <div className="rounded-xl border border-orange-500/40 p-3 space-y-2">
+            <p className="text-xs font-bold">Which printed number is the part number? Check the package before selecting.</p>
+            <div className="flex flex-wrap gap-2">{ocrCandidates.map((candidate) => <button type="button" key={candidate} onClick={() => handleDetectedValue(candidate)} className="rounded-lg bg-slate-700 px-2 py-1 font-mono text-xs">{candidate}</button>)}</div>
+          </div>}
           {!cameraError && !engineError && !recognizedText && (
             <p className="text-center text-[11px] font-semibold text-slate-400" role="status">
               {scannerReady

@@ -38,6 +38,7 @@ import { money, num, shortDate, fullName, VEHICLE_TYPES } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
 import { decodeVehicleVIN } from '../lib/vinDecoder';
+import DocumentScannerModal from '../components/DocumentScannerModal';
 import { useShopSettings } from '../lib/settings';
 import type { DealershipUnit, BuyersOrderFull, UnitCondition, UnitStatus, VehicleType, WorkOrder } from '../types';
 
@@ -82,6 +83,7 @@ export default function Sales() {
   const [printingTagUnit, setPrintingTagUnit] = useState<DealershipUnit | null>(null);
   const [form, setForm] = useState(emptyUnit);
   const [decoding, setDecoding] = useState(false);
+  const [scanVinOpen, setScanVinOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [unitSaveNotice, setUnitSaveNotice] = useState<{ kind: 'error' | 'pending'; message: string } | null>(null);
 
@@ -663,6 +665,7 @@ export default function Sales() {
                     placeholder="Enter VIN or Hull Identification Number"
                     className="font-mono uppercase text-xs"
                   />
+                  <button type="button" onClick={() => setScanVinOpen(true)} className="rounded-xl bg-slate-200 px-3 text-xs font-bold">Scan</button>
                   <button
                     type="button"
                     onClick={handleDecodeVin}
@@ -1280,6 +1283,8 @@ export default function Sales() {
           </div>
         </div>
       )}
+      {scanVinOpen && <DocumentScannerModal mode="vin" onClose={() => setScanVinOpen(false)}
+        onVin={(vin) => setForm((prev) => ({ ...prev, vin }))} />}
     </div>
   );
 }
