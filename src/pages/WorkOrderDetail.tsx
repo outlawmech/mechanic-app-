@@ -14,6 +14,7 @@ import {
   TrashIcon,
   CheckIcon,
   PlusIcon,
+  PrinterIcon,
   VehicleIcon,
 } from '../components/icons';
 import {
@@ -43,6 +44,7 @@ import {
   workOrderEstimate,
 } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
+import { printTechWorksheetDocument } from '../lib/printer';
 import { lookupPriceBookSku } from '../lib/priceBooks';
 import type { InvoiceSummary, Part, WorkItem, WorkOrderFull, WorkOrderStatus } from '../types';
 
@@ -75,7 +77,7 @@ export default function WorkOrderDetail() {
       const [woRes, partsRes] = await Promise.all([
         sb
           .from('work_orders')
-          .select('*, customer:customers(*), vehicle:vehicles(*), items:work_items(*)')
+          .select('*, customer:customers(*), vehicle:vehicles(*), unit:dealership_units(*), items:work_items(*)')
           .eq('id', id!)
           .limit(1),
         sb
@@ -616,7 +618,14 @@ export default function WorkOrderDetail() {
       <PageTitle
         title={`WO #${wo.number}`}
         sub={`Created ${longDate(wo.created_at)}`}
-        right={<Badge status={wo.status} />}
+        right={(
+          <div className="no-print flex flex-wrap items-center justify-end gap-2">
+            <Badge status={wo.status} />
+            <Button type="button" variant="ghost" className="text-xs" onClick={() => printTechWorksheetDocument(wo, settings)}>
+              <PrinterIcon className="h-4 w-4" /> Print Tech Worksheet
+            </Button>
+          </div>
+        )}
       />
 
       {/* Mobile Ergonomic Segmented Tabs (Visible on mobile only) */}

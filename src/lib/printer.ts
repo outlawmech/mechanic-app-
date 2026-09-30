@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { money, num, fullName, vehicleLabel, longDate, getVehicleTypeInfo } from './format';
 import type { InvoiceFull, Vehicle, WorkItem, WorkOrder, ShopSettings } from '../types';
+import { buildTechWorksheetHtml, type TechWorksheetWorkOrder } from './techWorksheet';
 
 export const isNativePlatform = Capacitor.isNativePlatform();
 
@@ -388,6 +389,15 @@ export function printInvoiceDocument(
   const safeName = `Invoice_${invoice.number.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
   const cleanHtml = buildStandaloneInvoiceHtml(invoice, items, vehicle, settings, workOrder);
 
+  printStandaloneHtml(cleanHtml, safeName);
+}
+
+export function printTechWorksheetDocument(wo: TechWorksheetWorkOrder, settings: ShopSettings) {
+  const safeName = `Tech_Worksheet_WO_${String(wo.number || '').replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  printStandaloneHtml(buildTechWorksheetHtml(wo, settings), safeName);
+}
+
+function printStandaloneHtml(cleanHtml: string, safeName: string) {
   // 1. Android Native Java Bridge with clean dedicated HTML spooler
   if (
     typeof window !== 'undefined' &&
