@@ -92,6 +92,7 @@ export type WorkItem = {
 export type WorkOrderFull = WorkOrder & {
   customer: Customer;
   vehicle: Vehicle | null;
+  unit?: DealershipUnit | null;
   items: WorkItem[];
   photos?: WorkOrderPhoto[];
 };
