@@ -23,6 +23,7 @@ import { useShopSettings } from '../lib/settings';
 import { useAsync } from '../lib/hooks';
 import { money, num, fullName } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
+import { splitQuantityByAvailability } from '../lib/inventoryQuantities';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID, getCachedLocal } from '../lib/offlineSync';
 import { searchPriceBooks, lookupPriceBookSku, type PriceBookEntry } from '../lib/priceBooks';
 import type { Customer, CustomerWithVehicles, Part, PaymentMethod, SpecialOrder } from '../types';
@@ -31,6 +32,8 @@ import PartScannerModal from '../components/PartScannerModal';
 interface CounterItem {
   id: string;
   part_id?: string;
+  is_special_order?: boolean;
+  source_special_order_id?: string;
   sku: string;
   name: string;
   quantity: number;
@@ -38,14 +41,22 @@ interface CounterItem {
   cost_price: number;
 }
 
+type StockShortagePrompt = {
+  part: Part;
+  available: number;
+  requested: number;
+  context: 'add' | 'checkout';
+};
+
 export default function CounterSale() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const toast = useToast();
-  const { settings } = useShopSettings();
+  const { settings, shopId } = useShopSettings();
 
   const soId = searchParams.get('so_id');
   const soPart = searchParams.get('part_sku');
+  const soPartId = searchParams.get('part_id');
   const soDesc = searchParams.get('part_name');
   const soQty = searchParams.get('qty');
   const soPrice = searchParams.get('price');
@@ -60,6 +71,7 @@ export default function CounterSale() {
   const [isWalkIn, setIsWalkIn] = useState(true);
   const [walkInName, setWalkInName] = useState('Walk-In Customer');
   const [walkInPhone, setWalkInPhone] = useState('');
+  const [walkInEmail, setWalkInEmail] = useState('');
 
   const [searchPart, setSearchPart] = useState('');
   const [items, setItems] = useState<CounterItem[]>([]);
@@ -71,6 +83,9 @@ export default function CounterSale() {
   const [depositCredit, setDepositCredit] = useState(num(soDeposit) || 0);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [stockShortagePrompt, setStockShortagePrompt] = useState<StockShortagePrompt | null>(null);
+  const [pendingCustomerShortage, setPendingCustomerShortage] = useState<StockShortagePrompt | null>(null);
+  const [showSpecialOrderCustomerPicker, setShowSpecialOrderCustomerPicker] = useState(false);
 
   // Auto-populate from Special Order if query params provided
   useEffect(() => {
@@ -78,6 +93,9 @@ export default function CounterSale() {
       setItems([
         {
           id: generateUUID(),
+          ...(soPartId ? { part_id: soPartId } : {}),
+          is_special_order: true,
+          ...(soId ? { source_special_order_id: soId } : {}),
           sku: soPart,
           name: soDesc ? `Special Order: ${soDesc}` : `Special Order Part ${soPart}`,
           quantity: num(soQty) || 1,
@@ -97,7 +115,7 @@ export default function CounterSale() {
         if (soCustPhone) setWalkInPhone(soCustPhone);
       }
     }
-  }, [soPart, soDesc, soQty, soPrice, soCost, soCustId, soCustName, soCustPhone, soDeposit]);
+  }, [soPart, soPartId, soDesc, soQty, soPrice, soCost, soCustId, soCustName, soCustPhone, soDeposit]);
 
   // Load Customers & Parts
   const { data, error, loading } = useAsync(async () => {
@@ -134,11 +152,12 @@ export default function CounterSale() {
   );
   const taxRateValid = Number.isFinite(Number(taxRate)) && Number(taxRate) >= 0;
   const stockInvalidItem = items.find((item) => {
-    if (!item.part_id) return false;
+    if (!item.part_id || item.is_special_order) return false;
     const part = parts.find((candidate) => candidate.id === item.part_id);
     return !part || item.quantity <= 0 || item.quantity > num(part.qty_on_hand);
   });
   const checkoutValid = items.length > 0 && discountValid && cartLinesValid && taxRateValid && !stockInvalidItem && !saving;
+  const hasNewSpecialOrderLines = items.some((item) => item.is_special_order && !item.source_special_order_id);
 
   // Search OEM Price Books in parallel
   useEffect(() => {
@@ -167,11 +186,12 @@ export default function CounterSale() {
 
   function addItemFromPart(p: Part): boolean {
     const available = Math.max(0, num(p.qty_on_hand));
-    const existingIndex = items.findIndex((it) => it.part_id === p.id);
-    const nextQuantity = existingIndex >= 0 ? items[existingIndex].quantity + 1 : 1;
-    if (nextQuantity > available) {
-      setCartError(`Only ${available} ${p.sku} in stock; this sale cannot exceed that quantity.`);
-      toast(`Only ${available} ${p.sku} in stock.`, 'error');
+    const existingIndex = items.findIndex((it) => it.part_id === p.id && !it.is_special_order);
+    const inCart = existingIndex >= 0 ? items[existingIndex].quantity : 0;
+    const nextQuantity = inCart + 1;
+    if (inCart + 1 > available) {
+      setCartError(null);
+      setStockShortagePrompt({ part: p, available: Math.max(0, available - inCart), requested: 1, context: 'add' });
       return false;
     }
 
@@ -196,6 +216,100 @@ export default function CounterSale() {
     }
     setSearchPart('');
     return true;
+  }
+
+  function stageSpecialOrderPart(part: Part, quantity: number) {
+    if (quantity <= 0) return;
+    setItems((current) => {
+      const existingIndex = current.findIndex((item) =>
+        item.part_id === part.id && item.is_special_order && !item.source_special_order_id
+      );
+      if (existingIndex >= 0) {
+        return current.map((item, index) => index === existingIndex
+          ? { ...item, quantity: item.quantity + quantity }
+          : item);
+      }
+      return [...current, {
+        id: generateUUID(),
+        part_id: part.id,
+        is_special_order: true,
+        sku: part.sku,
+        name: part.name,
+        quantity,
+        unit_price: num(part.sell_price),
+        cost_price: num(part.cost_price),
+      }];
+    });
+    setCartError(null);
+  }
+
+  function applyCheckoutShortage(prompt: StockShortagePrompt) {
+    const { part, available, requested } = prompt;
+    setItems((current) => {
+      const stockLines = current.filter((item) => item.part_id === part.id && !item.is_special_order);
+      let keep = Math.min(available, stockLines.reduce((sum, item) => sum + item.quantity, 0));
+      let next = current.flatMap((item) => {
+        if (item.part_id !== part.id || item.is_special_order) return [item];
+        const retained = Math.min(keep, item.quantity);
+        keep -= retained;
+        return retained > 0 ? [{ ...item, quantity: retained }] : [];
+      });
+      const { specialOrderQuantity: shortage } = splitQuantityByAvailability(requested, available);
+      if (shortage > 0) {
+        const existingIndex = next.findIndex((item) =>
+          item.part_id === part.id && item.is_special_order && !item.source_special_order_id
+        );
+        if (existingIndex >= 0) {
+          next = next.map((item, index) => index === existingIndex
+            ? { ...item, quantity: item.quantity + shortage }
+            : item);
+        } else {
+          next.push({
+            id: generateUUID(),
+            part_id: part.id,
+            is_special_order: true,
+            sku: part.sku,
+            name: part.name,
+            quantity: shortage,
+            unit_price: num(part.sell_price),
+            cost_price: num(part.cost_price),
+          });
+        }
+      }
+      return next;
+    });
+    setCartError(null);
+  }
+
+  function confirmSpecialOrderForShortage() {
+    if (!stockShortagePrompt) return;
+    const { part, available, requested, context } = stockShortagePrompt;
+    setStockShortagePrompt(null);
+    if (!customerId || isWalkIn) {
+      setPendingCustomerShortage(stockShortagePrompt);
+      setShowSpecialOrderCustomerPicker(true);
+      return;
+    }
+    if (context === 'checkout') {
+      applyCheckoutShortage(stockShortagePrompt);
+    } else {
+      stageSpecialOrderPart(part, requested);
+    }
+  }
+
+  function selectSpecialOrderCustomer(customer: Customer | CustomerWithVehicles | null) {
+    if (!customer) return;
+    setCustomerId(customer.id);
+    setIsWalkIn(false);
+    setWalkInName(fullName(customer));
+    setWalkInPhone(customer.phone || '');
+    setWalkInEmail(customer.email || '');
+    if (pendingCustomerShortage) {
+      if (pendingCustomerShortage.context === 'checkout') applyCheckoutShortage(pendingCustomerShortage);
+      else stageSpecialOrderPart(pendingCustomerShortage.part, pendingCustomerShortage.requested);
+    }
+    setPendingCustomerShortage(null);
+    setShowSpecialOrderCustomerPicker(false);
   }
 
   function addItemFromPriceBook(pb: PriceBookEntry) {
@@ -250,12 +364,20 @@ export default function CounterSale() {
       return;
     }
 
-    if (item.part_id) {
+    if (item.part_id && !item.is_special_order) {
       const part = parts.find((candidate) => candidate.id === item.part_id);
       const available = part ? Math.max(0, num(part.qty_on_hand)) : 0;
-      if (!part || newQty > available) {
-        setCartError(`Only ${available} ${item.sku} in stock; this sale cannot exceed that quantity.`);
-        toast(`Only ${available} ${item.sku} in stock.`, 'error');
+      const otherLines = items.reduce((sum, line, lineIndex) =>
+        lineIndex !== index && line.part_id === item.part_id && !line.is_special_order ? sum + line.quantity : sum, 0);
+      const requested = otherLines + newQty;
+      if (!part || requested > available) {
+        if (part) {
+          setCartError(null);
+          setStockShortagePrompt({ part, available, requested, context: 'checkout' });
+          return;
+        }
+        setCartError(`This catalog part is no longer available.`);
+        toast('This catalog part is no longer available.', 'error');
         return;
       }
     }
@@ -297,6 +419,12 @@ export default function CounterSale() {
       toast('Select a customer or choose Walk-In Customer.', 'error');
       return;
     }
+    if (hasNewSpecialOrderLines && (isWalkIn || !customerId)) {
+      setPendingCustomerShortage(null);
+      setShowSpecialOrderCustomerPicker(true);
+      toast('Choose a customer for the Special Order before checkout.', 'error');
+      return;
+    }
     if (!discountValid) {
       setCartError('Discount must be between 0% and 100%.');
       toast('Discount must be between 0% and 100%.', 'error');
@@ -324,11 +452,16 @@ export default function CounterSale() {
       return;
     }
 
+    if (!shopId) {
+      toast('Shop access is still loading. Try checkout again in a moment.', 'error');
+      return;
+    }
     setCartError(null);
     setSaving(true);
     const sb = requireSupabase();
     let createdWorkOrderId: string | null = null;
     let createdInvoiceId: string | null = null;
+    let createdSpecialOrderIds: string[] = [];
     let specialOrderSyncWarning: string | null = null;
 
     try {
@@ -336,7 +469,7 @@ export default function CounterSale() {
       // sell more than is currently available.
       const requestedStock = new Map<string, number>();
       for (const item of items) {
-        if (item.part_id) {
+        if (item.part_id && !item.is_special_order) {
           requestedStock.set(item.part_id, (requestedStock.get(item.part_id) || 0) + item.quantity);
         }
       }
@@ -351,6 +484,12 @@ export default function CounterSale() {
           const part = currentStock.get(partId);
           const available = part ? num(part.qty_on_hand) : 0;
           if (!part || requestedQty > available) {
+            const catalogPart = parts.find((candidate) => candidate.id === partId);
+            if (part && catalogPart) {
+              setStockShortagePrompt({ part: catalogPart, available, requested: requestedQty, context: 'checkout' });
+              setCartError(`${part.sku}: stock changed; ${available} available for ${requestedQty} requested.`);
+              return;
+            }
             const sku = part?.sku || items.find((item) => item.part_id === partId)?.sku || 'Part';
             const message = `${sku}: only ${available} in stock; requested quantity is ${requestedQty}.`;
             setCartError(message);
@@ -370,6 +509,7 @@ export default function CounterSale() {
         } else {
           const res = check(
             await sb.from('customers').insert({
+              user_id: shopId,
               first_name: 'Walk-In',
               last_name: 'Counter Customer',
               phone: walkInPhone || settings.phone,
@@ -388,6 +528,7 @@ export default function CounterSale() {
       // 1. Create a completed work order to hold the sale's line items.
       const woRes = check(
         await sb.from('work_orders').insert({
+          user_id: shopId,
           number: `PRT-${Date.now().toString().slice(-4)}`,
           customer_id: buyerId,
           status: 'completed',
@@ -400,6 +541,8 @@ export default function CounterSale() {
 
       // 2. Save sale line items using the schema's description column.
       const workItemRows = items.map((item, idx) => ({
+        id: item.id,
+        user_id: shopId,
         work_order_id: woId,
         part_id: item.part_id || null,
         kind: 'part',
@@ -415,10 +558,49 @@ export default function CounterSale() {
         throw new Error('Supabase did not confirm every invoice line item. The sale was stopped before creating the invoice.');
       }
 
+      // Persist confirmed Special Order cart lines only as part of checkout.
+      // Canceled carts stay drafts; a later checkout error removes these rows.
+      const specialOrderItems = items.filter((item) => item.is_special_order && !item.source_special_order_id);
+      if (specialOrderItems.length > 0) {
+        const now = new Date().toISOString();
+        const newOrders = specialOrderItems.map((item) => {
+          const catalogPart = item.part_id ? parts.find((part) => part.id === item.part_id) : undefined;
+          const selectedBuyer = customers.find((customer) => customer.id === buyerId);
+          return {
+            id: generateUUID(),
+            user_id: shopId,
+            order_number: `SO-${Date.now().toString().slice(-6)}-${generateUUID().slice(0, 4).toUpperCase()}`,
+            work_order_id: woId,
+            work_item_id: item.id,
+            customer_id: buyerId,
+            customer_name: selectedBuyer ? fullName(selectedBuyer) : (walkInName.trim() || 'Customer'),
+            customer_phone: selectedBuyer?.phone || walkInPhone.trim(),
+            customer_email: selectedBuyer?.email || walkInEmail.trim(),
+            part_id: item.part_id || null,
+            part_number: item.sku,
+            description: item.name,
+            quantity: item.quantity,
+            cost_price: item.cost_price,
+            sell_price: item.unit_price,
+            vendor: catalogPart?.supplier || '',
+            deposit_amount: 0,
+            payment_status: 'paid_in_full' as const,
+            status: 'ordered' as const,
+            notes: 'Created from Parts Counter checkout.',
+            ordered_at: now,
+            created_at: now,
+            updated_at: now,
+          };
+        });
+        check(await sb.from('special_orders').insert(newOrders));
+        createdSpecialOrderIds = newOrders.map((order) => order.id);
+      }
+
       // 3. Save the invoice and its payment history together.
       check(
         await sb.from('invoices').insert({
           id: invoiceId,
+          user_id: shopId,
           number: invNumber,
           customer_id: buyerId,
           work_order_id: woId,
@@ -468,6 +650,7 @@ export default function CounterSale() {
           fulfilled_at: fulfilledAt,
           payment_status: 'paid_in_full' as const,
           work_order_id: woId,
+          work_item_id: items.find((item) => item.source_special_order_id === soId)?.id || null,
           updated_at: fulfilledAt,
         };
         try {
@@ -475,10 +658,10 @@ export default function CounterSale() {
             await sb.from('special_orders')
               .update(specialOrderUpdate)
               .eq('id', soId)
-              .select('id, status, payment_status, work_order_id')
+              .select('id, status, payment_status, work_order_id, work_item_id')
               .maybeSingle()
           );
-          if (!soUpdate.data || soUpdate.data.status !== 'fulfilled' || soUpdate.data.payment_status !== 'paid_in_full') {
+          if (!soUpdate.data || soUpdate.data.status !== 'fulfilled' || soUpdate.data.payment_status !== 'paid_in_full' || soUpdate.data.work_item_id !== specialOrderUpdate.work_item_id) {
             throw new Error('Supabase did not confirm the special order payment update.');
           }
           const cachedSo = getCachedLocal<SpecialOrder[]>('special_orders') || [];
@@ -494,11 +677,15 @@ export default function CounterSale() {
       if (specialOrderSyncWarning) {
         toast(`Invoice #${invNumber} is paid, but the special-order record needs syncing: ${specialOrderSyncWarning}`, 'error');
       } else {
-        toast(`Part invoice complete! Invoice #${invNumber}`);
+        toast(`Part invoice complete! Invoice #${invNumber}${specialOrderItems.length ? ` · ${specialOrderItems.length} Special Order line${specialOrderItems.length === 1 ? '' : 's'} created` : ''}`);
       }
       navigate(`/invoices/${invoiceId}`);
     } catch (err: any) {
       // A failed/oversold checkout must not leave a paid invoice behind.
+      if (createdSpecialOrderIds.length > 0) {
+        const cleanupOrders = await sb.from('special_orders').delete().in('id', createdSpecialOrderIds);
+        if (cleanupOrders.error) console.error('Could not remove incomplete counter Special Orders:', cleanupOrders.error);
+      }
       if (createdInvoiceId) {
         const cleanupInvoice = await sb.from('invoices').delete().eq('id', createdInvoiceId);
         if (cleanupInvoice.error) console.error('Could not remove incomplete counter invoice:', cleanupInvoice.error);
@@ -573,7 +760,14 @@ export default function CounterSale() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsWalkIn(true)}
+                  onClick={() => {
+                    if (items.some((item) => item.is_special_order && !item.source_special_order_id)) {
+                      toast('This transaction has a customer Special Order. Keep its customer attached or remove that line first.', 'error');
+                      return;
+                    }
+                    setIsWalkIn(true);
+                    setCustomerId('');
+                  }}
                   className={`rounded-lg px-2.5 py-1 text-xs font-bold transition ${
                     isWalkIn ? 'bg-orange-400 text-slate-950 shadow-xs' : 'bg-slate-100 text-slate-600'
                   }`}
@@ -623,6 +817,7 @@ export default function CounterSale() {
                                   setCustomerId(m.id);
                                   setWalkInName(fullName(m));
                                   if (m.phone) setWalkInPhone(m.phone);
+                                  setWalkInEmail(m.email || '');
                                 }}
                                 className="w-full text-left p-1.5 rounded-lg hover:bg-orange-50 transition flex items-center justify-between font-bold text-slate-800"
                               >
@@ -650,6 +845,7 @@ export default function CounterSale() {
                 selectedCustomerId={customerId}
                 onSelectCustomer={(c) => {
                   setCustomerId(c?.id || '');
+                  setWalkInEmail(c?.email || '');
                   if (c) {
                     setWalkInName(fullName(c));
                     if (c.phone) setWalkInPhone(c.phone);
@@ -786,7 +982,11 @@ export default function CounterSale() {
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold text-slate-900 truncate">{it.name}</p>
                       <span className="font-mono text-[10px] text-slate-400">
-                        {it.sku}{it.part_id ? ` · ${num(parts.find((part) => part.id === it.part_id)?.qty_on_hand)} in stock` : ' · non-stock item'}
+                        {it.sku}{it.is_special_order
+                          ? ' · Special Order'
+                          : it.part_id
+                            ? ` · ${num(parts.find((part) => part.id === it.part_id)?.qty_on_hand)} in stock`
+                            : ' · non-stock item'}
                       </span>
                     </div>
 
@@ -804,8 +1004,8 @@ export default function CounterSale() {
                         <button
                           type="button"
                           onClick={() => updateItemQty(idx, it.quantity + 1)}
-                          disabled={Boolean(it.part_id && it.quantity >= num(parts.find((part) => part.id === it.part_id)?.qty_on_hand))}
-                          title={it.part_id ? `Available: ${num(parts.find((part) => part.id === it.part_id)?.qty_on_hand)}` : undefined}
+                          disabled={Boolean(it.part_id && !it.is_special_order && it.quantity >= num(parts.find((part) => part.id === it.part_id)?.qty_on_hand))}
+                          title={it.part_id && !it.is_special_order ? `Available: ${num(parts.find((part) => part.id === it.part_id)?.qty_on_hand)}` : undefined}
                           className="px-2 py-1 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-r-lg disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           +
@@ -977,6 +1177,47 @@ export default function CounterSale() {
           </div>
         )}
       </form>
+
+      {stockShortagePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-labelledby="stock-shortage-title">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+            <h2 id="stock-shortage-title" className="text-base font-black text-slate-900">Insufficient Stock</h2>
+            <p className="mt-2 text-sm text-slate-700">
+              <strong>{stockShortagePrompt.part.sku || stockShortagePrompt.part.name}</strong>: {stockShortagePrompt.available} available / {stockShortagePrompt.requested} requested.
+            </p>
+            <p className="mt-1 text-xs text-slate-500">The available quantity stays on this sale. Only the shortage will be specially ordered.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setStockShortagePrompt(null)} className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">Cancel</button>
+              <button type="button" onClick={confirmSpecialOrderForShortage} className="rounded-lg bg-orange-500 px-3 py-2 text-xs font-black text-slate-950 hover:bg-orange-400">Special Order for Customer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSpecialOrderCustomerPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-labelledby="special-order-customer-title">
+          <div className="w-full max-w-xl rounded-2xl bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 id="special-order-customer-title" className="text-base font-black text-slate-900">Customer for Special Order</h2>
+                <p className="mt-1 text-xs text-slate-500">Choose an existing customer or add them once. The same customer will be used for this sale.</p>
+              </div>
+              <button type="button" onClick={() => { setShowSpecialOrderCustomerPicker(false); setPendingCustomerShortage(null); }} className="rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100" aria-label="Close customer picker">✕</button>
+            </div>
+            <CustomerSearchPicker
+              customers={customers}
+              onSelectCustomer={selectSpecialOrderCustomer}
+              placeholder="Search customer name, phone, or email…"
+              label="Customer"
+              required
+              allowQuickAdd
+            />
+            <div className="mt-4 flex justify-end">
+              <button type="button" onClick={() => { setShowSpecialOrderCustomerPicker(false); setPendingCustomerShortage(null); }} className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Part Barcode Scanner Modal for Direct Part Invoicing */}
       <PartScannerModal

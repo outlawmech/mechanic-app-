@@ -60,8 +60,13 @@ type SpecialOrderInvoiceMatch = {
 };
 
 function findSpecialOrderInvoice(order: SpecialOrder, invoices: SpecialOrderInvoiceMatch[]) {
-  return invoices.find((invoice) => invoice.work_order_id && invoice.work_order_id === order.work_order_id) ??
-    invoices.find((invoice) => invoice.notes?.includes(`Fulfilled ${order.order_number}`));
+  const explicitFulfillment = invoices.find((invoice) => invoice.notes?.includes(`Fulfilled ${order.order_number}`));
+  if (explicitFulfillment) return explicitFulfillment;
+  // New counter orders are linked to one line on a mixed invoice. Their line
+  // amount/payment status is stored on the Special Order, so do not assign the
+  // entire mixed Work Order invoice total to each order.
+  if (order.work_item_id) return undefined;
+  return invoices.find((invoice) => invoice.work_order_id && invoice.work_order_id === order.work_order_id);
 }
 
 function specialOrderFinancials(order: SpecialOrder, invoice?: SpecialOrderInvoiceMatch) {
@@ -629,6 +634,7 @@ export default function Parts() {
       cost: String(so.cost_price || 0),
       deposit: String(so.deposit_amount || 0),
     });
+    if (so.part_id) params.set('part_id', so.part_id);
     if (so.customer_id) {
       params.set('cust_id', so.customer_id);
     } else if (so.customer_name) {
@@ -1418,7 +1424,7 @@ export default function Parts() {
                         )}
 
                         {/* 3. Convert to Direct Invoice */}
-                        {settings.enable_dealership_mode && so.status !== 'fulfilled' && (
+                        {settings.enable_dealership_mode && so.status !== 'fulfilled' && so.payment_status !== 'paid_in_full' && (
                           <button
                             type="button"
                             onClick={() => convertToInvoice(so)}

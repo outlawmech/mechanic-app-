@@ -12,6 +12,7 @@ import { fullName, getVehicleTypeInfo, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
 import { enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
 import { useToast } from './Toast';
+import { useShopSettings } from '../lib/settings';
 import type { Customer, CustomerWithVehicles, Vehicle, VehicleType } from '../types';
 
 export interface CustomerSearchPickerProps {
@@ -44,6 +45,7 @@ export default function CustomerSearchPicker({
   className = '',
 }: CustomerSearchPickerProps) {
   const toast = useToast();
+  const { shopId } = useShopSettings();
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
@@ -208,6 +210,10 @@ export default function CustomerSearchPicker({
       toast('Customer name is required', 'error');
       return;
     }
+    if (!shopId) {
+      toast('Shop access is still loading. Try again in a moment.', 'error');
+      return;
+    }
 
     setSavingQuick(true);
     const newId = generateUUID();
@@ -228,6 +234,7 @@ export default function CustomerSearchPicker({
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         const payload = {
           id: newCust.id,
+          user_id: shopId,
           first_name: newCust.first_name,
           last_name: newCust.last_name,
           phone: newCust.phone,
@@ -236,13 +243,14 @@ export default function CustomerSearchPicker({
           notes: newCust.notes,
           created_at: newCust.created_at,
         };
-        await sb.from('customers').insert(payload);
+        check(await sb.from('customers').insert(payload));
       } else {
         enqueueOfflineAction({
           table: 'customers',
           type: 'insert',
           payload: {
             id: newCust.id,
+            user_id: shopId,
             first_name: newCust.first_name,
             last_name: newCust.last_name,
             phone: newCust.phone,

@@ -44,9 +44,10 @@ import {
   workOrderEstimate,
 } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
+import { splitQuantityByAvailability } from '../lib/inventoryQuantities';
 import { printTechWorksheetDocument } from '../lib/printer';
 import { lookupPriceBookSku } from '../lib/priceBooks';
-import type { InvoiceSummary, Part, WorkItem, WorkOrderFull, WorkOrderStatus } from '../types';
+import type { InvoiceSummary, Part, SpecialOrder, WorkItem, WorkOrderFull, WorkOrderStatus } from '../types';
 
 const KIND_LABEL: Record<WorkItem['kind'], string> = { labor: 'Labor', part: 'Part', fee: 'Fee' };
 const KIND_CLS: Record<WorkItem['kind'], string> = {
@@ -69,7 +70,7 @@ export default function WorkOrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
-  const { settings } = useShopSettings();
+  const { settings, shopId } = useShopSettings();
 
   const { data, error, loading, reload } = useAsync(async () => {
     try {
@@ -89,6 +90,7 @@ export default function WorkOrderDetail() {
       check(woRes);
       const wo = (woRes.data?.[0] ?? null) as WorkOrderFull | null;
       const inventoryParts = (partsRes.data ?? []) as Part[];
+      let specialOrders: SpecialOrder[] = [];
 
       // Merge local signature if saved on device
       if (wo) {
@@ -102,6 +104,12 @@ export default function WorkOrderDetail() {
 
       let invoice: InvoiceSummary | null = null;
       if (wo) {
+        const soRes = check(await sb.from('special_orders').select('*').eq('work_order_id', wo.id));
+        specialOrders = (soRes.data ?? []) as SpecialOrder[];
+        wo.items = (wo.items ?? []).map((item) => ({
+          ...item,
+          special_order: specialOrders.find((order) => order.work_item_id === item.id) ?? null,
+        }));
         const invRes = check(
           await sb
             .from('invoices')
@@ -112,13 +120,13 @@ export default function WorkOrderDetail() {
         );
         invoice = (invRes.data?.[0] ?? null) as InvoiceSummary | null;
       }
-      const result = { wo, invoice, inventoryParts };
+      const result = { wo, invoice, inventoryParts, specialOrders };
       if (wo) {
         cacheLocal(`wo_${id}`, result);
       }
       return result;
     } catch (err) {
-      const cached = getCachedLocal<{ wo: WorkOrderFull; invoice: InvoiceSummary | null; inventoryParts: Part[] }>(`wo_${id}`);
+      const cached = getCachedLocal<{ wo: WorkOrderFull; invoice: InvoiceSummary | null; inventoryParts: Part[]; specialOrders?: SpecialOrder[] }>(`wo_${id}`);
       if (cached && cached.wo) {
         const storedSig = await getWorkOrderSignature(cached.wo.id);
         if (storedSig) {
@@ -148,6 +156,8 @@ export default function WorkOrderDetail() {
   const [partSearchQuery, setPartSearchQuery] = useState('');
   const [partEntryMode, setPartEntryMode] = useState<'inventory' | 'manual'>('inventory');
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [workOrderStockPrompt, setWorkOrderStockPrompt] = useState<{ part: Part; available: number; requested: number } | null>(null);
+  const [creatingWorkOrderSpecialOrder, setCreatingWorkOrderSpecialOrder] = useState(false);
   const [mobileTab, setMobileTab] = useState<'items' | 'details' | 'signature'>('items');
   const [adding, setAdding] = useState(false);
 
@@ -333,10 +343,21 @@ export default function WorkOrderDetail() {
       toast('Please enter a description or pick a part', 'error');
       return;
     }
+    if (!shopId) {
+      toast('Shop access is still loading. Try again in a moment.', 'error');
+      return;
+    }
+    if (!navigator.onLine && !isInternal && kind === 'part' && selectedPartId) {
+      toast('Connect to verify stock before adding a tracked part to this Work Order.', 'error');
+      return;
+    }
     setAdding(true);
     const quantityNum = Number(qty) || 1;
     const unitPriceNum = Number(price) || 0;
+    const itemId = generateUUID();
     const newItemPayload = {
+      id: itemId,
+      user_id: shopId,
       work_order_id: wo!.id,
       part_id: kind === 'part' && selectedPartId ? selectedPartId : null,
       kind,
@@ -349,23 +370,51 @@ export default function WorkOrderDetail() {
     try {
       if (navigator.onLine) {
         const sb = requireSupabase();
+        let selectedPart: Part | null = null;
+        if (!isInternal && kind === 'part' && selectedPartId) {
+          const partRes = check(await sb.from('parts')
+            .select('id, sku, name, category, sell_price, cost_price, qty_on_hand, location, supplier')
+            .eq('id', selectedPartId)
+            .maybeSingle());
+          selectedPart = (partRes.data ?? null) as Part | null;
+          if (!selectedPart) throw new Error('This catalog part is no longer available. Refresh the Work Order and try again.');
+          const available = Math.max(0, num(selectedPart.qty_on_hand));
+          if (quantityNum > available) {
+            setWorkOrderStockPrompt({ part: selectedPart, available, requested: quantityNum });
+            return;
+          }
+        }
         check(await sb.from('work_items').insert(newItemPayload));
 
-        // If item was pulled from inventory, deduct stock on hand
-        if (!isInternal && kind === 'part' && selectedPartId) {
-          const chosen = inventoryParts.find((p) => p.id === selectedPartId);
-          if (chosen) {
-            const newStock = Math.max(0, num(chosen.qty_on_hand) - quantityNum);
-            await sb.from('parts').update({ qty_on_hand: newStock }).eq('id', chosen.id);
+        // Use the same atomic stock guard as Parts Counter. If a concurrent sale
+        // consumes stock first, remove this uncommitted line and offer an SO.
+        if (selectedPart) {
+          try {
+            check(await sb.rpc('decrement_parts_for_counter_sale', {
+              p_items: [{ part_id: selectedPart.id, quantity: quantityNum }],
+            }));
+          } catch (stockError) {
+            // Never leave an invoiceable line behind when stock deduction fails.
+            const cleanup = await sb.from('work_items').delete().eq('id', itemId);
+            if (cleanup.error) {
+              console.error('Could not remove Work Order line after stock deduction failure:', cleanup.error);
+              throw new Error('Stock deduction failed and the line could not be removed. Do not invoice this Work Order until the line is reviewed.');
+            }
+            if (!errMsg(stockError).includes('INSUFFICIENT_STOCK')) throw stockError;
+            const freshRes = check(await sb.from('parts')
+              .select('id, sku, name, category, sell_price, cost_price, qty_on_hand, location, supplier')
+              .eq('id', selectedPart.id)
+              .maybeSingle());
+            const currentPart = (freshRes.data ?? selectedPart) as Part;
+            setWorkOrderStockPrompt({ part: currentPart, available: Math.max(0, num(currentPart.qty_on_hand)), requested: quantityNum });
+            return;
           }
         }
 
         toast('Line item added');
         await reload();
       } else {
-        const itemId = generateUUID();
         const offlineItemPayload = {
-          id: itemId,
           ...newItemPayload,
         };
 
@@ -378,8 +427,8 @@ export default function WorkOrderDetail() {
 
         // Update local items array
         const tempItem: WorkItem = {
-          id: itemId,
           ...newItemPayload,
+          id: itemId,
           created_at: new Date().toISOString(),
         };
         wo!.items = [...(wo!.items ?? []), tempItem];
@@ -400,9 +449,7 @@ export default function WorkOrderDetail() {
       if (navigator.onLine) {
         toast(errMsg(e) || 'Line item could not be saved.', 'error');
       } else {
-        const itemId = generateUUID();
         const offlineItemPayload = {
-          id: itemId,
           ...newItemPayload,
         };
 
@@ -413,8 +460,8 @@ export default function WorkOrderDetail() {
           description: `Add ${kind}: ${desc.trim()}`,
         });
         const tempItem: WorkItem = {
-          id: itemId,
           ...newItemPayload,
+          id: itemId,
           created_at: new Date().toISOString(),
         };
         wo!.items = [...(wo!.items ?? []), tempItem];
@@ -423,6 +470,149 @@ export default function WorkOrderDetail() {
       }
     } finally {
       setAdding(false);
+    }
+  }
+
+  async function addWorkOrderSpecialOrder() {
+    const prompt = workOrderStockPrompt;
+    if (!prompt) return;
+    if (!navigator.onLine) {
+      toast('Connect to create a customer Special Order.', 'error');
+      return;
+    }
+    if (!shopId) {
+      toast('Shop access is still loading. Try again in a moment.', 'error');
+      return;
+    }
+    setCreatingWorkOrderSpecialOrder(true);
+    const sb = requireSupabase();
+    const lineIds: string[] = [];
+    let specialOrderId: string | null = null;
+    try {
+      const partRes = check(await sb.from('parts')
+        .select('id, sku, name, category, sell_price, cost_price, qty_on_hand, location, supplier')
+        .eq('id', prompt.part.id)
+        .maybeSingle());
+      const part = (partRes.data ?? null) as Part | null;
+      if (!part) throw new Error('This catalog part is no longer available. Refresh the Work Order.');
+
+      const requested = prompt.requested;
+      const { stockQuantity: inStockQuantity, specialOrderQuantity } =
+        splitQuantityByAvailability(requested, num(part.qty_on_hand));
+      const unitPrice = Number(price) || num(part.sell_price);
+      const description = desc.trim() || (part.sku ? `[${part.sku}] ${part.name}` : part.name);
+      const createdAt = new Date().toISOString();
+      const lineRows: WorkItem[] = [];
+
+      if (inStockQuantity > 0) {
+        const lineId = generateUUID();
+        lineIds.push(lineId);
+        lineRows.push({
+          id: lineId,
+          user_id: shopId,
+          work_order_id: wo!.id,
+          part_id: part.id,
+          kind: 'part',
+          description,
+          quantity: inStockQuantity,
+          unit_price: unitPrice,
+          sort_order: items.length,
+          created_at: createdAt,
+        });
+      }
+      if (specialOrderQuantity > 0) {
+        const lineId = generateUUID();
+        lineIds.push(lineId);
+        const specialOrder: SpecialOrder = {
+          id: generateUUID(),
+          user_id: shopId,
+          order_number: `SO-${Date.now().toString().slice(-6)}-${generateUUID().slice(0, 4).toUpperCase()}`,
+          work_order_id: wo!.id,
+          work_item_id: lineId,
+          customer_id: wo!.customer_id,
+          customer_name: fullName(wo!.customer),
+          customer_phone: wo!.customer?.phone || '',
+          customer_email: wo!.customer?.email || '',
+          part_id: part.id,
+          part_number: part.sku,
+          description: part.name,
+          quantity: specialOrderQuantity,
+          cost_price: num(part.cost_price),
+          sell_price: unitPrice,
+          vendor: part.supplier || '',
+          deposit_amount: 0,
+          payment_status: 'unpaid',
+          status: 'ordered',
+          notes: `Created from Work Order #${wo!.number}.`,
+          ordered_at: createdAt,
+          created_at: createdAt,
+          updated_at: createdAt,
+        };
+        specialOrderId = specialOrder.id;
+        lineRows.push({
+          id: lineId,
+          user_id: shopId,
+          work_order_id: wo!.id,
+          part_id: part.id,
+          kind: 'part',
+          description,
+          quantity: specialOrderQuantity,
+          unit_price: unitPrice,
+          sort_order: items.length + lineRows.length,
+          created_at: createdAt,
+          special_order: specialOrder,
+        });
+      }
+
+      if (lineRows.length > 0) check(await sb.from('work_items').insert(lineRows.map(({ special_order: _specialOrder, ...row }) => row)));
+      if (specialOrderQuantity > 0) {
+        const so = lineRows.find((line) => line.special_order)?.special_order;
+        if (so) check(await sb.from('special_orders').insert(so));
+      }
+      if (inStockQuantity > 0) {
+        try {
+          check(await sb.rpc('decrement_parts_for_counter_sale', {
+            p_items: [{ part_id: part.id, quantity: inStockQuantity }],
+          }));
+        } catch (stockError) {
+          if (!errMsg(stockError).includes('INSUFFICIENT_STOCK')) throw stockError;
+          throw new Error('INSUFFICIENT_STOCK: inventory changed while the Special Order was being added.');
+        }
+      }
+
+      setWorkOrderStockPrompt(null);
+      setDesc('');
+      setQty('1');
+      setSelectedPartId('');
+      setPartSearchQuery('');
+      await reload();
+      toast(specialOrderQuantity > 0
+        ? `Special Order created for ${fullName(wo!.customer)}; available quantity was added to the Work Order.`
+        : `${part.sku} is now in stock and was added to the Work Order.`);
+    } catch (error) {
+      if (specialOrderId) {
+        const deleteOrder = await sb.from('special_orders').delete().eq('id', specialOrderId);
+        if (deleteOrder.error) console.error('Could not clean up incomplete Work Order Special Order:', deleteOrder.error);
+      }
+      if (lineIds.length > 0) {
+        const deleteLines = await sb.from('work_items').delete().in('id', lineIds);
+        if (deleteLines.error) console.error('Could not clean up incomplete Work Order line items:', deleteLines.error);
+      }
+      if (errMsg(error).includes('INSUFFICIENT_STOCK')) {
+        const latest = check(await sb.from('parts')
+          .select('id, sku, name, category, sell_price, cost_price, qty_on_hand, location, supplier')
+          .eq('id', prompt.part.id)
+          .maybeSingle());
+        setWorkOrderStockPrompt({
+          part: (latest.data ?? prompt.part) as Part,
+          available: Math.max(0, num(latest.data?.qty_on_hand)),
+          requested: prompt.requested,
+        });
+      } else {
+        toast(errMsg(error) || 'Could not create the Work Order Special Order.', 'error');
+      }
+    } finally {
+      setCreatingWorkOrderSpecialOrder(false);
     }
   }
 
@@ -437,7 +627,24 @@ export default function WorkOrderDetail() {
     }
     try {
       if (navigator.onLine) {
-        check(await requireSupabase().from('work_items').delete().eq('id', itemId));
+        const target = items.find((item) => item.id === itemId);
+        if (target?.special_order) {
+          const sb = requireSupabase();
+          const update = check(await sb.from('special_orders')
+            .update({ status: 'canceled', updated_at: new Date().toISOString() })
+            .eq('id', target.special_order.id)
+            .select('id')
+            .maybeSingle());
+          if (!update.data?.id) throw new Error('The Work Order line was removed, but its Special Order needs to be canceled from Parts.');
+          try {
+            check(await sb.from('work_items').delete().eq('id', itemId));
+          } catch (deleteError) {
+            await sb.from('special_orders').update({ status: target.special_order.status, updated_at: new Date().toISOString() }).eq('id', target.special_order.id);
+            throw deleteError;
+          }
+        } else {
+          check(await requireSupabase().from('work_items').delete().eq('id', itemId));
+        }
         toast('Item removed');
         await reload();
       } else {
@@ -515,6 +722,17 @@ export default function WorkOrderDetail() {
   }
 
   async function createInvoice() {
+    if (!shopId) {
+      toast('Shop access is still loading. Try again in a moment.', 'error');
+      return;
+    }
+    const pendingSpecialOrder = items.find((item) =>
+      item.special_order && ['ordered', 'in_transit'].includes(item.special_order.status)
+    );
+    if (pendingSpecialOrder?.special_order) {
+      toast(`Special Order ${pendingSpecialOrder.special_order.order_number} has not been received yet. Receive it before invoicing this Work Order.`, 'error');
+      return;
+    }
     setActing(true);
     try {
       const taxRateNum = (Number(taxPct) || 0) / 100;
@@ -527,6 +745,7 @@ export default function WorkOrderDetail() {
         await requireSupabase()
           .from('invoices')
           .insert({
+            user_id: shopId,
             work_order_id: wo!.id,
             customer_id: wo!.customer_id,
             subtotal,
@@ -985,6 +1204,11 @@ export default function WorkOrderDetail() {
                     >
                       {KIND_LABEL[it.kind]}
                     </span>
+                    {it.special_order && (
+                      <span className="ml-1 mt-1 inline-block rounded-md bg-orange-50 px-1.5 py-0.5 text-[10px] font-bold text-orange-700">
+                        Special Order · {it.special_order.status.replace('_', ' ')}
+                      </span>
+                    )}
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-slate-900">
@@ -1241,6 +1465,20 @@ export default function WorkOrderDetail() {
           )}
         </div>
       </div>
+
+      {workOrderStockPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-labelledby="wo-stock-shortage-title">
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl">
+            <h2 id="wo-stock-shortage-title" className="text-base font-black text-slate-900">Insufficient Stock</h2>
+            <p className="mt-2 text-sm text-slate-700"><strong>{workOrderStockPrompt.part.sku || workOrderStockPrompt.part.name}</strong>: {workOrderStockPrompt.available} available / {workOrderStockPrompt.requested} requested.</p>
+            <p className="mt-1 text-xs text-slate-500">The available quantity will be added normally. Only the shortage will be ordered for {fullName(wo.customer)}.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" disabled={creatingWorkOrderSpecialOrder} onClick={() => setWorkOrderStockPrompt(null)} className="rounded-lg px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-50">Cancel</button>
+              <button type="button" disabled={creatingWorkOrderSpecialOrder} onClick={addWorkOrderSpecialOrder} className="rounded-lg bg-orange-500 px-3 py-2 text-xs font-black text-slate-950 hover:bg-orange-400 disabled:opacity-50">{creatingWorkOrderSpecialOrder ? 'Saving…' : 'Special Order for Customer'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Part Barcode Scanner for Work Order Parts */}
       <PartScannerModal
