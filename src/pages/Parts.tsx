@@ -525,15 +525,20 @@ export default function Parts() {
 
   async function handleSaveSpecialOrder(order: SpecialOrder) {
     const scopedOrder: SpecialOrder = { ...order, user_id: shopId || order.user_id };
+    // `allSpecialOrders` is loaded with a joined `purchase_order` relation for
+    // display. Keep that relation in the local cache, but never send it back as
+    // a column when saving the base `special_orders` row.
+    const specialOrderRow = { ...scopedOrder };
+    delete specialOrderRow.purchase_order;
     try {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         const sb = requireSupabase();
         const existing = allSpecialOrders.find((s) => s.id === scopedOrder.id);
         if (existing) {
-          const result = check(await sb.from('special_orders').update(scopedOrder).eq('id', scopedOrder.id).select('id').maybeSingle());
+          const result = check(await sb.from('special_orders').update(specialOrderRow).eq('id', scopedOrder.id).select('id').maybeSingle());
           if (!result.data?.id) throw new Error('Supabase did not confirm the special order update.');
         } else {
-          const result = check(await sb.from('special_orders').insert(scopedOrder).select('id').single());
+          const result = check(await sb.from('special_orders').insert(specialOrderRow).select('id').single());
           if (!result.data?.id) throw new Error('Supabase did not confirm the special order insert.');
         }
       }
