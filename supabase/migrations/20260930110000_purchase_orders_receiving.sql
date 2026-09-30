@@ -125,6 +125,13 @@ create policy shop_special_orders on public.special_orders for all to authentica
     and (customer_id is null or exists(select 1 from public.customers c where c.id=customer_id and private.can_access_shop(c.user_id)))
     and (part_id is null or exists(select 1 from public.parts p where p.id=part_id and private.can_access_shop(p.user_id)))
     and (work_order_id is null or exists(select 1 from public.work_orders w where w.id=work_order_id and private.can_access_shop(w.user_id)))
+    and (work_item_id is null or exists(
+      select 1 from public.work_items wi
+      where wi.id=special_orders.work_item_id
+        and private.can_access_shop(wi.user_id)
+        and special_orders.work_order_id is not null
+        and wi.work_order_id=special_orders.work_order_id
+    ))
     and (purchase_order_id is null or exists(select 1 from public.purchase_orders po where po.id=purchase_order_id and po.user_id=special_orders.user_id))
   );
 
