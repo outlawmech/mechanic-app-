@@ -99,6 +99,7 @@ public class MainActivity extends BridgeActivity {
             if (webView != null) {
                 webView.addJavascriptInterface(new OutlawPrintInterface(this, webView), "AndroidNativePrinter");
                 webView.addJavascriptInterface(new OutlawFlashlightInterface(this), "AndroidNativeFlashlight");
+                webView.addJavascriptInterface(new OutlawAppUpdateInterface(this), "AndroidNativeAppUpdater");
                 
                 // Capacitor's BridgeWebChromeClient handles camera permission and
                 // photo/file selection. Replacing it breaks capture inputs.
@@ -139,6 +140,31 @@ public class MainActivity extends BridgeActivity {
                 e.printStackTrace();
             }
             return false;
+        }
+    }
+
+    public static class OutlawAppUpdateInterface {
+        private final MainActivity activity;
+
+        public OutlawAppUpdateInterface(MainActivity activity) {
+            this.activity = activity;
+        }
+
+        @JavascriptInterface
+        public int getVersionCode() {
+            return BuildConfig.VERSION_CODE;
+        }
+
+        @JavascriptInterface
+        public void openLatestApk() {
+            activity.runOnUiThread(() -> {
+                try {
+                    Uri apkUri = Uri.parse("https://github.com/outlawmech/mechanic-app-/releases/download/android-apk-latest/OutlawShopSystems-v1.0.apk");
+                    activity.startActivity(new Intent(Intent.ACTION_VIEW, apkUri));
+                } catch (Exception e) {
+                    android.widget.Toast.makeText(activity, "Could not open the APK download page", android.widget.Toast.LENGTH_LONG).show();
+                }
+            });
         }
     }
 

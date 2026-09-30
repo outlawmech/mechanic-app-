@@ -27,6 +27,7 @@ import Schedule from './pages/Schedule';
 import WorkOrderDetail from './pages/WorkOrderDetail';
 import WorkOrders from './pages/WorkOrders';
 import Help from './pages/Help';
+import AndroidUpdatePrompt from './components/AndroidUpdatePrompt';
 
 function AndroidBackButtonHandler() {
   const location = useLocation();
@@ -122,6 +123,7 @@ function AppRoutes() {
 export default function App() {
   return (
     <ToastProvider>
+      <AndroidUpdatePrompt />
       <AuthProvider>
         <ShopSettingsProvider>
           <AppRoutes />

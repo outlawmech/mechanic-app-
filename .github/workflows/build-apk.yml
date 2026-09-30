@@ -83,6 +83,8 @@ jobs:
           body: |
             ### 📱 Outlaw Shop Systems Standalone Android APK
 
+            Build number: ${{ github.run_number }}
+
             Download and install the native Android `.apk` below:
             - Mobile work orders, scheduling, customers, and invoicing
             - Previously loaded records and supported offline edits can be available on the device; queued edits sync when the app reconnects
