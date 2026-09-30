@@ -28,7 +28,8 @@ function downloadCsv(name: string, csv: string) {
   link.href = url;
   link.download = name;
   link.click();
-  URL.revokeObjectURL(url);
+  // Let the browser start the download before releasing the object URL.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export default function PurchaseOrders() {
