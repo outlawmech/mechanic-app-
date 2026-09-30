@@ -79,6 +79,7 @@ export type WorkOrder = {
 
 export type WorkItem = {
   id: string;
+  user_id?: string;
   work_order_id: string;
   part_id?: string | null;
   kind: 'labor' | 'part' | 'fee';
@@ -87,6 +88,7 @@ export type WorkItem = {
   unit_price: number | string;
   sort_order: number;
   created_at: string;
+  special_order?: SpecialOrder | null;
 };
 
 export type WorkOrderFull = WorkOrder & {
@@ -288,6 +290,7 @@ export type SpecialOrder = {
   id: string;
   user_id?: string;
   order_number: string;
+  work_item_id?: string | null;
   customer_id?: string | null;
   customer_name: string;
   customer_phone?: string;
