@@ -36,6 +36,26 @@ function downloadCsv(name: string, csv: string) {
   }, 1000);
 }
 
+function printPurchaseOrder(order: PurchaseOrder) {
+  const printable = document.getElementById('purchase-order-print-content');
+  const nativePrinter = (window as any).AndroidNativePrinter;
+  if (printable && typeof nativePrinter?.printInvoiceHtml === 'function') {
+    const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+      @page{size:letter portrait;margin:12mm 15mm}*{box-sizing:border-box}body{font:10pt/1.35 Arial,sans-serif;color:#111827;margin:0}
+      .po-print-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12mm;border-bottom:2px solid #111827;padding-bottom:5mm;margin-bottom:5mm}
+      .po-print-header img{max-width:45mm;max-height:24mm;object-fit:contain}.po-print-header h1{font-size:19pt;margin:0 0 2mm}
+      .po-print-shop{margin-bottom:7mm;font-size:9pt}.po-print-meta{display:grid;grid-template-columns:2fr 1fr 1fr;gap:6mm;margin-bottom:7mm}
+      .po-print-table{width:100%;border-collapse:collapse;font-size:9pt}.po-print-table th,.po-print-table td{border-bottom:1px solid #cbd5e1;padding:2.5mm 2mm;text-align:left;vertical-align:top}
+      .po-print-table th{border-top:1px solid #64748b;border-bottom:1px solid #64748b;background:#f1f5f9}.po-print-table td:nth-child(n+3),.po-print-table th:nth-child(n+3){text-align:right;white-space:nowrap}
+      .po-print-table tr{break-inside:avoid}.po-print-totals{width:70mm;margin:7mm 0 0 auto}.po-print-totals div{display:flex;justify-content:space-between;padding:1.5mm 0}
+      .po-print-grand{border-top:1px solid #111827;font-size:11pt;font-weight:bold}
+    </style></head><body>${printable.outerHTML}</body></html>`;
+    nativePrinter.printInvoiceHtml(html, `Purchase_Order_${order.po_number.replace(/[^a-zA-Z0-9_-]/g, '_')}`);
+    return;
+  }
+  window.print();
+}
+
 export default function PurchaseOrders() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -142,7 +162,7 @@ export default function PurchaseOrders() {
     }
   }
 
-  function exportOrder(order: PurchaseOrder) {
+  async function exportOrder(order: PurchaseOrder) {
     const rows = order.lines.map((line) => [
       order.po_number,
       order.supplier,
@@ -151,7 +171,18 @@ export default function PurchaseOrders() {
       num(line.quantity_ordered),
       num(line.expected_unit_cost),
     ]);
-    downloadCsv(`${order.po_number}.csv`, toCsv(['PO Number', 'Supplier', 'Part Number', 'Description', 'Quantity', 'Expected Unit Cost'], rows));
+    const csv = toCsv(['PO Number', 'Supplier', 'Part Number', 'Description', 'Quantity', 'Expected Unit Cost'], rows);
+    const nativeExporter = (window as any).AndroidNativePrinter;
+    if (typeof nativeExporter?.shareCsvFile === 'function') {
+      try {
+        const encoded = btoa(unescape(encodeURIComponent(csv)));
+        nativeExporter.shareCsvFile(encoded, `${order.po_number}.csv`);
+      } catch (e: any) {
+        setError(e?.message || 'Could not export this order.');
+      }
+      return;
+    }
+    downloadCsv(`${order.po_number}.csv`, csv);
   }
 
   if (loading) return <Spinner />;
@@ -191,8 +222,8 @@ export default function PurchaseOrders() {
               <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 pb-4">
                 <div><p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{statusLabels[selected.status]}</p><h2 className="font-mono text-2xl font-black">{selected.po_number}</h2><p className="mt-1 text-sm font-bold">{selected.supplier}</p><p className="mt-1 text-xs text-slate-500">Created {dateTime(selected.created_at)} · Ordered {dateTime(selected.ordered_at)}</p></div>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="ghost" onClick={() => window.print()}><PrinterIcon className="h-4 w-4" /> Print / Save PDF</Button>
-                  <Button type="button" variant="ghost" onClick={() => exportOrder(selected)}>Export Order</Button>
+                  <Button type="button" variant="ghost" onClick={() => printPurchaseOrder(selected)}><PrinterIcon className="h-4 w-4" /> Print / Save PDF</Button>
+                  <Button type="button" variant="ghost" onClick={() => void exportOrder(selected)}>Export Order</Button>
                   {selected.status === 'draft' && <Button type="button" variant="accent" disabled={saving} onClick={() => void markOrdered(selected)}><CheckIcon className="h-4 w-4" /> Mark Ordered</Button>}
                   {['ordered','partially_received'].includes(selected.status) && <Button type="button" variant="success" disabled={saving} onClick={() => beginReceive(selected)}><PackageCheckIcon className="h-4 w-4" /> Receive</Button>}
                 </div>
@@ -227,7 +258,7 @@ export default function PurchaseOrders() {
         </div>
       </div>
 
-      {selected && <section className="purchase-order-print">
+      {selected && <section id="purchase-order-print-content" className="purchase-order-print">
         <header className="po-print-header">
           {settings.logo_url ? <img src={settings.logo_url} alt="Shop logo" /> : <strong>{settings.shop_name}</strong>}
           <div><h1>Purchase Order</h1><strong>{selected.po_number}</strong><div>{statusLabels[selected.status]}</div></div>

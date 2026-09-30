@@ -2,10 +2,13 @@ package com.outlawshopsystems.app;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.hardware.camera2.CameraManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Base64;
 import android.print.PrintAttributes;
 import android.print.PrintDocumentAdapter;
 import android.print.PrintManager;
@@ -13,10 +16,13 @@ import android.webkit.JavascriptInterface;
 import android.webkit.ValueCallback;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import androidx.core.content.FileProvider;
 import androidx.activity.OnBackPressedCallback;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.BridgeActivity;
+import java.io.File;
+import java.io.FileOutputStream;
 
 public class MainActivity extends BridgeActivity {
     private static final int CAMERA_PERMISSION_REQUEST = 1001;
@@ -197,6 +203,38 @@ public class MainActivity extends BridgeActivity {
                     printWebView.loadDataWithBaseURL("https://localhost", htmlContent, "text/html", "UTF-8", null);
                 } catch (Exception e) {
                     e.printStackTrace();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void shareCsvFile(String base64Content, String requestedName) {
+            activity.runOnUiThread(() -> {
+                try {
+                    String safeName = (requestedName == null ? "Purchase_Order.csv" : requestedName)
+                        .replaceAll("[^A-Za-z0-9._-]", "_");
+                    if (!safeName.toLowerCase().endsWith(".csv")) safeName += ".csv";
+                    File exportDir = new File(activity.getCacheDir(), "po_exports");
+                    if (!exportDir.exists() && !exportDir.mkdirs()) throw new Exception("Could not create export file.");
+                    File exportFile = new File(exportDir, safeName);
+                    byte[] content = Base64.decode(base64Content, Base64.DEFAULT);
+                    try (FileOutputStream output = new FileOutputStream(exportFile)) {
+                        output.write(content);
+                    }
+                    Uri contentUri = FileProvider.getUriForFile(
+                        activity,
+                        activity.getPackageName() + ".fileprovider",
+                        exportFile
+                    );
+                    Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                    shareIntent.setType("text/csv");
+                    shareIntent.putExtra(Intent.EXTRA_STREAM, contentUri);
+                    shareIntent.putExtra(Intent.EXTRA_SUBJECT, safeName);
+                    shareIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    activity.startActivity(Intent.createChooser(shareIntent, "Export Purchase Order"));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    android.widget.Toast.makeText(activity, "Could not export Purchase Order CSV", android.widget.Toast.LENGTH_LONG).show();
                 }
             });
         }
