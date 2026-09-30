@@ -12,75 +12,60 @@ import {
   ClockIcon,
   ArrowLeftIcon,
 } from '../components/icons';
-import { ACTION_BTN_CLS, Button, Card, PageTitle, Spinner, ErrorState } from '../components/ui';
+import { ACTION_BTN_CLS, Button, Card, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
-import { money, num, fullName, longDate, shortDate } from '../lib/format';
+import { money, num, fullName, shortDate } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
-import { safeFetchWithCache } from '../lib/offlineSync';
-import { getInvoiceBalanceDue, getInvoicePaidAmount, getInvoicePaymentsForReporting } from '../lib/invoiceAccounting';
+import { getInvoiceBalanceDue, getInvoicePaidAmount } from '../lib/invoiceAccounting';
+import {
+  getLocalDateStamp,
+  getPaymentsInDateRange,
+  getReportDateBounds,
+  isInReportDateRange,
+  toCsv,
+  toLocalDateOnly,
+  type ReportDateRange,
+} from '../lib/reporting';
 import type { InvoiceFull, WorkItem, Part } from '../types';
-
-type DateRange = 'today' | 'week' | 'month' | 'last_month' | 'year' | 'all';
 
 export default function Reports() {
   const toast = useToast();
-  const [range, setRange] = useState<DateRange>('month');
+  const [range, setRange] = useState<ReportDateRange>('month');
 
-  const { data, error, loading } = useAsync(async () => {
-    return safeFetchWithCache(
-      'shop_financial_reports',
-      async () => {
-        const sb = requireSupabase();
-        const [invRes, itemsRes, partsRes] = await Promise.all([
-          sb.from('invoices').select('*, customer:customers(*)').order('issued_at', { ascending: false }),
-          sb.from('work_items').select('*'),
-          sb.from('parts').select('*'),
-        ]);
+  const { data, error, loading, reload } = useAsync(async () => {
+    const sb = requireSupabase();
+    const [invRes, itemsRes, partsRes] = await Promise.all([
+      sb.from('invoices').select('*, customer:customers(*)').order('issued_at', { ascending: false }),
+      sb.from('work_items').select('*'),
+      sb.from('parts').select('*'),
+    ]);
 
-        check(invRes);
-        check(itemsRes);
-        check(partsRes);
+    check(invRes);
+    check(itemsRes);
+    check(partsRes);
 
-        const invoices = (invRes.data ?? []) as InvoiceFull[];
-        const items = (itemsRes.data ?? []) as WorkItem[];
-        const parts = (partsRes.data ?? []) as Part[];
+    const invoices = (invRes.data ?? []) as InvoiceFull[];
+    const items = (itemsRes.data ?? []) as WorkItem[];
+    const parts = (partsRes.data ?? []) as Part[];
 
-        return { invoices, items, parts };
-      },
-      { invoices: [], items: [], parts: [] }
-    );
+    return { invoices, items, parts };
   }, []);
 
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay())).getTime();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1).getTime();
-  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59).getTime();
-  const startOfYear = new Date(now.getFullYear(), 0, 1).getTime();
+  const rangeBounds = getReportDateBounds(range);
 
-  // Filter Invoices by Range
+  // Invoice totals use issue date; collected totals use payment date.
   const filteredInvoices = useMemo(() => {
     if (!data?.invoices) return [];
-    return data.invoices.filter((inv) => {
-      const time = new Date(inv.issued_at).getTime();
-      switch (range) {
-        case 'today':
-          return time >= startOfToday;
-        case 'week':
-          return time >= startOfWeek;
-        case 'month':
-          return time >= startOfMonth;
-        case 'last_month':
-          return time >= startOfLastMonth && time <= endOfLastMonth;
-        case 'year':
-          return time >= startOfYear;
-        case 'all':
-        default:
-          return true;
-      }
-    });
-  }, [data?.invoices, range, startOfToday, startOfWeek, startOfMonth, startOfLastMonth, endOfLastMonth, startOfYear]);
+    return data.invoices.filter((invoice) => isInReportDateRange(invoice.issued_at, rangeBounds));
+  }, [data?.invoices, rangeBounds.start, rangeBounds.endExclusive]);
+
+  const reportingPayments = useMemo(() => {
+    if (!data?.invoices) return [];
+    return getPaymentsInDateRange(data.invoices.map((invoice) => ({
+      ...invoice,
+      customerName: fullName(invoice.customer),
+    })), rangeBounds);
+  }, [data?.invoices, rangeBounds.start, rangeBounds.endExclusive]);
 
   // Financial Metrics
   const metrics = useMemo(() => {
@@ -107,18 +92,11 @@ export default function Reports() {
     const unpaidInvoices: InvoiceFull[] = [];
 
     filteredInvoices.forEach((inv) => {
+      if (inv.status === 'void') return;
       const invTotal = num(inv.total);
       const invTax = num(inv.tax);
       totalInvoiced += invTotal;
       taxCollected += invTax;
-
-      const reportingPayments = getInvoicePaymentsForReporting(inv);
-      reportingPayments.forEach((payment) => {
-        const method = payment.method || 'other';
-        methodTotals[method] = (methodTotals[method] || 0) + num(payment.amount);
-      });
-
-      totalCollected += getInvoicePaidAmount(inv);
       const balance = getInvoiceBalanceDue(inv);
 
       if (balance > 0) {
@@ -127,8 +105,17 @@ export default function Reports() {
       }
     });
 
+    reportingPayments.forEach((payment) => {
+      totalCollected += payment.amount;
+      const method = payment.method || 'other';
+      methodTotals[method] = (methodTotals[method] || 0) + payment.amount;
+    });
+
     // Calculate labor vs parts breakdown from matching work items
-    const filteredInvoiceIds = new Set(filteredInvoices.map((i) => i.work_order_id).filter(Boolean));
+    const filteredInvoiceIds = new Set(filteredInvoices
+      .filter((invoice) => invoice.status !== 'void')
+      .map((i) => i.work_order_id)
+      .filter(Boolean));
     if (data?.items) {
       data.items.forEach((it) => {
         if (filteredInvoiceIds.has(it.work_order_id)) {
@@ -164,7 +151,7 @@ export default function Reports() {
       totalInventoryCost,
       totalInventoryRetail,
     };
-  }, [filteredInvoices, data?.items, data?.parts]);
+  }, [filteredInvoices, reportingPayments, data?.items, data?.parts]);
 
   // QuickBooks & CSV Exporters
   function exportInvoicesCSV() {
@@ -173,60 +160,32 @@ export default function Reports() {
       return;
     }
 
-    const headers = ['InvoiceNo', 'Customer', 'Email', 'Phone', 'IssuedDate', 'DueDate', 'Subtotal', 'Tax', 'Total', 'Paid', 'BalanceDue', 'Status'];
-    const rows = filteredInvoices.map((inv) => {
-      const paid = getInvoicePaidAmount(inv);
-      const balance = getInvoiceBalanceDue(inv);
-      return [
-        `"${inv.number}"`,
-        `"${fullName(inv.customer).replace(/"/g, '""')}"`,
-        `"${inv.customer.email || ''}"`,
-        `"${inv.customer.phone || ''}"`,
-        `"${inv.issued_at.slice(0, 10)}"`,
-        `"${inv.due_date ? inv.due_date.slice(0, 10) : ''}"`,
-        num(inv.subtotal).toFixed(2),
-        num(inv.tax).toFixed(2),
-        num(inv.total).toFixed(2),
-        paid.toFixed(2),
-        balance.toFixed(2),
-        `"${inv.status.toUpperCase()}"`,
-      ].join(',');
+    const headers = ['Invoice Number', 'Customer', 'Email', 'Phone', 'Issue Date', 'Due Date', 'Subtotal', 'Tax', 'Total', 'Paid', 'Balance Due', 'Status'];
+    const csvRows = filteredInvoices.map((inv) => {
+      const paid = inv.status === 'void' ? 0 : getInvoicePaidAmount(inv);
+      const balance = inv.status === 'void' ? 0 : getInvoiceBalanceDue(inv);
+      return [inv.number, fullName(inv.customer), inv.customer.email || '', inv.customer.phone || '',
+        toLocalDateOnly(inv.issued_at), toLocalDateOnly(inv.due_date), num(inv.subtotal), num(inv.tax),
+        inv.status === 'void' ? 0 : num(inv.total), paid, balance, inv.status.toUpperCase()];
     });
 
-    const csvContent = [headers.join(','), ...rows].join('\n');
-    downloadBlob(csvContent, `QuickBooks_Invoices_${range}_${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv');
-    toast('QuickBooks Invoices CSV downloaded!');
+    downloadBlob(toCsv(headers, csvRows), `Invoice_Register_${range}_${getLocalDateStamp()}.csv`, 'text/csv;charset=utf-8');
+    toast('Invoice register CSV downloaded');
   }
 
   function exportPaymentsCSV() {
-    const paymentRows: string[] = [];
-    filteredInvoices.forEach((inv) => {
-      const recordedPayments = (inv.payments || []).filter((payment) => num(payment.amount) > 0);
-      const reportingPayments = getInvoicePaymentsForReporting(inv);
-      reportingPayments.forEach((payment, index) => {
-        const recorded = recordedPayments[index];
-        const date = recorded?.created_at || inv.paid_at || inv.issued_at;
-        const note = recorded?.reference_note || (recorded ? '' : 'Legacy paid invoice; payment detail unavailable');
-        paymentRows.push([
-          `"${date.slice(0, 10)}"`,
-          `"${inv.number}"`,
-          `"${fullName(inv.customer).replace(/"/g, '""')}"`,
-          num(payment.amount).toFixed(2),
-          `"${String(payment.method || 'other').toUpperCase()}"`,
-          `"${note.replace(/"/g, '""')}"`,
-        ].join(','));
-      });
-    });
-
-    if (!paymentRows.length) {
+    if (!reportingPayments.length) {
       toast('No recorded payments to export for this range', 'error');
       return;
     }
 
-    const headers = ['PaymentDate', 'InvoiceNo', 'Customer', 'Amount', 'PaymentMethod', 'ReferenceNote'];
-    const csvContent = [headers.join(','), ...paymentRows].join('\n');
-    downloadBlob(csvContent, `QuickBooks_Payments_${range}_${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv');
-    toast('QuickBooks Income & Payments CSV downloaded!');
+    const headers = ['Payment Date', 'Invoice Number', 'Customer', 'Amount', 'Payment Method', 'Reference Note'];
+    const rows = reportingPayments.map((payment) => [
+      toLocalDateOnly(payment.paymentDate), payment.invoiceNumber, payment.customerName,
+      payment.amount, payment.method.toUpperCase(), payment.referenceNote,
+    ]);
+    downloadBlob(toCsv(headers, rows), `Payment_Register_${range}_${getLocalDateStamp()}.csv`, 'text/csv;charset=utf-8');
+    toast('Payment register CSV downloaded');
   }
 
   function exportInventoryCSV() {
@@ -235,28 +194,16 @@ export default function Reports() {
       return;
     }
 
-    const headers = ['SKU', 'PartName', 'Category', 'Location', 'QtyOnHand', 'UnitCost', 'UnitSell', 'TotalCostValue', 'TotalRetailValue', 'Supplier'];
+    const headers = ['SKU', 'Part Name', 'Category', 'Location', 'Quantity On Hand', 'Unit Cost', 'Unit Sell', 'Total Cost Value', 'Total Retail Value', 'Supplier'];
     const rows = data.parts.map((p) => {
       const qty = num(p.qty_on_hand);
       const cost = num(p.cost_price);
       const sell = num(p.sell_price);
-      return [
-        `"${p.sku}"`,
-        `"${p.name.replace(/"/g, '""')}"`,
-        `"${p.category}"`,
-        `"${p.location || ''}"`,
-        qty,
-        cost.toFixed(2),
-        sell.toFixed(2),
-        (qty * cost).toFixed(2),
-        (qty * sell).toFixed(2),
-        `"${p.supplier || ''}"`,
-      ].join(',');
+      return [p.sku, p.name, p.category, p.location || '', qty, cost, sell, qty * cost, qty * sell, p.supplier || ''];
     });
 
-    const csvContent = [headers.join(','), ...rows].join('\n');
-    downloadBlob(csvContent, `Shop_Inventory_Valuation_${new Date().toISOString().slice(0, 10)}.csv`, 'text/csv');
-    toast('Inventory Valuation CSV downloaded!');
+    downloadBlob(toCsv(headers, rows), `Current_Inventory_Valuation_${getLocalDateStamp()}.csv`, 'text/csv;charset=utf-8');
+    toast('Current inventory valuation CSV downloaded');
   }
 
   function downloadBlob(content: string, filename: string, mimeType: string) {
@@ -272,9 +219,15 @@ export default function Reports() {
   }
 
   if (loading) return <Spinner />;
-  if (error) return <ErrorState message={error} />;
+  if (error) return (
+    <div className="mx-auto max-w-xl rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-900">
+      <p className="font-bold">Reports could not be loaded</p>
+      <p className="mt-1">Financial totals and exports are unavailable until the report data loads. {error}</p>
+      <Button type="button" className="mt-4" onClick={() => void reload()}>Retry</Button>
+    </div>
+  );
 
-  const rangeLabels: Record<DateRange, string> = {
+  const rangeLabels: Record<ReportDateRange, string> = {
     today: 'Today',
     week: 'This Week',
     month: 'This Month',
@@ -292,7 +245,7 @@ export default function Reports() {
 
         {/* Date Filter Chips */}
         <div className="flex flex-wrap gap-1.5 rounded-xl bg-slate-200/80 p-1 text-xs font-bold">
-          {(['month', 'week', 'last_month', 'year', 'all'] as DateRange[]).map((r) => (
+          {(['today', 'week', 'month', 'last_month', 'year', 'all'] as ReportDateRange[]).map((r) => (
             <button
               key={r}
               type="button"
@@ -346,12 +299,12 @@ export default function Reports() {
 
         <Card className="p-4 space-y-1">
           <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
-            <span>Sales Tax Accrued</span>
+            <span>Sales Tax on Invoices</span>
             <ReceiptIcon className="h-4 w-4 text-blue-500" />
           </div>
           <p className="text-2xl font-black text-slate-900">{money(metrics.taxCollected)}</p>
           <p className="text-[11px] text-slate-500">
-            Ready for state sales tax filing
+            From nonvoid invoices issued in this range
           </p>
         </Card>
       </div>
@@ -361,14 +314,14 @@ export default function Reports() {
         <div className="flex items-center justify-between border-b border-orange-200/80 pb-2">
           <div>
             <h3 className="text-sm font-bold text-orange-950 uppercase tracking-wide">
-              QuickBooks &amp; CPA Export Center
+              QuickBooks &amp; Bookkeeper CSVs
             </h3>
             <p className="text-xs text-orange-900/80">
-              Download standard CSV spreadsheets formatted for QuickBooks Online, Xero, Excel, or your bookkeeper.
+              Download invoice, payment, and inventory registers to share with your bookkeeper or map during import. These files do not sync or post entries automatically.
             </p>
           </div>
           <span className="rounded-full bg-orange-200 px-2.5 py-0.5 text-[10px] font-bold text-orange-900">
-            1-Click Export
+            CSV Exports
           </span>
         </div>
 
@@ -390,7 +343,7 @@ export default function Reports() {
             className={`${ACTION_BTN_CLS} bg-white border border-slate-200 font-semibold hover:bg-slate-50`}
           >
             <CreditCardIcon className="h-4 w-4 text-slate-700" />
-            <span>Export Income &amp; Payments</span>
+            <span>Export Payments Received ({reportingPayments.length})</span>
           </Button>
 
           <Button
@@ -400,7 +353,7 @@ export default function Reports() {
             className={`${ACTION_BTN_CLS} bg-white border border-slate-200 font-semibold hover:bg-slate-50`}
           >
             <BoxIcon className="h-4 w-4 text-slate-700" />
-            <span>Export Inventory Valuation</span>
+            <span>Export Current Inventory ({data?.parts.length ?? 0})</span>
           </Button>
         </div>
       </Card>
