@@ -3,6 +3,7 @@ package com.outlawshopsystems.app;
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.hardware.camera2.CameraManager;
 import android.net.Uri;
@@ -152,7 +153,14 @@ public class MainActivity extends BridgeActivity {
 
         @JavascriptInterface
         public int getVersionCode() {
-            return BuildConfig.VERSION_CODE;
+            try {
+                PackageInfo packageInfo = activity.getPackageManager().getPackageInfo(activity.getPackageName(), 0);
+                return Build.VERSION.SDK_INT >= Build.VERSION_CODES.P
+                    ? (int) packageInfo.getLongVersionCode()
+                    : packageInfo.versionCode;
+            } catch (PackageManager.NameNotFoundException e) {
+                return 0;
+            }
         }
 
         @JavascriptInterface
