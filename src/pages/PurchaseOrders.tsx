@@ -225,7 +225,7 @@ export default function PurchaseOrders() {
                   <Button type="button" variant="ghost" onClick={() => printPurchaseOrder(selected)}><PrinterIcon className="h-4 w-4" /> Print / Save PDF</Button>
                   <Button type="button" variant="ghost" onClick={() => void exportOrder(selected)}>Export Order</Button>
                   {selected.status === 'draft' && <Button type="button" variant="accent" disabled={saving} onClick={() => void markOrdered(selected)}><CheckIcon className="h-4 w-4" /> Mark Ordered</Button>}
-                  {['ordered','partially_received'].includes(selected.status) && <Button type="button" variant="success" disabled={saving} onClick={() => beginReceive(selected)}><PackageCheckIcon className="h-4 w-4" /> Receive</Button>}
+                  {['ordered','partially_received'].includes(selected.status) && <Button type="button" variant="accent" disabled={saving} onClick={() => beginReceive(selected)}><PackageCheckIcon className="h-4 w-4" /> Receive</Button>}
                 </div>
               </div>
 
@@ -286,7 +286,7 @@ export default function PurchaseOrders() {
             </div>;
           })}</div>
           <div className="mt-4 max-w-xs"><Field label="Freight / Shipping on this receipt"><Input type="number" min="0" step="0.01" value={freight} onChange={(e) => setFreight(e.target.value)} /></Field></div>
-          <div className="mt-5 flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setShowReceive(false)}>Cancel</Button><Button type="button" variant="success" disabled={saving} onClick={() => void confirmReceive(selected)}>{saving ? 'Saving Receipt…' : 'Confirm Receipt'}</Button></div>
+          <div className="mt-5 flex justify-end gap-2"><Button type="button" variant="ghost" onClick={() => setShowReceive(false)}>Cancel</Button><Button type="button" variant="accent" disabled={saving} onClick={() => void confirmReceive(selected)}>{saving ? 'Saving Receipt…' : 'Confirm Receipt'}</Button></div>
         </Card>
       </div>}
     </div>

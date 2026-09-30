@@ -197,7 +197,7 @@ export default function SpecialOrderNotifyModal({
                 type="button"
                 onClick={handleMarkNotified}
                 disabled={updating}
-                className="flex items-center justify-center gap-1.5 rounded-xl bg-purple-600 px-3 py-2 text-xs font-bold text-white hover:bg-purple-500 transition"
+                className="flex items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3 py-2 text-xs font-bold text-white hover:bg-slate-800 transition"
               >
                 <CheckIcon className="h-3.5 w-3.5" />
                 <span>Mark as Notified</span>

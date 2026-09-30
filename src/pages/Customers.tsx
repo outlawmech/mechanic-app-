@@ -9,7 +9,7 @@ import {
   ChatBubbleIcon,
   ClipboardIcon,
 } from '../components/icons';
-import { ACTION_GRID_CLS, actionBtnCls, Card, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../components/ui';
+import { ACTION_GRID_CLS, actionBtnCls, Card, EmptyState, ErrorState, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
@@ -85,16 +85,6 @@ export default function Customers() {
           icon={<UsersIcon className="h-8 w-8" />}
           title={q ? 'No matches' : 'No customers yet'}
           sub={q ? `No customers match "${q}". Try another search.` : 'Add your first customer to get started.'}
-          action={
-            !q && (
-              <Link
-                to="/customers/new"
-                className="inline-flex rounded-xl bg-orange-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-orange-300"
-              >
-                + Add First Customer
-              </Link>
-            )
-          }
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -151,7 +141,7 @@ export default function Customers() {
                       title="Start New Work Order"
                     >
                       <ClipboardIcon className="h-3 w-3" />
-                      <span>+ New WO</span>
+                      <span>New WO</span>
                     </Link>
                   </div>
                 </Card>
@@ -160,8 +150,6 @@ export default function Customers() {
           ))}
         </div>
       )}
-
-      <Fab to="/customers/new" label="New customer" />
 
       {/* Bulk Customer & Fleet CSV Importer Modal */}
       <CsvCustomerImporterModal

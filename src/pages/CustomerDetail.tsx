@@ -364,7 +364,7 @@ export default function CustomerDetail() {
             </Button>
             <Link to={`/work/new?customer=${c.id}`}>
               <Button variant="accent" className="text-xs font-bold">
-                + New Work Order (WO)
+                <PlusIcon className="mr-1 h-3.5 w-3.5" /> New WO
               </Button>
             </Link>
           </div>
@@ -564,7 +564,7 @@ export default function CustomerDetail() {
                   }}
                   className="flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700"
                 >
-                  <PlusIcon className="h-3.5 w-3.5" /> + Add Vehicle
+                  <PlusIcon className="h-3.5 w-3.5" /> Add Vehicle
                 </button>
               )}
             </div>

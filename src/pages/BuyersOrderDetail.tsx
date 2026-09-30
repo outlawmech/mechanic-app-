@@ -525,7 +525,7 @@ export default function BuyersOrderDetail() {
                 onSelectCustomer={(c) => setCustomerId(c?.id || '')}
                 placeholder="🔍 Type customer name, phone #, email, or vehicle to search…"
                 label="Buyer Account"
-                helperText="Search by name, phone, or email across all shop customers. Register walk-ins with + Quick New Customer."
+                helperText="Search by name, phone, or email across all shop customers. Register walk-ins with Quick New Customer."
                 required
               />
             </Card>

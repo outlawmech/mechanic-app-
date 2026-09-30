@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import WorkOrderCard from '../components/WorkOrderCard';
 import { ClipboardIcon, PlusIcon, SearchIcon, CalendarIcon } from '../components/icons';
-import { ACTION_GRID_CLS, actionBtnCls, Chip, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../components/ui';
+import { ACTION_GRID_CLS, actionBtnCls, Chip, EmptyState, ErrorState, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
@@ -91,7 +91,7 @@ export default function WorkOrders() {
           </Link>
           <Link to="/work/new" className={actionBtnCls('accent')}>
             <PlusIcon className="h-4 w-4" />
-            <span>+ New WO</span>
+            <span>New WO</span>
           </Link>
         </div>
       </div>
@@ -129,16 +129,6 @@ export default function WorkOrders() {
                 ? 'Create your first work order to get started.'
                 : 'No work orders match this status filter.'
           }
-          action={
-            !searchQuery && (
-              <Link
-                to="/work/new"
-                className="inline-flex rounded-xl bg-orange-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-orange-300"
-              >
-                + New Work Order
-              </Link>
-            )
-          }
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -147,8 +137,6 @@ export default function WorkOrders() {
           ))}
         </div>
       )}
-
-      <Fab to="/work/new" label="New Work Order" />
     </div>
   );
 }

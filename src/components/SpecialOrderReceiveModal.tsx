@@ -135,7 +135,7 @@ export default function SpecialOrderReceiveModal({
             <Button type="button" variant="ghost" onClick={onClose} className="text-xs text-slate-400">
               Cancel
             </Button>
-            <Button type="submit" variant="success" disabled={saving} className="text-xs font-bold">
+            <Button type="submit" variant="accent" disabled={saving} className="text-xs font-bold">
               {saving ? 'Receiving...' : 'Confirm Part Received'}
             </Button>
           </div>

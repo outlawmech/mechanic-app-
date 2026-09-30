@@ -212,7 +212,7 @@ export default function NewWorkOrder() {
         <ArrowLeftIcon className="h-3.5 w-3.5" /> All Work Orders
       </Link>
       <PageTitle title="New Work Order (WO)" sub="What machine or vehicle are we servicing?" />
-      {availableCustomers.length === 0 && <p className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">First job? Use <strong>+ Quick New Customer</strong> below, then continue this work order.</p>}
+      {availableCustomers.length === 0 && <p className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">First job? Use <strong>Quick New Customer</strong> below, then continue this work order.</p>}
 
       <form onSubmit={save} className="space-y-4">
         <Card className="space-y-4 p-4">
@@ -234,7 +234,7 @@ export default function NewWorkOrder() {
             }}
             placeholder="🔍 Search customer by name, phone #, email, or vehicle…"
             label="Customer Account"
-            helperText="Search by name, phone, or vehicle. Type to search or tap '+ Quick New Customer' to register walk-ins."
+            helperText="Search by name, phone, or vehicle. Type to search or tap 'Quick New Customer' to register walk-ins."
             required
           />
 
@@ -249,7 +249,7 @@ export default function NewWorkOrder() {
                   onClick={() => setQuickCustOpen(true)}
                   className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-600 hover:text-orange-700"
                 >
-                  <PlusIcon className="h-3 w-3" /> + Add Vehicle to Customer
+                  <PlusIcon className="h-3 w-3" /> Add Vehicle to Customer
                 </button>
               )}
             </div>

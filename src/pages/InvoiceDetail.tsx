@@ -490,7 +490,7 @@ export default function InvoiceDetail() {
                   />
                 </div>
 
-                <Button type="submit" variant="success" disabled={acting || !paymentAmountValid} className="w-full text-xs font-bold">
+                <Button type="submit" variant="accent" disabled={acting || !paymentAmountValid} className="w-full text-xs font-bold">
                   <CheckIcon className="h-4 w-4" /> Save Payment
                 </Button>
               </form>

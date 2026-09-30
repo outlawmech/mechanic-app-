@@ -21,6 +21,7 @@ import {
 } from '../components/icons';
 import {
   ACTION_GRID_CLS,
+  actionBtnCls,
   Badge,
   Button,
   Card,
@@ -472,15 +473,15 @@ export default function Sales() {
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className={ACTION_GRID_CLS}>
           {!addingUnit && (
             <>
               <Link
                 to="/sales/deal/new"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-xs font-bold text-white shadow transition hover:bg-slate-800"
+                className={actionBtnCls('primary')}
               >
-                <ReceiptIcon className="h-4 w-4 text-orange-400" />
-                <span>+ Write Buyer's Order</span>
+                <PlusIcon className="h-4 w-4 text-orange-400" />
+                <span>Write Buyer’s Order</span>
               </Link>
               <Button
                 variant="accent"
@@ -489,7 +490,7 @@ export default function Sales() {
                   setForm(emptyUnit);
                   setAddingUnit(true);
                 }}
-                className="text-xs font-bold"
+                className="h-10 w-full text-xs font-bold sm:h-9 sm:w-auto"
               >
                 <PlusIcon className="h-4 w-4" /> Add Unit
               </Button>
@@ -915,18 +916,6 @@ export default function Sales() {
               icon={<BoxIcon className="h-8 w-8" />}
               title="No showroom units found"
               sub="Add your first motorcycle, ATV, or boat to track showroom floor inventory and write buyer's orders."
-              action={
-                <Button
-                  variant="accent"
-                  onClick={() => {
-                    setForm(emptyUnit);
-                    setAddingUnit(true);
-                  }}
-                  className="text-xs"
-                >
-                  + Add First Unit
-                </Button>
-              }
             />
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -1113,14 +1102,6 @@ export default function Sales() {
               icon={<ReceiptIcon className="h-8 w-8" />}
               title="No Buyer's Orders yet"
               sub="Create your first unit deal sheet with itemized freight, prep, documentation fees, trade-ins, and customer bill of sale."
-              action={
-                <Link
-                  to="/sales/deal/new"
-                  className="inline-flex rounded-xl bg-orange-400 px-4 py-2 text-xs font-bold text-slate-950"
-                >
-                  Write First Deal
-                </Link>
-              }
             />
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">

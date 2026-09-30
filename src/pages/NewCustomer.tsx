@@ -359,7 +359,7 @@ export default function NewCustomer() {
               onClick={() => setForm((f) => ({ ...f, has_second_engine: true }))}
               className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 hover:text-orange-700"
             >
-              <PlusIcon className="h-3.5 w-3.5" /> + Add Second Engine / Kicker Motor
+              <PlusIcon className="h-3.5 w-3.5" /> Add Second Engine / Kicker Motor
             </button>
           ) : (
             <div className="rounded-xl border border-orange-200 bg-orange-50/40 p-3 space-y-2.5">

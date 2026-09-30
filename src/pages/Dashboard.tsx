@@ -238,16 +238,6 @@ export default function Dashboard() {
           </p>
         </div>
 
-        {/* Live Date / Quick Status */}
-        <div className="flex items-center gap-2">
-          <Link
-            to="/schedule"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 transition"
-          >
-            <CalendarIcon className="h-4 w-4 text-orange-600" />
-            <span>Today's Schedule</span>
-          </Link>
-        </div>
       </div>
 
       {/* 2. 1-Tap Quick Action Bar */}
@@ -294,14 +284,14 @@ export default function Dashboard() {
         {isDms ? (
           <Link
             to="/sales/deal/new"
-            className="flex items-center gap-2.5 rounded-2xl bg-purple-950 p-3 text-purple-100 shadow-md shadow-purple-950/20 transition hover:bg-purple-900 active:scale-95 group"
+            className="flex items-center gap-2.5 rounded-2xl bg-slate-900 p-3 text-white shadow-md shadow-slate-900/20 transition hover:bg-slate-800 active:scale-95 group"
           >
-            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-purple-500 text-white font-black shadow-xs">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-orange-500 text-slate-950 font-black shadow-xs">
               <TagIcon className="h-5 w-5" />
             </span>
             <div className="min-w-0">
               <span className="block text-xs font-black leading-tight group-hover:underline">Buyer's Order</span>
-              <span className="block text-[10px] text-purple-300 font-semibold truncate">Deal Desk</span>
+              <span className="block text-[10px] text-slate-400 font-semibold truncate">Deal Desk</span>
             </div>
           </Link>
         ) : (
@@ -327,7 +317,7 @@ export default function Dashboard() {
             <UsersIcon className="h-5 w-5" />
           </span>
           <div className="min-w-0">
-            <span className="block text-xs font-bold leading-tight group-hover:underline">+ Customer</span>
+            <span className="block text-xs font-bold leading-tight group-hover:underline">New Customer</span>
             <span className="block text-[10px] text-slate-500 font-medium truncate">Shared Client DB</span>
           </div>
         </Link>

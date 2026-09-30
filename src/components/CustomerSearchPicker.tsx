@@ -297,7 +297,7 @@ export default function CustomerSearchPicker({
             className="inline-flex items-center gap-1 text-xs font-black text-orange-500 hover:text-orange-400 transition"
           >
             <PlusIcon className="h-3.5 w-3.5" />
-            <span>+ Quick New Customer</span>
+            <span>Quick New Customer</span>
           </button>
         )}
       </div>
@@ -445,7 +445,7 @@ export default function CustomerSearchPicker({
                       className="inline-flex items-center gap-1.5 rounded-xl bg-orange-500 px-3 py-2 text-xs font-black text-slate-950 shadow-md hover:bg-orange-400 transition"
                     >
                       <PlusIcon className="h-3.5 w-3.5" />
-                      <span>+ Register "{query}" as New Customer</span>
+                      <span>Register "{query}" as New Customer</span>
                     </button>
                   )}
                 </div>
@@ -519,7 +519,7 @@ export default function CustomerSearchPicker({
                         className="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-500"
                       >
                         <PlusIcon className="h-3 w-3" />
-                        <span>Can't find them? + Add New Customer</span>
+                        <span>Can't find them? Add New Customer</span>
                       </button>
                     </div>
                   )}

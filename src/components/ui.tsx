@@ -6,7 +6,6 @@ import type {
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from 'react';
-import { PlusIcon } from './icons';
 
 export function Card({
   children,
@@ -184,20 +183,6 @@ export function ErrorState({ message }: { message: string }) {
         If this mentions a missing table or relation, run <code>supabase/schema.sql</code> in the
         Supabase SQL editor first.
       </p>
-    </div>
-  );
-}
-
-export function Fab({ to, label }: { to: string; label: string }) {
-  return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom,0px),8px)+76px)] z-30 mx-auto flex max-w-md justify-end px-5">
-      <Link
-        to={to}
-        aria-label={label}
-        className="pointer-events-auto grid h-14 w-14 place-items-center rounded-full bg-slate-900 text-white shadow-2xl transition hover:bg-slate-800 active:scale-90 ring-2 ring-white/20"
-      >
-        <PlusIcon className="h-6 w-6" />
-      </Link>
     </div>
   );
 }

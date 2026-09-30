@@ -734,7 +734,7 @@ export default function Parts() {
               className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-orange-500 px-3.5 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 hover:bg-orange-400 transition active:scale-95"
             >
               <PlusIcon className="h-4 w-4" />
-              <span>+ Add Part</span>
+              <span>Add Part</span>
             </button>
           )}
 
@@ -748,7 +748,7 @@ export default function Parts() {
               className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-orange-500 px-3.5 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 hover:bg-orange-400 transition active:scale-95"
             >
               <PlusIcon className="h-4 w-4" />
-              <span>+ New Special Order</span>
+              <span>New Special Order</span>
             </button>
           )}
         </div>
@@ -772,7 +772,7 @@ export default function Parts() {
               className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-3 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 active:scale-95 transition"
             >
               <PlusIcon className="h-4 w-4" />
-              <span>+ Add Part</span>
+              <span>Add Part</span>
             </button>
           ) : mainTab === 'special_orders' ? (
             <button
@@ -784,7 +784,7 @@ export default function Parts() {
               className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-orange-500 px-3 text-xs font-black text-slate-950 shadow-md shadow-orange-500/20 active:scale-95 transition"
             >
               <PlusIcon className="h-4 w-4" />
-              <span>+ Special Order</span>
+              <span>New Special Order</span>
             </button>
           ) : null}
 
@@ -1095,13 +1095,6 @@ export default function Parts() {
                   ? 'Try adjusting your search query or filters.'
                   : 'Start tracking your shop inventory, scan barcodes, or import a CSV.'
               }
-              action={
-                !addingPart ? (
-                  <Button variant="accent" onClick={() => setAddingPart(true)} className="text-xs">
-                    <PlusIcon className="h-4 w-4" /> Add First Part
-                  </Button>
-                ) : undefined
-              }
             />
           ) : (
             <div className="space-y-2">
@@ -1270,18 +1263,6 @@ export default function Parts() {
                   ? 'No special orders match your active filter criteria.'
                   : 'Order non-stocking parts from WPS, Parts Unlimited, Tucker, or OEM distributors with staged customer holding bins.'
               }
-              action={
-                <Button
-                  variant="accent"
-                  onClick={() => {
-                    setOrderToEdit(null);
-                    setSpecialOrderModalOpen(true);
-                  }}
-                  className="text-xs font-bold"
-                >
-                  <PlusIcon className="h-4 w-4" /> Create First Special Order
-                </Button>
-              }
             />
           ) : (
             <div className="space-y-3">
@@ -1427,13 +1408,13 @@ export default function Parts() {
                       <div className="flex items-center gap-2">
                         {/* 1. Receive Part & Bin */}
                         {so.purchase_order_id && so.status !== 'received' && so.status !== 'notified' && so.status !== 'fulfilled' && (
-                          <Link to={`/parts/purchase-orders/${so.purchase_order_id}`} className="inline-flex items-center gap-1 rounded-xl bg-purple-100 px-3 py-1.5 text-xs font-bold text-purple-900 hover:bg-purple-200">
+                          <Link to={`/parts/purchase-orders/${so.purchase_order_id}`} className="inline-flex items-center gap-1 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-800">
                             <TruckIcon className="h-3.5 w-3.5" /> Receive on PO
                           </Link>
                         )}
                         {!so.purchase_order_id && so.status !== 'received' && so.status !== 'notified' && so.status !== 'fulfilled' && (
                           <Button
-                            variant="success"
+                            variant="accent"
                             onClick={() => setOrderToReceive(so)}
                             className="text-xs py-1.5 px-3 flex items-center gap-1 font-bold"
                           >

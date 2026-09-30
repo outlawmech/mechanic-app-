@@ -979,7 +979,7 @@ export default function WorkOrderDetail() {
                 </Button>
               )}
               {wo.status === 'in_progress' && (
-                <Button variant="success" className="w-full text-xs font-bold" disabled={acting} onClick={() => updateStatus('completed')}>
+                <Button variant="accent" className="w-full text-xs font-bold" disabled={acting} onClick={() => updateStatus('completed')}>
                   ✓ Mark WO Completed
                 </Button>
               )}
@@ -995,7 +995,7 @@ export default function WorkOrderDetail() {
                 <div className="rounded-xl bg-emerald-50 p-3 text-xs font-bold text-emerald-800">Internal order closed · cost posted to showroom unit</div>
               )}
               {wo.status === 'completed' && isInternal && !wo.internal_closed_at && (
-                <Button variant="success" className="w-full text-xs font-bold" disabled={acting} onClick={closeInternalOrder}>
+                <Button variant="accent" className="w-full text-xs font-bold" disabled={acting} onClick={closeInternalOrder}>
                   Close Internal WO &amp; Post Unit Cost
                 </Button>
               )}

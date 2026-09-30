@@ -16,7 +16,7 @@ import {
   ChatBubbleIcon,
   VehicleIcon,
 } from '../components/icons';
-import { actionBtnCls, Badge, Card, Chip, EmptyState, ErrorState, Fab, PageTitle, Spinner } from '../components/ui';
+import { actionBtnCls, Badge, Card, Chip, EmptyState, ErrorState, PageTitle, Spinner } from '../components/ui';
 import { useAsync } from '../lib/hooks';
 import { fullName, getVehicleTypeInfo, longDate, todayISO, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
@@ -178,7 +178,7 @@ export default function Schedule() {
           className={actionBtnCls('accent', 'w-full sm:w-auto')}
         >
           <PlusIcon className="h-4 w-4" />
-          <span>+ Schedule Job</span>
+          <span>Schedule Job</span>
         </Link>
       </div>
 
@@ -274,14 +274,6 @@ export default function Schedule() {
                 quickFilter === 'today'
                   ? 'No appointments on the board for today.'
                   : 'No scheduled work orders match this filter.'
-              }
-              action={
-                <Link
-                  to={`/work/new?scheduled=${selectedDate}`}
-                  className="inline-flex rounded-xl bg-orange-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-orange-300"
-                >
-                  + Schedule First Job
-                </Link>
               }
             />
           ) : (
@@ -406,7 +398,7 @@ export default function Schedule() {
                             <button
                               type="button"
                               onClick={() => handleReschedule(wo, rescheduleDate || todayStr)}
-                              className="rounded bg-emerald-600 px-2 py-1 font-bold text-white text-[11px]"
+                              className="rounded bg-orange-500 px-2 py-1 font-bold text-slate-950 text-[11px] hover:bg-orange-400"
                             >
                               Save
                             </button>
@@ -536,12 +528,6 @@ export default function Schedule() {
               <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">
                 Jobs Scheduled for {longDate(selectedDate + 'T12:00:00')} ({routeOrders.length})
               </h3>
-              <Link
-                to={`/work/new?scheduled=${selectedDate}`}
-                className="text-xs font-bold text-orange-600 hover:underline"
-              >
-                + Add Appointment on this Day
-              </Link>
             </div>
 
             {routeOrders.length === 0 ? (
@@ -604,8 +590,6 @@ export default function Schedule() {
           </div>
         </Card>
       )}
-
-      <Fab to={`/work/new?scheduled=${selectedDate}`} label="New Schedule Appointment" />
     </div>
   );
 }

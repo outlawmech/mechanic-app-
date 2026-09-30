@@ -872,7 +872,7 @@ export default function CounterSale() {
                 onClick={addCustomItem}
                 className="text-xs font-bold text-orange-600 hover:underline flex items-center gap-1"
               >
-                <PlusIcon className="h-3.5 w-3.5" /> + Custom Item
+                <PlusIcon className="h-3.5 w-3.5" /> Custom Item
               </button>
             </div>
 
@@ -975,7 +975,7 @@ export default function CounterSale() {
             {items.length === 0 ? (
               <Card className="p-8 text-center text-xs text-slate-400">
                 <BoxIcon className="mx-auto h-8 w-8 text-slate-300 mb-1" />
-                <p>No parts added yet. Search a SKU or tap "+ Custom Item".</p>
+                <p>No parts added yet. Search a SKU or tap "Custom Item".</p>
               </Card>
             ) : (
               <Card className="divide-y divide-slate-100 p-0 overflow-hidden">
