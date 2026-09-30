@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
-import { hasNewerAndroidBuild, parseAndroidBuildNumber } from '../lib/androidUpdate';
+import { hasNewerAndroidBuild, parseAndroidBuildNumber, shouldSkipAndroidUpdateCheck } from '../lib/androidUpdate';
 
 const RELEASE_API = 'https://api.github.com/repos/outlawmech/mechanic-app-/releases/tags/android-apk-latest';
 const APK_URL = 'https://github.com/outlawmech/mechanic-app-/releases/download/android-apk-latest/OutlawShopSystems-v1.0.apk';
 const CHECKED_AT_KEY = 'oss_android_update_checked_at';
 const DISMISSED_BUILD_KEY = 'oss_android_update_dismissed_build';
-const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
-
 type AndroidUpdater = {
   getVersionCode?: () => number;
   openLatestApk?: () => void;
@@ -21,38 +19,56 @@ export default function AndroidUpdatePrompt() {
     const getVersionCode = updater.getVersionCode.bind(updater);
 
     let active = true;
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 10000);
+    let inFlight = false;
 
-    async function checkForUpdate() {
+    async function checkForUpdate(force = false) {
+      if (inFlight) return;
+      let controller: AbortController | undefined;
+      let timeout: number | undefined;
       try {
         const now = Date.now();
         const lastCheck = Number(localStorage.getItem(CHECKED_AT_KEY) || 0);
-        if (Number.isFinite(lastCheck) && now - lastCheck < CHECK_INTERVAL_MS) return;
+        if (shouldSkipAndroidUpdateCheck(lastCheck, now, force)) return;
+
+        inFlight = true;
+        controller = new AbortController();
+        timeout = window.setTimeout(() => controller?.abort(), 10000);
+        localStorage.setItem(CHECKED_AT_KEY, String(now));
 
         const currentBuild = Number(getVersionCode());
         const response = await fetch(RELEASE_API, {
           headers: { Accept: 'application/vnd.github+json' },
           signal: controller.signal,
+          cache: 'no-store',
         });
         if (!response.ok) return;
 
         const release = await response.json();
         const latestBuild = parseAndroidBuildNumber(release?.body);
-        localStorage.setItem(CHECKED_AT_KEY, String(now));
+        localStorage.setItem(CHECKED_AT_KEY, String(Date.now()));
         if (!active || !hasNewerAndroidBuild(currentBuild, latestBuild)) return;
         if (localStorage.getItem(DISMISSED_BUILD_KEY) === String(latestBuild)) return;
         setAvailableBuild(latestBuild);
       } catch {
         // A failed/offline check should never block normal app use.
+      } finally {
+        if (timeout !== undefined) window.clearTimeout(timeout);
+        controller?.abort();
+        inFlight = false;
       }
     }
 
-    void checkForUpdate();
+    function checkWhenResumed() {
+      if (document.visibilityState === 'visible') void checkForUpdate();
+    }
+
+    void checkForUpdate(true);
+    document.addEventListener('visibilitychange', checkWhenResumed);
+    window.addEventListener('focus', checkWhenResumed);
     return () => {
       active = false;
-      window.clearTimeout(timeout);
-      controller.abort();
+      document.removeEventListener('visibilitychange', checkWhenResumed);
+      window.removeEventListener('focus', checkWhenResumed);
     };
   }, []);
 
