@@ -27,9 +27,13 @@ function downloadCsv(name: string, csv: string) {
   const link = document.createElement('a');
   link.href = url;
   link.download = name;
+  document.body.appendChild(link);
   link.click();
-  // Let the browser start the download before releasing the object URL.
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // Let the browser start the download before removing the anchor or URL.
+  window.setTimeout(() => {
+    link.remove();
+    URL.revokeObjectURL(url);
+  }, 1000);
 }
 
 export default function PurchaseOrders() {
