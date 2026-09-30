@@ -22,6 +22,7 @@ input[type="date"] {
    Clean, full-width printout on Android APK, iOS & Desktop
    ========================================================= */
 .buyers-order-print { display: none; }
+.purchase-order-print { display: none; }
 
 @page {
   size: letter portrait;
@@ -30,6 +31,8 @@ input[type="date"] {
 
 @media print {
   .buyers-order-screen { display: none !important; }
+  .purchase-order-screen { display: none !important; }
+  .purchase-order-print { display: block !important; color: #111827 !important; font: 10pt/1.35 Arial, sans-serif; }
   .buyers-order-print {
     display: block !important;
     color: #0f172a !important;
@@ -44,6 +47,19 @@ input[type="date"] {
     padding-bottom: 5mm;
     margin-bottom: 7mm;
   }
+  .po-print-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12mm; border-bottom: 2px solid #111827; padding-bottom: 5mm; margin-bottom: 5mm; }
+  .po-print-header img { max-width: 45mm; max-height: 24mm; object-fit: contain; }
+  .po-print-header h1 { font-size: 19pt; margin: 0 0 2mm; }
+  .po-print-shop { margin-bottom: 7mm; font-size: 9pt; }
+  .po-print-meta { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 6mm; margin-bottom: 7mm; }
+  .po-print-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+  .po-print-table th, .po-print-table td { border-bottom: 1px solid #cbd5e1; padding: 2.5mm 2mm; text-align: left; vertical-align: top; }
+  .po-print-table th { border-top: 1px solid #64748b; border-bottom: 1px solid #64748b; background: #f1f5f9 !important; }
+  .po-print-table td:nth-child(n+3), .po-print-table th:nth-child(n+3) { text-align: right; white-space: nowrap; }
+  .po-print-table tr { break-inside: avoid; }
+  .po-print-totals { width: 70mm; margin: 7mm 0 0 auto; }
+  .po-print-totals div { display: flex; justify-content: space-between; padding: 1.5mm 0; }
+  .po-print-grand { border-top: 1px solid #111827; font-size: 11pt; font-weight: bold; }
   .buyers-order-print h1 { font-size: 18pt; margin: 2mm 0 0; }
   .buyers-order-print-details { display: grid; grid-template-columns: 1fr 1fr; gap: 10mm; margin-bottom: 7mm; }
   .buyers-order-print-prices { width: 100%; border-collapse: collapse; }

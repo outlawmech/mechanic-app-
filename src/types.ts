@@ -302,7 +302,10 @@ export type SpecialOrder = {
   cost_price: number | string;
   sell_price: number | string;
   vendor?: string;
+  purchase_order_id?: string | null;
   purchase_order_number?: string;
+  purchase_order?: { status: PurchaseOrderStatus; po_number: string } | null;
+  quantity_received?: number | string;
   tracking_number?: string;
   holding_bin?: string;
   deposit_amount?: number | string;
@@ -316,4 +319,51 @@ export type SpecialOrder = {
   notes?: string;
   created_at: string;
   updated_at?: string;
+};
+
+export type PurchaseOrderStatus = 'draft' | 'ordered' | 'partially_received' | 'received';
+
+export type PurchaseOrder = {
+  id: string;
+  user_id: string;
+  po_number: string;
+  supplier: string;
+  status: PurchaseOrderStatus;
+  created_at: string;
+  ordered_at?: string | null;
+  closed_at?: string | null;
+  freight_total: number | string;
+  notes?: string;
+  lines: PurchaseOrderLine[];
+  receipts?: PurchaseOrderReceipt[];
+};
+
+export type PurchaseOrderLine = {
+  id: string;
+  purchase_order_id: string;
+  part_id: string | null;
+  special_order_id: string | null;
+  part_number: string;
+  description: string;
+  quantity_ordered: number | string;
+  quantity_received: number | string;
+  expected_unit_cost: number | string;
+  special_order?: Pick<SpecialOrder, 'id' | 'order_number' | 'customer_name' | 'status' | 'quantity_received'> | null;
+};
+
+export type PurchaseOrderReceipt = {
+  id: string;
+  purchase_order_id: string;
+  received_at: string;
+  freight_cost: number | string;
+  lines?: PurchaseOrderReceiptLine[];
+};
+
+export type PurchaseOrderReceiptLine = {
+  id: string;
+  purchase_order_line_id: string;
+  quantity_received: number | string;
+  expected_unit_cost: number | string;
+  actual_unit_cost: number | string;
+  po_line?: Pick<PurchaseOrderLine, 'part_number' | 'description'> | null;
 };

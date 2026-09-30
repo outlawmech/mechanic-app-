@@ -591,6 +591,8 @@ export default function WorkOrderDetail() {
         : `${part.sku} is now in stock and was added to the Work Order.`);
     } catch (error) {
       if (specialOrderId) {
+        const cancelOrder = await sb.from('special_orders').update({ status: 'canceled', updated_at: new Date().toISOString() }).eq('id', specialOrderId);
+        if (cancelOrder.error) console.error('Could not cancel incomplete Work Order Special Order before cleanup:', cancelOrder.error);
         const deleteOrder = await sb.from('special_orders').delete().eq('id', specialOrderId);
         if (deleteOrder.error) console.error('Could not clean up incomplete Work Order Special Order:', deleteOrder.error);
       }

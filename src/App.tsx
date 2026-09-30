@@ -17,6 +17,7 @@ import Invoices from './pages/Invoices';
 import NewCustomer from './pages/NewCustomer';
 import NewWorkOrder from './pages/NewWorkOrder';
 import Parts from './pages/Parts';
+import PurchaseOrders from './pages/PurchaseOrders';
 import CounterSale from './pages/CounterSale';
 import Sales from './pages/Sales';
 import BuyersOrderDetail from './pages/BuyersOrderDetail';
@@ -103,6 +104,8 @@ function AppRoutes() {
           <Route path="invoices/:id" element={<InvoiceDetail />} />
           <Route path="reports" element={<Reports />} />
           <Route path="parts" element={<Parts />} />
+          <Route path="parts/purchase-orders" element={<PurchaseOrders />} />
+          <Route path="parts/purchase-orders/:id" element={<PurchaseOrders />} />
           <Route path="parts/counter" element={settings.enable_dealership_mode ? <CounterSale /> : <Navigate to="/parts" replace />} />
           <Route path="sales" element={settings.enable_dealership_mode ? <Sales /> : <Navigate to="/" replace />} />
           <Route path="sales/deal/new" element={settings.enable_dealership_mode ? <BuyersOrderDetail /> : <Navigate to="/" replace />} />

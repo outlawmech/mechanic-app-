@@ -683,6 +683,8 @@ export default function CounterSale() {
     } catch (err: any) {
       // A failed/oversold checkout must not leave a paid invoice behind.
       if (createdSpecialOrderIds.length > 0) {
+        const cancelOrders = await sb.from('special_orders').update({ status: 'canceled', updated_at: new Date().toISOString() }).in('id', createdSpecialOrderIds);
+        if (cancelOrders.error) console.error('Could not cancel incomplete counter Special Orders before cleanup:', cancelOrders.error);
         const cleanupOrders = await sb.from('special_orders').delete().in('id', createdSpecialOrderIds);
         if (cleanupOrders.error) console.error('Could not remove incomplete counter Special Orders:', cleanupOrders.error);
       }

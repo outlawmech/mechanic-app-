@@ -130,7 +130,7 @@ const emptyPart = {
 export default function Parts() {
   const toast = useToast();
   const navigate = useNavigate();
-  const { settings } = useShopSettings();
+  const { settings, shopId } = useShopSettings();
 
   // Primary Tab: 'inventory' vs 'special_orders'
   const [mainTab, setMainTab] = useState<'inventory' | 'special_orders'>('inventory');
@@ -193,7 +193,7 @@ export default function Parts() {
       async () => {
         try {
           const sb = requireSupabase();
-          const res = await sb.from('special_orders').select('*').order('created_at', { ascending: false });
+          const res = await sb.from('special_orders').select('*, purchase_order:purchase_orders(status,po_number)').order('created_at', { ascending: false });
           if (res.error) throw res.error;
           return (res.data ?? []) as SpecialOrder[];
         } catch (e) {
@@ -524,15 +524,16 @@ export default function Parts() {
   // ---------------- SPECIAL ORDERS HANDLERS ----------------
 
   async function handleSaveSpecialOrder(order: SpecialOrder) {
+    const scopedOrder: SpecialOrder = { ...order, user_id: shopId || order.user_id };
     try {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         const sb = requireSupabase();
-        const existing = allSpecialOrders.find((s) => s.id === order.id);
+        const existing = allSpecialOrders.find((s) => s.id === scopedOrder.id);
         if (existing) {
-          const result = check(await sb.from('special_orders').update(order).eq('id', order.id).select('id').maybeSingle());
+          const result = check(await sb.from('special_orders').update(scopedOrder).eq('id', scopedOrder.id).select('id').maybeSingle());
           if (!result.data?.id) throw new Error('Supabase did not confirm the special order update.');
         } else {
-          const result = check(await sb.from('special_orders').insert(order).select('id').single());
+          const result = check(await sb.from('special_orders').insert(scopedOrder).select('id').single());
           if (!result.data?.id) throw new Error('Supabase did not confirm the special order insert.');
         }
       }
@@ -541,32 +542,40 @@ export default function Parts() {
       console.error('Special order save failed:', e);
       throw e;
     }
-    const existingIndex = allSpecialOrders.findIndex((s) => s.id === order.id);
+    const existingIndex = allSpecialOrders.findIndex((s) => s.id === scopedOrder.id);
     let updated: SpecialOrder[];
     if (existingIndex >= 0) {
       updated = [...allSpecialOrders];
-      updated[existingIndex] = order;
+      updated[existingIndex] = scopedOrder;
     } else {
-      updated = [order, ...allSpecialOrders];
+      updated = [scopedOrder, ...allSpecialOrders];
     }
     cacheLocal('special_orders', updated);
     await reloadSpecialOrders();
   }
 
   async function handleDeleteSpecialOrder(order: SpecialOrder) {
-    if (!confirm(`Are you sure you want to cancel / delete Special Order "${order.order_number}"?`)) return;
+    if (!confirm(`Cancel Special Order "${order.order_number}"?`)) return;
     try {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         const sb = requireSupabase();
-        await sb.from('special_orders').delete().eq('id', order.id);
+        if (order.purchase_order_id) {
+          check(await sb.from('special_orders').update({ status: 'canceled', updated_at: new Date().toISOString() }).eq('id', order.id));
+        } else {
+          check(await sb.from('special_orders').delete().eq('id', order.id));
+        }
       }
     } catch (e) {
-      console.warn('Special orders remote delete error:', e);
+      console.error('Special order cancellation failed:', e);
+      toast(errMsg(e), 'error');
+      return;
     }
-    const updated = allSpecialOrders.filter((s) => s.id !== order.id);
+    const updated = order.purchase_order_id
+      ? allSpecialOrders.map((s) => s.id === order.id ? { ...s, status: 'canceled' as const } : s)
+      : allSpecialOrders.filter((s) => s.id !== order.id);
     cacheLocal('special_orders', updated);
     await reloadSpecialOrders();
-    toast(`Special order ${order.order_number} deleted`);
+    toast(`Special order ${order.order_number} canceled`);
   }
 
   async function handleReceiveOrder(
@@ -577,10 +586,12 @@ export default function Parts() {
   ) {
     const target = allSpecialOrders.find((s) => s.id === orderId);
     if (!target) return;
+    if (target.purchase_order_id) throw new Error('Receive this customer allocation from its Purchase Order.');
 
     const updatedOrder: SpecialOrder = {
       ...target,
       status: 'received',
+      quantity_received: num(target.quantity),
       holding_bin: holdingBin || target.holding_bin,
       received_at: new Date().toISOString(),
       notes: receiveNotes ? `${target.notes ? `${target.notes}\n` : ''}Received: ${receiveNotes}` : target.notes,
@@ -668,6 +679,9 @@ export default function Parts() {
 
         {/* Desktop Uniform Actions (All aligned at uniform height) */}
         <div className="hidden sm:flex items-center gap-2">
+          <Link to="/parts/purchase-orders" className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800 shadow-xs hover:bg-slate-50">
+            <TruckIcon className="h-4 w-4 text-purple-600" /> Purchase Orders
+          </Link>
           {mainTab === 'inventory' && !addingPart && (
             <>
               <button
@@ -737,6 +751,9 @@ export default function Parts() {
 
       {/* Mobile Uniform Action Grid (Equal heights & aligned grids) */}
       <div className="sm:hidden space-y-2">
+        <Link to="/parts/purchase-orders" className="flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-800">
+          <TruckIcon className="h-4 w-4 text-purple-600" /> Purchase Orders
+        </Link>
         {/* Row 1: Top 2 Primary Actions */}
         <div className="grid grid-cols-2 gap-2">
           {mainTab === 'inventory' && !addingPart ? (
@@ -1269,9 +1286,10 @@ export default function Parts() {
                 const paidToDate = orderFinancials.paid;
                 const balanceDue = orderFinancials.balance;
 
-                const getStatusBadge = (st: SpecialOrderStatus) => {
+                const getStatusBadge = (st: SpecialOrderStatus, order: SpecialOrder) => {
                   switch (st) {
                     case 'ordered':
+                      if (order.purchase_order?.status === 'draft') return { label: '🟡 Draft PO · Not Yet Ordered', cls: 'bg-amber-100 text-amber-800 border-amber-300' };
                       return { label: '🟡 Placed with Vendor', cls: 'bg-amber-100 text-amber-800 border-amber-300' };
                     case 'in_transit':
                       return { label: '🚚 In Transit', cls: 'bg-blue-100 text-blue-800 border-blue-300' };
@@ -1286,7 +1304,7 @@ export default function Parts() {
                   }
                 };
 
-                const badge = getStatusBadge(so.status);
+                const badge = getStatusBadge(so.status, so);
 
                 return (
                   <Card key={so.id} className="p-4 space-y-3 transition hover:shadow-md border border-slate-200">
@@ -1343,6 +1361,7 @@ export default function Parts() {
                         <p className="font-mono font-black text-slate-900 text-xs">
                           {so.part_number} <span className="font-sans font-normal text-slate-600">(Qty: {so.quantity})</span>
                         </p>
+                        {num(so.quantity_received) > 0 && <p className="text-[10px] text-purple-700">Received {num(so.quantity_received)} of {num(so.quantity)}</p>}
                         <p className="text-slate-600 truncate">{so.description}</p>
                       </div>
                     </div>
@@ -1353,10 +1372,12 @@ export default function Parts() {
                         <span>
                           Supplier: <strong>{so.vendor || 'Distributor'}</strong>
                         </span>
-                        {so.purchase_order_number && (
-                          <span className="font-mono text-[11px]">
+                        {so.purchase_order_id ? (
+                          <Link to={`/parts/purchase-orders/${so.purchase_order_id}`} className="font-mono text-[11px] font-bold text-purple-700 underline">
                             PO: <strong>{so.purchase_order_number}</strong>
-                          </span>
+                          </Link>
+                        ) : so.purchase_order_number && (
+                          <span className="font-mono text-[11px]">Vendor PO: <strong>{so.purchase_order_number}</strong></span>
                         )}
                         {so.tracking_number && (
                           <a
@@ -1400,7 +1421,12 @@ export default function Parts() {
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
                       <div className="flex items-center gap-2">
                         {/* 1. Receive Part & Bin */}
-                        {so.status !== 'received' && so.status !== 'notified' && so.status !== 'fulfilled' && (
+                        {so.purchase_order_id && so.status !== 'received' && so.status !== 'notified' && so.status !== 'fulfilled' && (
+                          <Link to={`/parts/purchase-orders/${so.purchase_order_id}`} className="inline-flex items-center gap-1 rounded-xl bg-purple-100 px-3 py-1.5 text-xs font-bold text-purple-900 hover:bg-purple-200">
+                            <TruckIcon className="h-3.5 w-3.5" /> Receive on PO
+                          </Link>
+                        )}
+                        {!so.purchase_order_id && so.status !== 'received' && so.status !== 'notified' && so.status !== 'fulfilled' && (
                           <Button
                             variant="success"
                             onClick={() => setOrderToReceive(so)}
@@ -1510,6 +1536,7 @@ export default function Parts() {
         }}
         orderToEdit={orderToEdit}
         customers={allCustomers}
+        parts={allParts}
         onSave={handleSaveSpecialOrder}
       />
 

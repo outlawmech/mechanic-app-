@@ -107,6 +107,17 @@ const topics: Topic[] = [
     ],
   },
   {
+    title: 'Purchase and receive Special Orders', summary: 'Review supplier POs, place orders, and record shipments', path: '/parts/purchase-orders',
+    steps: [
+      'A Special Order linked to a catalog part and supplier is added to that supplier’s Draft Purchase Order. Draft POs can collect several customer orders.',
+      'Open Parts → Purchase Orders. Print or export the PO, place the order with the supplier, then choose Mark Ordered.',
+      'When a shipment arrives, open Receive. Receive All Remaining fills the expected quantities; adjust quantities and actual unit costs where needed, then enter freight and confirm.',
+      'Customer Special Order quantities stay reserved in their holding bins. Only ordinary-stock quantities increase freely available inventory.',
+      'Partial shipments remain open on the PO. Once a customer’s full quantity arrives, use the existing Special Orders screen to prepare a notification and complete pickup/fulfillment.',
+    ],
+    notes: ['Freight is recorded separately from part unit cost. Actual costs are saved per receipt; the part catalog cost uses the latest received unit cost.'],
+  },
+  {
     title: 'Add a showroom unit and PDI', summary: 'Dealer inventory and preparation', path: '/sales',
     steps: [
       'In Dealership mode, open Sales and choose Add Unit. Enter stock number, year, make, model, cost, and asking price. Add VIN and floorplan details when available.',

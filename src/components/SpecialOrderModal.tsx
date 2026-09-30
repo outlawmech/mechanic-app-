@@ -17,7 +17,7 @@ import { money, num, fullName } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
 import { generateUUID } from '../lib/offlineSync';
 import { searchPriceBooks, type PriceBookEntry } from '../lib/priceBooks';
-import type { Customer, CustomerWithVehicles, SpecialOrder, SpecialOrderStatus, SpecialOrderPaymentStatus } from '../types';
+import type { Customer, Part, SpecialOrder, SpecialOrderStatus, SpecialOrderPaymentStatus } from '../types';
 
 const DISTRIBUTOR_PRESETS = [
   'Western Power Sports (WPS)',
@@ -42,6 +42,7 @@ interface SpecialOrderModalProps {
   onClose: () => void;
   orderToEdit?: SpecialOrder | null;
   customers: Customer[];
+  parts: Part[];
   onSave: (order: SpecialOrder) => Promise<void> | void;
 }
 
@@ -50,6 +51,7 @@ export default function SpecialOrderModal({
   onClose,
   orderToEdit,
   customers,
+  parts,
   onSave,
 }: SpecialOrderModalProps) {
   const toast = useToast();
@@ -62,6 +64,7 @@ export default function SpecialOrderModal({
   const [customerEmail, setCustomerEmail] = useState('');
 
   const [partNumber, setPartNumber] = useState('');
+  const [catalogPartId, setCatalogPartId] = useState('');
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [costPrice, setCostPrice] = useState('0');
@@ -101,6 +104,7 @@ export default function SpecialOrderModal({
     setDescription(pb.name);
     setCostPrice(String(pb.cost_price));
     setSellPrice(String(pb.sell_price));
+    setCatalogPartId('');
 
     // Try matching vendor preset
     const brand = pb.brand || pb.manufacturer;
@@ -126,6 +130,7 @@ export default function SpecialOrderModal({
       setCustomerPhone(orderToEdit.customer_phone || '');
       setCustomerEmail(orderToEdit.customer_email || '');
       setPartNumber(orderToEdit.part_number || '');
+      setCatalogPartId(orderToEdit.part_id || '');
       setDescription(orderToEdit.description || '');
       setQuantity(String(orderToEdit.quantity || 1));
       setCostPrice(String(orderToEdit.cost_price || 0));
@@ -138,7 +143,7 @@ export default function SpecialOrderModal({
         setVendor('Direct Manufacturer / Other');
         setCustomVendor(orderToEdit.vendor);
       } else {
-        setVendor(DISTRIBUTOR_PRESETS[0]);
+        setVendor('');
         setCustomVendor('');
       }
 
@@ -159,6 +164,7 @@ export default function SpecialOrderModal({
       setCustomerPhone('');
       setCustomerEmail('');
       setPartNumber('');
+      setCatalogPartId('');
       setDescription('');
       setQuantity('1');
       setCostPrice('0');
@@ -210,7 +216,8 @@ export default function SpecialOrderModal({
 
     setSaving(true);
     try {
-      const activeVendor = vendor === 'Direct Manufacturer / Other' && customVendor.trim() ? customVendor.trim() : vendor;
+      const activeVendor = vendor === 'Direct Manufacturer / Other' ? customVendor.trim() : vendor;
+      const catalogPart = parts.find((part) => part.id === catalogPartId);
 
       const orderData: SpecialOrder = {
         id: orderToEdit?.id || generateUUID(),
@@ -219,13 +226,16 @@ export default function SpecialOrderModal({
         customer_name: customerName.trim(),
         customer_phone: customerPhone.trim(),
         customer_email: customerEmail.trim(),
+        part_id: catalogPartId || null,
         part_number: partNumber.trim().toUpperCase(),
         description: description.trim(),
         quantity: num(quantity) || 1,
         cost_price: num(costPrice) || 0,
         sell_price: num(sellPrice) || 0,
         vendor: activeVendor,
-        purchase_order_number: poNumber.trim(),
+        purchase_order_id: orderToEdit?.purchase_order_id || null,
+        purchase_order_number: orderToEdit?.purchase_order_id ? orderToEdit.purchase_order_number : poNumber.trim(),
+        quantity_received: orderToEdit?.quantity_received || 0,
         tracking_number: trackingNumber.trim(),
         holding_bin: holdingBin.trim(),
         deposit_amount: paymentStatus === 'deposit_paid' ? num(depositAmount) : (paymentStatus === 'paid_in_full' ? totalDue : 0),
@@ -399,6 +409,31 @@ export default function SpecialOrderModal({
               <BoxIcon className="h-3.5 w-3.5" /> Ordered Part Info
             </span>
 
+            <Field label="Catalog Part (optional)">
+              <Select value={catalogPartId} onChange={(e) => {
+                const part = parts.find((candidate) => candidate.id === e.target.value);
+                setCatalogPartId(part?.id || '');
+                if (part) {
+                  setPartNumber(part.sku);
+                  setDescription(part.name);
+                  setCostPrice(String(part.cost_price || 0));
+                  setSellPrice(String(part.sell_price || 0));
+                  if (part.supplier) {
+                    const match = DISTRIBUTOR_PRESETS.find((v) => v.toLowerCase() === part.supplier.toLowerCase());
+                    setVendor(match || 'Direct Manufacturer / Other');
+                    setCustomVendor(match ? '' : part.supplier);
+                  } else {
+                    setVendor('');
+                    setCustomVendor('');
+                  }
+                }
+              }} className="bg-slate-900 text-white">
+                <option value="">Manual / non-catalog part</option>
+                {parts.map((part) => <option key={part.id} value={part.id}>{part.sku || 'No SKU'} · {part.name}{part.supplier ? ` · ${part.supplier}` : ''}</option>)}
+              </Select>
+              <span className="mt-1 block text-[10px] text-slate-400">Choose a catalog part to link it to inventory and create a supplier Draft PO.</span>
+            </Field>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative">
               <div>
                 <Field label="OEM / Part # / SKU">
@@ -498,6 +533,7 @@ export default function SpecialOrderModal({
                   onChange={(e) => setVendor(e.target.value)}
                   className="bg-slate-900 text-white"
                 >
+                  <option value="">Select supplier (optional)</option>
                   {DISTRIBUTOR_PRESETS.map((v) => (
                     <option key={v} value={v}>
                       {v}
@@ -506,7 +542,11 @@ export default function SpecialOrderModal({
                 </Select>
               </Field>
 
-              {vendor === 'Direct Manufacturer / Other' ? (
+              {orderToEdit?.purchase_order_id ? (
+                <div className="rounded-xl border border-purple-800 bg-purple-950/40 p-3 text-xs text-purple-200">
+                  Linked to OSS Purchase Order <strong className="font-mono">{orderToEdit.purchase_order_number}</strong>. Manage ordering and receiving from Parts → Purchase Orders.
+                </div>
+              ) : vendor === 'Direct Manufacturer / Other' ? (
                 <Field label="Custom Vendor Name">
                   <Input
                     value={customVendor}
