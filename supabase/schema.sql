@@ -102,6 +102,7 @@ create table if not exists public.work_items (
   description   text not null,
   quantity      numeric(10,2) not null default 1,
   unit_price    numeric(12,2) not null default 0,
+  cost_price    numeric(12,2) not null default 0 check (cost_price >= 0),
   sort_order    int not null default 0,
   created_at    timestamptz not null default now()
 );

@@ -86,6 +86,7 @@ export type WorkItem = {
   description: string;
   quantity: number | string;
   unit_price: number | string;
+  cost_price?: number | string;
   sort_order: number;
   created_at: string;
   special_order?: SpecialOrder | null;
