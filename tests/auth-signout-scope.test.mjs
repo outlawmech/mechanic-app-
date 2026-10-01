@@ -12,7 +12,7 @@ function sourceFiles(directory) {
     const path = join(directory, entry.name);
     return entry.isDirectory()
       ? sourceFiles(path)
-      : /\\.(?:ts|tsx|js|jsx)$/.test(entry.name)
+      : /\.(?:ts|tsx|js|jsx)$/.test(entry.name)
         ? [path]
         : [];
   });
@@ -21,22 +21,21 @@ function sourceFiles(directory) {
 test('the only Supabase signOut call explicitly uses local scope', () => {
   const calls = sourceFiles(srcRoot).flatMap((path) => {
     const source = readFileSync(path, 'utf8');
-    return [...source.matchAll(/\\.auth\\.signOut\\s*\\(([^)]*)\\)/gs)].map((match) => ({
+    return [...source.matchAll(/\.auth\.signOut\s*\(([^)]*)\)/gs)].map((match) => ({
       file: relative(repoRoot, path),
-      args: match[1].trim(),
       text: match[0],
     }));
   });
 
-  assert.equal(calls.length, 1, `Unexpected direct Supabase signOut call(s): ${JSON.stringify(calls)}`);
+  assert.equal(calls.length, 1, 'Unexpected direct Supabase signOut calls: ' + JSON.stringify(calls));
   assert.equal(calls[0].file, 'src/lib/auth.tsx');
-  assert.match(calls[0].text, /^\\.auth\\.signOut\\(\\{\\s*scope:\\s*['"]local['"]\\s*\\}\\)$/);
+  assert.match(calls[0].text, /^\.auth\.signOut\(\{\s*scope:\s*['"]local['"]\s*\}\)$/);
 });
 
 test('Settings and subscription lockout use the shared ordinary logout action', () => {
   for (const path of ['src/pages/Settings.tsx', 'src/components/SubscriptionLockout.tsx']) {
     const source = readFileSync(join(repoRoot, path), 'utf8');
-    assert.match(source, /\\bsignOut\\b/);
-    assert.match(source, /onClick=\\{signOut\\}/);
+    assert.match(source, /\bsignOut\b/);
+    assert.match(source, /onClick=\{signOut\}/);
   }
 });
