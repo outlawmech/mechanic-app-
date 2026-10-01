@@ -136,7 +136,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (key.startsWith('outlaw_cache_')) localStorage.removeItem(key);
       }
     } catch {}
-    await sb.auth.signOut();
+    // Ordinary logout should revoke only this device's session.
+    await sb.auth.signOut({ scope: 'local' });
     setOfflineQueueOwner(null);
   }
 
