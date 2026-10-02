@@ -995,7 +995,7 @@ export default function Parts() {
                     <Input
                       value={form.supplier}
                       onChange={(e) => setForm({ ...form, supplier: e.target.value })}
-                      placeholder="e.g. Western Power Sports / NAPA"
+                      placeholder="e.g. Parts distributor"
                     />
                   </Field>
                 </div>
