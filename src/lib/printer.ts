@@ -143,27 +143,36 @@ export function buildStandaloneInvoiceHtml(
       font-size: 9pt;
     }
     .customer-concern-box {
+      display: grid;
+      align-content: start;
+      gap: 2px;
       height: auto;
       min-height: 0;
       max-height: none;
       margin: 0 0 8px;
-      padding: 6px 10px;
+      padding: 6px 10px !important;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 6px;
       font-size: 9pt;
       color: #334155;
+      line-height: 1.25;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
     }
     .customer-concern-title {
-      margin-bottom: 2px;
+      margin: 0;
       color: #475569;
       font-size: 7.5pt;
       font-weight: 700;
       letter-spacing: 0.05em;
+      line-height: 1.2;
       page-break-after: avoid;
       break-after: avoid;
+    }
+    .customer-concern-text {
+      margin: 0;
+      line-height: 1.3;
     }
     .items-table {
       width: 100%;
@@ -313,7 +322,7 @@ export function buildStandaloneInvoiceHtml(
     ${customerConcern ? `
       <section class="customer-concern-box">
         <div class="customer-concern-title">CUSTOMER CONCERN / AUTHORIZED WORK</div>
-        <div>${escapeHtml(customerConcern)}</div>
+        <div class="customer-concern-text">${escapeHtml(customerConcern)}</div>
       </section>
     ` : ''}
 

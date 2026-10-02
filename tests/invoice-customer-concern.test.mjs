@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import { buildStandaloneInvoiceHtml, getInvoiceCustomerConcern, getInvoiceWorkOrderNumber } from '../src/lib/printer.ts';
 
 function invoice(workOrderId = 'wo-service-1', overrides = {}) {
@@ -47,7 +48,7 @@ test('service invoice prints the short customer concern from its linked Work Ord
   const itemTablePosition = html.indexOf('<!-- Line items table -->');
   assert.ok(concernPosition >= 0);
   assert.ok(concernPosition < itemTablePosition);
-  assert.match(html, /CUSTOMER CONCERN \/ AUTHORIZED WORK<\/div>\s*<div>100 hour service<\/div>/);
+  assert.match(html, /CUSTOMER CONCERN \/ AUTHORIZED WORK<\/div>\s*<div class="customer-concern-text">100 hour service<\/div>/);
   assert.match(html, /Work Order: WO-1001/);
   assert.ok(html.indexOf('Performed 100-hour service') > concernPosition);
 });
@@ -68,6 +69,8 @@ test('long multiline concern wraps cleanly and remains distinct from technician 
   assert.ok(concernMarkup.includes('Confirm operation under load'));
   assert.match(html, /\.customer-concern-box\s*\{[^}]*white-space:\s*pre-wrap;[^}]*overflow-wrap:\s*anywhere;/);
   assert.match(html, /height:\s*auto;\s*min-height:\s*0;\s*max-height:\s*none;/);
+  assert.match(html, /display:\s*grid;\s*align-content:\s*start;\s*gap:\s*2px;/);
+  assert.match(html, /\.customer-concern-text\s*\{\s*margin:\s*0;/);
   assert.doesNotMatch(concernMarkup, /height:\s*\d+(?:px|pt|mm)|min-height:\s*\d+(?:px|pt|mm)/);
   assert.doesNotMatch(html, /\.customer-concern-box\s*\{[^}]*page-break-inside:\s*avoid/);
   assert.ok(html.indexOf(chargedWork) > concernEnd);
@@ -98,6 +101,12 @@ test('direct Parts Counter invoices omit the concern heading even when linked to
 test('service invoice shows only the matching originating Work Order number', () => {
   assert.equal(getInvoiceWorkOrderNumber(invoice(), serviceWorkOrder('Customer concern')), 'WO-1001');
   assert.equal(getInvoiceWorkOrderNumber(invoice(), serviceWorkOrder('Concern', { id: 'another-wo' })), '');
+});
+
+test('on-screen and browser-print concern section is content-driven and uses compact spacing', async () => {
+  const source = await readFile(new URL('../src/pages/InvoiceDetail.tsx', import.meta.url), 'utf8');
+  assert.match(source, /grid h-auto min-h-0 content-start gap-1 rounded-xl[^\"]*px-3 py-2/);
+  assert.match(source, /<p className="m-0 whitespace-pre-wrap break-words leading-snug">\{customerConcern\}<\/p>/);
 });
 
 test('long invoices keep every line item and totals in normal print flow around the compact concern block', () => {

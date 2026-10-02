@@ -665,11 +665,11 @@ export default function InvoiceDetail() {
             )}
 
             {customerConcern && (
-              <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-                <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              <section className="mt-3 grid h-auto min-h-0 content-start gap-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-snug text-slate-700">
+                <h2 className="m-0 text-[10px] font-bold uppercase leading-tight tracking-wider text-slate-500">
                   CUSTOMER CONCERN / AUTHORIZED WORK
                 </h2>
-                <p className="mt-1 whitespace-pre-wrap break-words">{customerConcern}</p>
+                <p className="m-0 whitespace-pre-wrap break-words leading-snug">{customerConcern}</p>
               </section>
             )}
 
