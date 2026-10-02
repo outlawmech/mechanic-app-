@@ -5,6 +5,14 @@ import { buildTechWorksheetHtml, type TechWorksheetWorkOrder } from './techWorks
 
 export const isNativePlatform = Capacitor.isNativePlatform();
 
+/** Use the linked service WO as the source of truth; Parts Counter records use PRT-numbered placeholder WOs. */
+export function getInvoiceCustomerConcern(invoice: Pick<InvoiceFull, 'work_order_id'>, workOrder: WorkOrder | null): string {
+  if (!invoice.work_order_id || !workOrder || workOrder.id !== invoice.work_order_id || workOrder.number.startsWith('PRT-')) {
+    return '';
+  }
+  return workOrder.notes?.trim() ?? '';
+}
+
 function escapeHtml(str: string | null | undefined): string {
   if (!str) return '';
   return String(str)
@@ -30,6 +38,7 @@ export function buildStandaloneInvoiceHtml(
   const totalPaid = (invoice.payments || []).reduce((sum, p) => sum + num(p.amount), 0);
   const balanceDue = Math.max(0, num(invoice.total) - totalPaid);
   const isFullyPaid = invoice.status === 'paid' || balanceDue <= 0;
+  const customerConcern = getInvoiceCustomerConcern(invoice, workOrder);
   const cashierRows = (invoice.payments || []).filter((payment) => payment.cashier_name)
     .map((payment) => `<div style="font-size:8pt;color:#64748b">Cashier: ${escapeHtml(payment.cashier_name)} · ${money(payment.amount)}</div>`).join('');
   const vInfo = vehicle ? getVehicleTypeInfo(vehicle.type) : null;
@@ -127,6 +136,26 @@ export function buildStandaloneInvoiceHtml(
       padding: 8px 12px;
       margin-bottom: 12px;
       font-size: 9pt;
+    }
+    .customer-concern-box {
+      margin: 0 0 12px;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      font-size: 9pt;
+      color: #334155;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    .customer-concern-title {
+      margin-bottom: 3px;
+      color: #475569;
+      font-size: 7.5pt;
+      font-weight: 700;
+      letter-spacing: 0.05em;
     }
     .items-table {
       width: 100%;
@@ -271,6 +300,13 @@ export function buildStandaloneInvoiceHtml(
     `
         : ''
     }
+
+    ${customerConcern ? `
+      <section class="customer-concern-box">
+        <div class="customer-concern-title">CUSTOMER CONCERN / AUTHORIZED WORK</div>
+        <div>${escapeHtml(customerConcern)}</div>
+      </section>
+    ` : ''}
 
     <!-- Line items table -->
     <table class="items-table">
