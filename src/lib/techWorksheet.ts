@@ -72,7 +72,6 @@ export function buildTechWorksheetHtml(wo: TechWorksheetWorkOrder, settings: Sho
     notes ? `<div class="concern-notes">${escapeHtml(notes).replace(/\r?\n/g, '<br>')}</div>` : '',
     workItems,
   ].filter(Boolean).join('');
-  const concernLines = Array.from({ length: 4 }, () => '<div class="writing-line"></div>').join('');
   const diagnosisLines = Array.from({ length: 10 }, () => '<div class="writing-line"></div>').join('');
 
   return `<!doctype html>
@@ -150,7 +149,7 @@ export function buildTechWorksheetHtml(wo: TechWorksheetWorkOrder, settings: Sho
       </div></section>
     </div>
     <section class="box concern"><h2 class="box-title">CUSTOMER CONCERN / AUTHORIZED WORK</h2><div class="lined-body">
-      ${concernContent ? `<div class="concern-copy">${concernContent}</div>` : ''}${concernLines}
+      ${concernContent ? `<div class="concern-copy">${concernContent}</div>` : ''}
     </div></section>
     <section class="box diagnosis"><h2 class="box-title">DIAGNOSIS / WORK PERFORMED</h2><div class="lined-body">${diagnosisLines}</div></section>
     <div class="parts">${partsTable('PARTS USED')}${partsTable('PARTS NEEDED')}</div>
