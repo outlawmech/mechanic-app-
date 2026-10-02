@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 8307)
-Total output lines: 621
-
 import { useState, type FormEvent } from 'react';
 import {
   ClipboardIcon,
@@ -270,7 +267,20 @@ export default function Auth() {
               <ul className="mt-5 grid gap-2 text-sm text-slate-400 sm:grid-cols-2">
                 <li className="flex items-center gap-2"><CheckIcon className="h-4 w-4 shrink-0 text-emerald-400" /> Job scheduling</li>
                 <li className="flex items-center gap-2"><CheckIcon className="h-4 w-4 shrink-0 text-emerald-400" /> Work orders</li>
-                <li className="flex items-center gap-2"><CheckIcon className="h-4 w-4 shrink-0 text-emerald-400" /> I…307 tokens truncated…ame="h-4 w-4 shrink-0 text-emerald-400" /> Parts inventory and counter sales</li>
+                <li className="flex items-center gap-2"><CheckIcon className="h-4 w-4 shrink-0 text-emerald-400" /> Itemized invoices</li>
+                <li className="flex items-center gap-2"><CheckIcon className="h-4 w-4 shrink-0 text-emerald-400" /> Customer and vehicle history</li>
+              </ul>
+            </article>
+
+            <article className="rounded-2xl border border-orange-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-orange-950/20 p-6 sm:p-8">
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-orange-500/10 text-orange-300"><TagIcon className="h-5 w-5" /></span>
+                <p className="text-xs font-bold uppercase tracking-wider text-orange-300">Dealership DMS · Parts &amp; sales</p>
+              </div>
+              <h3 className="mt-5 text-xl font-bold text-white sm:text-2xl">Give the service desk and deal desk the same picture.</h3>
+              <p className="mt-3 text-base leading-relaxed text-slate-300">Add parts counter work, showroom inventory, buyer’s orders, deal calculations, and prep/PDI alongside service operations.</p>
+              <ul className="mt-5 grid gap-2 text-sm text-slate-400 sm:grid-cols-2">
+                <li className="flex items-center gap-2"><CheckIcon className="h-4 w-4 shrink-0 text-emerald-400" /> Parts inventory and counter sales</li>
                 <li className="flex items-center gap-2"><CheckIcon className="h-4 w-4 shrink-0 text-emerald-400" /> New, used, and consignment units</li>
                 <li className="flex items-center gap-2"><CheckIcon className="h-4 w-4 shrink-0 text-emerald-400" /> Buyer’s orders and bill of sale</li>
                 <li className="flex items-center gap-2"><CheckIcon className="h-4 w-4 shrink-0 text-emerald-400" /> Freight, prep, and PDI workflows</li>
