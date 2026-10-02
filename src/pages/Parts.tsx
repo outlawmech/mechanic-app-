@@ -536,10 +536,10 @@ export default function Parts() {
         const existing = allSpecialOrders.find((s) => s.id === scopedOrder.id);
         if (existing) {
           const result = check(await sb.from('special_orders').update(specialOrderRow).eq('id', scopedOrder.id).select('id').maybeSingle());
-          if (!result.data?.id) throw new Error('Supabase did not confirm the special order update.');
+          if (!result.data?.id) throw new Error('The server did not confirm the special order update.');
         } else {
           const result = check(await sb.from('special_orders').insert(specialOrderRow).select('id').single());
-          if (!result.data?.id) throw new Error('Supabase did not confirm the special order insert.');
+          if (!result.data?.id) throw new Error('The server did not confirm the special order insert.');
         }
       }
     } catch (e) {
@@ -1261,7 +1261,7 @@ export default function Parts() {
               sub={
                 soSearch || soStatusFilter !== 'all'
                   ? 'No special orders match your active filter criteria.'
-                  : 'Order non-stocking parts from WPS, Parts Unlimited, Tucker, or OEM distributors with staged customer holding bins.'
+                  : 'Order non-stocking parts from your vendors and track them in customer holding bins.'
               }
             />
           ) : (
@@ -1370,6 +1370,8 @@ export default function Parts() {
                             href={`https://www.google.com/search?q=${encodeURIComponent(so.tracking_number)}`}
                             target="_blank"
                             rel="noopener noreferrer"
+                            title="Search for package tracking information"
+                            aria-label={`Search for tracking information for ${so.tracking_number}`}
                             className="inline-flex items-center gap-1 font-mono text-[11px] text-orange-600 font-bold hover:underline"
                           >
                             <TruckIcon className="h-3.5 w-3.5" />

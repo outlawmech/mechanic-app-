@@ -196,13 +196,13 @@ export default function InvoiceDetail() {
         );
         const savedInvoice = saveResult.data;
         if (!savedInvoice) {
-          throw new Error('Supabase did not confirm an updated invoice. The payment was not marked as saved. Reload before retrying.');
+          throw new Error('The server did not confirm the updated invoice. The payment was not marked as saved. Reload before retrying.');
         }
 
         const persistedPayments = (savedInvoice.payments ?? []) as InvoicePayment[];
         const persistedPayment = persistedPayments.find((payment) => payment.id === newPayment.id);
         if (!persistedPayment || num(persistedPayment.amount) !== amountNum) {
-          throw new Error('Supabase did not confirm this payment in the invoice history. Reload before retrying.');
+          throw new Error('The server did not confirm this payment in the invoice history. Reload before retrying.');
         }
 
         confirmedPayments = persistedPayments;
@@ -270,11 +270,11 @@ export default function InvoiceDetail() {
         );
         const savedInvoice = saveResult.data;
         if (!savedInvoice) {
-          throw new Error('Supabase did not confirm the invoice update. Reload before trying again.');
+          throw new Error('The server did not confirm the invoice update. Reload before trying again.');
         }
         const persistedPayments = (savedInvoice.payments ?? []) as InvoicePayment[];
         if (persistedPayments.some((payment) => payment.id === paymentId)) {
-          throw new Error('Supabase still returned the payment being removed. Reload before trying again.');
+          throw new Error('The server still returned the payment being removed. Reload before trying again.');
         }
         confirmedPayments = persistedPayments;
         confirmedStatus = savedInvoice.status as InvoiceFull['status'];

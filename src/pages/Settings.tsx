@@ -368,11 +368,11 @@ export default function Settings() {
               />
             </Field>
 
-            <Field label="Square / Stripe Payment Link">
+            <Field label="Payment Link">
               <Input
                 value={form.custom_pay_link || ''}
                 onChange={(e) => setForm({ ...form, custom_pay_link: e.target.value })}
-                placeholder="e.g. https://square.link/u/... or Stripe URL"
+                placeholder="Paste a payment link URL"
               />
             </Field>
           </div>

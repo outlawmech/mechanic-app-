@@ -22,12 +22,12 @@ import {
 } from '../lib/priceBooks';
 
 export const OEM_PROFILES = [
-  { id: 'suzuki', name: 'Suzuki OEM (Suzuki Connect)', icon: '🏍️', defaultVendor: 'Suzuki OEM' },
-  { id: 'honda', name: 'American Honda (Honda iN)', icon: '🔴', defaultVendor: 'Honda OEM' },
-  { id: 'polaris', name: 'Polaris & Indian (Polaris DEX)', icon: '🌲', defaultVendor: 'Polaris OEM' },
-  { id: 'yamaha', name: 'Yamaha Powersports (YDS)', icon: '🔵', defaultVendor: 'Yamaha OEM' },
-  { id: 'brp', name: 'BRP / Can-Am / Sea-Doo (BossWeb)', icon: '🌊', defaultVendor: 'BRP OEM' },
-  { id: 'ktm', name: 'KTM / GasGas / Husqvarna (Dealer.net)', icon: '🟠', defaultVendor: 'KTM OEM' },
+  { id: 'suzuki', name: 'Suzuki OEM', icon: '🏍️', defaultVendor: 'Suzuki OEM' },
+  { id: 'honda', name: 'American Honda OEM Parts', icon: '🔴', defaultVendor: 'Honda OEM' },
+  { id: 'polaris', name: 'Polaris & Indian OEM Parts', icon: '🌲', defaultVendor: 'Polaris OEM' },
+  { id: 'yamaha', name: 'Yamaha Powersports OEM', icon: '🔵', defaultVendor: 'Yamaha OEM' },
+  { id: 'brp', name: 'BRP / Can-Am / Sea-Doo OEM Parts', icon: '🌊', defaultVendor: 'BRP OEM' },
+  { id: 'ktm', name: 'KTM / GasGas / Husqvarna OEM Parts', icon: '🟠', defaultVendor: 'KTM OEM' },
   { id: 'wps', name: 'Western Power Sports (WPS)', icon: '📦', defaultVendor: 'Western Power Sports' },
   { id: 'parts_unlimited', name: 'Parts Unlimited / Drag Specialties', icon: '⚡', defaultVendor: 'Parts Unlimited' },
   { id: 'tucker', name: 'Tucker Powersports', icon: '🔧', defaultVendor: 'Tucker Powersports' },
@@ -315,7 +315,7 @@ PU-3807-0014,Spectro Heavy Duty Platinum 20W50 1qt,7.50,15.99,Parts Unlimited,Fl
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Load full manufacturer tapes for Suzuki, Honda, Polaris, Yamaha, WPS &amp; Parts Unlimited
+                Import manufacturer and distributor price books from supported files.
               </p>
             </div>
           </div>
@@ -377,7 +377,7 @@ PU-3807-0014,Spectro Heavy Duty Platinum 20W50 1qt,7.50,15.99,Parts Unlimited,Fl
                 <div>
                   <p className="text-sm font-bold text-white">No OEM Price Books Loaded Yet</p>
                   <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                    Upload your master price tapes from Suzuki Connect, Honda iN, Polaris DEX, or WPS to enable instant zero-typing part lookups.
+                    Upload a supported manufacturer or distributor price book to enable instant part lookups.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
@@ -446,7 +446,7 @@ PU-3807-0014,Spectro Heavy Duty Platinum 20W50 1qt,7.50,15.99,Parts Unlimited,Fl
         {activeTab === 'upload' && (
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="1. Select Manufacturer / Distributor Format">
+              <Field label="1. Select Manufacturer / Distributor">
                 <Select
                   value={selectedProfile}
                   onChange={(e) => handleProfileChange(e.target.value)}
@@ -492,7 +492,7 @@ PU-3807-0014,Spectro Heavy Duty Platinum 20W50 1qt,7.50,15.99,Parts Unlimited,Fl
                   {selectedFile ? selectedFile.name : 'Click to select Master Price File (CSV, TXT, TSV)'}
                 </p>
                 <p className="text-xs text-slate-400 mt-1">
-                  Accepts files from Suzuki Connect, Honda iN, Polaris DEX, WPS, or Parts Unlimited
+                  Accepts CSV, TXT, TSV, and DAT files; columns are matched automatically.
                 </p>
               </div>
 

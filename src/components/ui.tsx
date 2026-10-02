@@ -180,8 +180,7 @@ export function ErrorState({ message }: { message: string }) {
       <p className="font-semibold">Something went wrong</p>
       <p className="mt-1 text-xs">{message}</p>
       <p className="mt-2 text-xs text-red-500">
-        If this mentions a missing table or relation, run <code>supabase/schema.sql</code> in the
-        Supabase SQL editor first.
+        If this problem continues, contact support.
       </p>
     </div>
   );

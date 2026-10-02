@@ -231,7 +231,7 @@ export default function Sales() {
             await sb.from('dealership_units').update(unitPayload).eq('id', editingUnit.id).select('id').maybeSingle()
           );
           if (!updateResult.data?.id) {
-            throw new Error('Supabase did not confirm the showroom unit update. Check your access and try again.');
+            throw new Error('The server did not confirm the showroom unit update. Check your access and try again.');
           }
         } else {
           const duplicateResult = check(
@@ -244,11 +244,11 @@ export default function Sales() {
             await sb.from('dealership_units').insert(unitPayload).select('id, stock_number').single()
           );
           if (!insertResult.data?.id) {
-            throw new Error('Supabase did not confirm the showroom unit insert. The unit was not marked as saved.');
+            throw new Error('The server did not confirm the showroom unit insert. The unit was not marked as saved.');
           }
         }
         await reload();
-        toast(editingUnit ? 'Unit updated in Supabase' : 'Showroom unit saved in Supabase');
+        toast(editingUnit ? 'Unit updated' : 'Showroom unit saved');
       } else {
         // Offline handling
         if (editingUnit) {
@@ -280,7 +280,7 @@ export default function Sales() {
           cacheLocal('dealership_sales_data', { units: [newUnitData, ...allUnits], deals: allDeals });
         }
         await reload();
-        const pendingMessage = 'Unit is queued on this device and has not been confirmed in Supabase yet. It will sync when the connection returns.';
+        const pendingMessage = 'Unit is queued on this device and has not been confirmed by the server yet. It will sync when the connection returns.';
         setUnitSaveNotice({ kind: 'pending', message: pendingMessage });
         toast(pendingMessage);
       }

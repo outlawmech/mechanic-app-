@@ -330,7 +330,7 @@ export default function Layout() {
                     </span>
                     <div>
                       <p className="text-xs font-bold text-slate-900">Financials &amp; Reports</p>
-                      <p className="text-[10px] text-slate-500">QuickBooks &amp; Revenue</p>
+                      <p className="text-[10px] text-slate-500">Accounting &amp; Revenue</p>
                     </div>
                   </button>
 
@@ -434,7 +434,7 @@ export default function Layout() {
                     </span>
                     <div>
                       <p className="text-xs font-bold text-slate-900">Financials &amp; Reports</p>
-                      <p className="text-[10px] text-slate-500">QuickBooks &amp; Revenue</p>
+                      <p className="text-[10px] text-slate-500">Accounting &amp; Revenue</p>
                     </div>
                   </button>
 

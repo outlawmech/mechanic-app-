@@ -153,7 +153,7 @@ export default function Reports() {
     };
   }, [filteredInvoices, reportingPayments, data?.items, data?.parts]);
 
-  // QuickBooks & CSV Exporters
+  // Accounting & CSV Exporters
   function exportInvoicesCSV() {
     if (!filteredInvoices.length) {
       toast('No invoices to export for this date range', 'error');
@@ -309,12 +309,12 @@ export default function Reports() {
         </Card>
       </div>
 
-      {/* QuickBooks & Spreadsheet Export Center */}
+      {/* Accounting & Spreadsheet Export Center */}
       <Card className="p-5 space-y-3 bg-orange-50/40 border-orange-200">
         <div className="flex items-center justify-between border-b border-orange-200/80 pb-2">
           <div>
             <h3 className="text-sm font-bold text-orange-950 uppercase tracking-wide">
-              QuickBooks &amp; Bookkeeper CSVs
+              Accounting &amp; Bookkeeper CSVs
             </h3>
             <p className="text-xs text-orange-900/80">
               Download invoice, payment, and inventory registers to share with your bookkeeper or map during import. These files do not sync or post entries automatically.

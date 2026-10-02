@@ -308,7 +308,7 @@ export default function Schedule() {
                             type="button"
                             onClick={() => handleOpenMaps(wo.customer.address)}
                             className="mt-0.5 flex items-center gap-1 text-xs text-orange-700 hover:underline text-left font-medium"
-                            title="Open in Google Maps"
+                            title="Open map directions"
                           >
                             <MapPinIcon className="h-3.5 w-3.5 shrink-0 text-orange-600" />
                             <span className="truncate">{wo.customer.address}</span>

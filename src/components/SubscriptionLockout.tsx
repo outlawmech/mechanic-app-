@@ -104,7 +104,7 @@ export default function SubscriptionLockout({ onUnlocked }: SubscriptionLockoutP
               Activate Subscription ($29/mo)
             </a>
             <p className="mt-2 text-center text-[11px] text-slate-400">
-              Secure Stripe checkout • Instant activation • Cancel anytime
+              Secure checkout • Instant activation • Cancel anytime
             </p>
           </div>
         </Card>

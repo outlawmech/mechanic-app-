@@ -577,7 +577,7 @@ export default function CounterSale() {
         await sb.from('work_items').insert(workItemRows).select('id, description, quantity, unit_price')
       );
       if ((savedWorkItems.data ?? []).length !== workItemRows.length) {
-        throw new Error('Supabase did not confirm every invoice line item. The sale was stopped before creating the invoice.');
+        throw new Error('The server did not confirm every invoice line item. The sale was stopped before creating the invoice.');
       }
 
       // Persist confirmed Special Order cart lines only as part of checkout.
@@ -684,7 +684,7 @@ export default function CounterSale() {
               .maybeSingle()
           );
           if (!soUpdate.data || soUpdate.data.status !== 'fulfilled' || soUpdate.data.payment_status !== 'paid_in_full' || soUpdate.data.work_item_id !== specialOrderUpdate.work_item_id) {
-            throw new Error('Supabase did not confirm the special order payment update.');
+            throw new Error('The server did not confirm the special order payment update.');
           }
           const cachedSo = getCachedLocal<SpecialOrder[]>('special_orders') || [];
           cacheLocal('special_orders', cachedSo.map((order) =>

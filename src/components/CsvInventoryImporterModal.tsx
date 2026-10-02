@@ -338,7 +338,7 @@ export default function CsvInventoryImporterModal({
             <div>
               <h3 className="text-base font-black text-white">Bulk CSV Inventory Importer</h3>
               <p className="text-xs text-slate-400">
-                Migrate parts from Lightspeed, CDK, DealerTrack, QuickBooks, or Excel
+                Import parts and inventory from supported CSV files
               </p>
             </div>
           </div>

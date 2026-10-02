@@ -568,7 +568,7 @@ export default function SpecialOrderModal({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Carrier Tracking # (UPS/FedEx/USPS)">
+              <Field label="Carrier Tracking Number">
                 <div className="relative">
                   <Input
                     value={trackingNumber}
@@ -582,7 +582,8 @@ export default function SpecialOrderModal({
                       target="_blank"
                       rel="noopener noreferrer"
                       className="absolute right-2.5 top-3 text-orange-400 hover:text-orange-300"
-                      title="Track package on Google"
+                      title="Search for package tracking information"
+                      aria-label="Search for package tracking information"
                     >
                       <ExternalLinkIcon className="h-4 w-4" />
                     </a>
