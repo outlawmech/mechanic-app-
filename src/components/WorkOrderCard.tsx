@@ -3,6 +3,7 @@ import { fullName, isToday, money, shortDate, vehicleLabel, workOrderEstimate } 
 import type { WorkOrderFull } from '../types';
 import { Badge, Card } from './ui';
 import { VehicleIcon } from './icons';
+import { getWorkOrderType, workOrderTypeLabel } from '../lib/workOrderType';
 
 export default function WorkOrderCard({ wo }: { wo: WorkOrderFull }) {
   const est = workOrderEstimate(wo.items ?? []);
@@ -12,7 +13,10 @@ export default function WorkOrderCard({ wo }: { wo: WorkOrderFull }) {
       <Card className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="font-mono text-xs font-semibold text-slate-500">{wo.number}</p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <p className="font-mono text-xs font-semibold text-slate-500">{wo.number}</p>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">{workOrderTypeLabel(getWorkOrderType(wo))}</span>
+            </div>
             <p className="mt-0.5 truncate text-sm font-semibold text-slate-900">
               {fullName(wo.customer)}
             </p>

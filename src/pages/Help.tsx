@@ -53,10 +53,11 @@ const topics: Topic[] = [
     title: 'Write a work order', summary: 'Intake, work, notes, and completion', path: '/work',
     steps: [
       'Start a new work order from Home or Work Orders. Select a customer, or add one in place with + Quick New Customer; choose equipment when applicable.',
-      'Record the concern and add labor, parts, or fees with the right quantity and rate.',
+      'Record the concern and add labor, parts, or fees with the right quantity and rate. Labor hours can be entered to hundredth-hour precision.',
       'Use service notes and photos for findings. Capture a customer signature when authorization is needed.',
       'Choose Start Work Order when work begins, then Mark WO Completed when it is done.',
       'For customer work, review the lines and tax before creating an invoice.',
+      'Choose Customer, Warranty, or Internal. Warranty and Internal work keeps its labor, parts, and totals but does not create a customer-pay invoice.',
     ],
     notes: ['Issued invoices lock the WO’s financial lines. Put additional billable work on a separate WO.', 'For an internal PDI or rigging WO, complete the work and use Close Internal WO. This posts cost to the unit without issuing a customer invoice.'],
   },

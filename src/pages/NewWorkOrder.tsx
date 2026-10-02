@@ -9,6 +9,8 @@ import { fullName, getVehicleTypeInfo, todayISO, vehicleLabel } from '../lib/for
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
 import type { CustomerWithVehicles, VehicleType, WorkOrderFull } from '../types';
+import { WORK_ORDER_TYPES, workOrderTypeLabel } from '../lib/workOrderType';
+import type { WorkOrderType } from '../types';
 
 export default function NewWorkOrder() {
   const navigate = useNavigate();
@@ -39,6 +41,7 @@ export default function NewWorkOrder() {
   );
   const [mileageOrHours, setMileageOrHours] = useState('');
   const [notes, setNotes] = useState('');
+  const [workOrderType, setWorkOrderType] = useState<WorkOrderType>('customer');
   const [saving, setSaving] = useState(false);
 
   // Quick Customer & Vehicle Intake Modal state
@@ -120,6 +123,7 @@ export default function NewWorkOrder() {
       scheduled_at: scheduled ? `${scheduled}T12:00:00` : null,
       mileage_or_hours: mileageOrHours.trim(),
       notes: notes.trim(),
+      work_order_type: workOrderType,
     };
 
     const offlineRo: WorkOrderFull = {
@@ -132,6 +136,7 @@ export default function NewWorkOrder() {
       scheduled_at: payload.scheduled_at,
       mileage_or_hours: payload.mileage_or_hours,
       notes: payload.notes,
+      work_order_type: payload.work_order_type,
       status: 'open',
       items: [],
       created_at: new Date().toISOString(),
@@ -154,6 +159,7 @@ export default function NewWorkOrder() {
               scheduled_at: payload.scheduled_at,
               mileage_or_hours: payload.mileage_or_hours,
               notes: payload.notes,
+              work_order_type: payload.work_order_type,
             })
             .select('id, number')
         );
@@ -175,6 +181,7 @@ export default function NewWorkOrder() {
           scheduled_at: payload.scheduled_at,
           mileage_or_hours: payload.mileage_or_hours,
           notes: payload.notes,
+          work_order_type: payload.work_order_type,
         },
         description: `Create Work Order for ${fullName(customer)}`,
       });
@@ -192,6 +199,7 @@ export default function NewWorkOrder() {
           scheduled_at: payload.scheduled_at,
           mileage_or_hours: payload.mileage_or_hours,
           notes: payload.notes,
+          work_order_type: payload.work_order_type,
         },
         description: `Create Work Order for ${fullName(customer)}`,
       });
@@ -216,6 +224,15 @@ export default function NewWorkOrder() {
 
       <form onSubmit={save} className="space-y-4">
         <Card className="space-y-4 p-4">
+          <Field label="Work Order Type">
+            <Select value={workOrderType} onChange={(e) => setWorkOrderType(e.target.value as WorkOrderType)}>
+              {WORK_ORDER_TYPES.map((type) => (
+                <option key={type} value={type}>{workOrderTypeLabel(type)}</option>
+              ))}
+            </Select>
+          </Field>
+          {workOrderType !== 'customer' && <p className="-mt-3 text-xs text-slate-500">This work is tracked without creating a customer-pay invoice.</p>}
+
           <CustomerSearchPicker
             customers={availableCustomers}
             selectedCustomerId={customerId}

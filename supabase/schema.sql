@@ -74,6 +74,8 @@ create table if not exists public.work_orders (
   scheduled_at     timestamptz,
   mileage_or_hours text not null default '',
   notes            text not null default '',
+  work_order_type  text not null default 'customer'
+                   check (work_order_type in ('customer','warranty','internal')),
   signature_url    text,
   signed_by_name   text,
   signed_at        timestamptz,

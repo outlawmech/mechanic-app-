@@ -1,4 +1,5 @@
 import type { DealershipUnit, ShopSettings, WorkOrderFull } from '../types';
+import { getWorkOrderType, workOrderTypeLabel } from './workOrderType.ts';
 
 export type TechWorksheetWorkOrder = WorkOrderFull & { unit?: DealershipUnit | null };
 
@@ -59,6 +60,7 @@ export function buildTechWorksheetHtml(wo: TechWorksheetWorkOrder, settings: Sho
     || engineHours;
   const type = vehicle?.type || unit?.type || '';
   const usageLabel = type === 'marine' || type === 'equipment' ? 'Engine Hours' : 'Mileage / Hours';
+  const orderTypeLabel = workOrderTypeLabel(getWorkOrderType(wo));
 
   const notes = text(wo.notes);
   const workItems = (wo.items ?? [])
@@ -133,6 +135,7 @@ export function buildTechWorksheetHtml(wo: TechWorksheetWorkOrder, settings: Sho
       <div class="worksheet-title"><h1>SERVICE WORKSHEET</h1><p>WORK ORDER / TECH NOTES</p></div>
       <table class="meta"><tbody>
         <tr><th>WO #</th><td>${escapeHtml(text(wo.number))}</td></tr>
+        <tr><th>WO Type:</th><td>${escapeHtml(orderTypeLabel)}</td></tr>
         <tr><th>Date In:</th><td>${escapeHtml(printableDate(wo.created_at))}</td></tr>
         <tr><th>Target Date:</th><td>${escapeHtml(printableDate(wo.scheduled_at))}</td></tr>
       </tbody></table>

@@ -1,7 +1,7 @@
 import { Capacitor } from '@capacitor/core';
-import { money, num, fullName, vehicleLabel, longDate, getVehicleTypeInfo } from './format';
+import { money, num, fullName, vehicleLabel, longDate, getVehicleTypeInfo } from './format.ts';
 import type { InvoiceFull, Vehicle, WorkItem, WorkOrder, ShopSettings } from '../types';
-import { buildTechWorksheetHtml, type TechWorksheetWorkOrder } from './techWorksheet';
+import { buildTechWorksheetHtml, type TechWorksheetWorkOrder } from './techWorksheet.ts';
 
 export const isNativePlatform = Capacitor.isNativePlatform();
 

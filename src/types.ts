@@ -40,6 +40,7 @@ export type Vehicle = {
 export type CustomerWithVehicles = Customer & { vehicles: Vehicle[] };
 
 export type WorkOrderStatus = 'open' | 'in_progress' | 'completed' | 'invoiced';
+export type WorkOrderType = 'customer' | 'warranty' | 'internal';
 
 export type PhotoCategory =
   | 'pre_inspection'
@@ -71,6 +72,7 @@ export type WorkOrder = {
   signed_at?: string | null;
   created_at: string;
   completed_at: string | null;
+  work_order_type?: WorkOrderType;
   internal_type?: 'pdi' | 'rigging' | null;
   unit_id?: string | null;
   buyer_order_id?: string | null;

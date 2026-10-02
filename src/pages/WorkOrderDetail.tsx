@@ -48,6 +48,8 @@ import { splitQuantityByAvailability } from '../lib/inventoryQuantities';
 import { printTechWorksheetDocument } from '../lib/printer';
 import { lookupPriceBookSku } from '../lib/priceBooks';
 import type { InvoiceSummary, Part, SpecialOrder, WorkItem, WorkOrderFull, WorkOrderStatus } from '../types';
+import type { WorkOrderType } from '../types';
+import { canCreateCustomerInvoice, getWorkOrderType, parseWorkItemQuantity, WORK_ORDER_TYPES, workOrderTypeLabel } from '../lib/workOrderType';
 
 const KIND_LABEL: Record<WorkItem['kind'], string> = { labor: 'Labor', part: 'Part', fee: 'Fee' };
 const KIND_CLS: Record<WorkItem['kind'], string> = {
@@ -146,6 +148,7 @@ export default function WorkOrderDetail() {
   const [taxPct, setTaxPct] = useState('0');
   const [notesDraft, setNotesDraft] = useState<string | null>(null);
   const [hoursDraft, setHoursDraft] = useState<string | null>(null);
+  const [typeDraft, setTypeDraft] = useState<WorkOrderType | null>(null);
 
   // Line item form state
   const [kind, setKind] = useState<WorkItem['kind']>('labor');
@@ -235,6 +238,8 @@ export default function WorkOrderDetail() {
   const financialItemsLocked = Boolean(invoice);
   const invoiceItemsMismatch = Boolean(invoice) && Math.abs(subtotal - num(invoice?.subtotal)) >= 0.01;
   const isInternal = Boolean(wo.internal_type);
+  const workOrderType = getWorkOrderType(wo);
+  const isCustomerPay = canCreateCustomerInvoice(workOrderType);
   const vehicleTypeInfo = wo.vehicle ? getVehicleTypeInfo(wo.vehicle.type) : null;
 
   async function updateStatus(next: WorkOrderStatus) {
@@ -352,7 +357,7 @@ export default function WorkOrderDetail() {
       return;
     }
     setAdding(true);
-    const quantityNum = Number(qty) || 1;
+    const quantityNum = parseWorkItemQuantity(qty);
     const unitPriceNum = Number(price) || 0;
     const itemId = generateUUID();
     const newItemPayload = {
@@ -680,9 +685,10 @@ export default function WorkOrderDetail() {
   }
 
   async function saveDetails() {
-    const updates: { notes?: string; mileage_or_hours?: string } = {};
+    const updates: { notes?: string; mileage_or_hours?: string; work_order_type?: WorkOrderType } = {};
     if (notesDraft !== null) updates.notes = notesDraft;
     if (hoursDraft !== null) updates.mileage_or_hours = hoursDraft;
+    if (typeDraft !== null && !isInternal && !invoice) updates.work_order_type = typeDraft;
 
     try {
       if (navigator.onLine) {
@@ -700,11 +706,13 @@ export default function WorkOrderDetail() {
         });
         if (updates.notes !== undefined) wo!.notes = updates.notes;
         if (updates.mileage_or_hours !== undefined) wo!.mileage_or_hours = updates.mileage_or_hours;
+        if (updates.work_order_type !== undefined) wo!.work_order_type = updates.work_order_type;
         cacheLocal(`wo_${id}`, data);
         toast('Saved locally (Offline Mode)');
       }
       setNotesDraft(null);
       setHoursDraft(null);
+      setTypeDraft(null);
     } catch (e) {
       enqueueOfflineAction({
         table: 'work_orders',
@@ -716,14 +724,20 @@ export default function WorkOrderDetail() {
       });
       if (updates.notes !== undefined) wo!.notes = updates.notes;
       if (updates.mileage_or_hours !== undefined) wo!.mileage_or_hours = updates.mileage_or_hours;
+      if (updates.work_order_type !== undefined) wo!.work_order_type = updates.work_order_type;
       cacheLocal(`wo_${id}`, data);
       toast('Saved offline');
       setNotesDraft(null);
       setHoursDraft(null);
+      setTypeDraft(null);
     }
   }
 
   async function createInvoice() {
+    if (!isCustomerPay || isInternal) {
+      toast('Only Customer work orders can create a customer invoice.', 'error');
+      return;
+    }
     if (!shopId) {
       toast('Shop access is still loading. Try again in a moment.', 'error');
       return;
@@ -999,7 +1013,7 @@ export default function WorkOrderDetail() {
                   Close Internal WO &amp; Post Unit Cost
                 </Button>
               )}
-              {wo.status === 'completed' && !isInternal && !showInvoicePanel && (
+              {wo.status === 'completed' && isCustomerPay && !isInternal && !showInvoicePanel && (
                 <Button
                   variant="accent"
                   className="w-full text-xs font-bold"
@@ -1009,7 +1023,7 @@ export default function WorkOrderDetail() {
                 </Button>
               )}
 
-              {!isInternal && showInvoicePanel && (
+              {isCustomerPay && !isInternal && showInvoicePanel && (
                 <Card className="space-y-3 border-orange-300 bg-orange-50/50 p-4">
                   <p className="text-xs font-bold uppercase tracking-wide text-slate-700">
                     Generate Customer Invoice
@@ -1042,6 +1056,12 @@ export default function WorkOrderDetail() {
                 </Card>
               )}
 
+              {!isCustomerPay && !isInternal && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                  <strong>{workOrderTypeLabel(workOrderType)} work.</strong> Labor, parts, and totals remain recorded; no customer-pay invoice is created.
+                </div>
+              )}
+
               {wo.status === 'invoiced' && invoice && (
                 <Link
                   to={`/invoices/${invoice.id}`}
@@ -1069,6 +1089,26 @@ export default function WorkOrderDetail() {
                 <span className="text-[10px] text-slate-400 font-medium">Expandable</span>
               </div>
 
+              <Field label="Work Order Type">
+                {isInternal ? (
+                  <div className="rounded-xl bg-slate-100 px-3.5 py-2.5 text-sm font-semibold text-slate-700">Internal</div>
+                ) : (
+                  <Select
+                    value={typeDraft ?? workOrderType}
+                    onChange={(e) => setTypeDraft(e.target.value as WorkOrderType)}
+                    disabled={Boolean(invoice)}
+                  >
+                    {WORK_ORDER_TYPES.map((type) => (
+                      <option key={type} value={type}>{workOrderTypeLabel(type)}</option>
+                    ))}
+                  </Select>
+                )}
+              </Field>
+              {invoice && <p className="-mt-2 text-xs text-slate-500">Type is locked after an invoice is issued.</p>}
+              {(typeDraft ?? workOrderType) !== 'customer' && !isInternal && (
+                <p className="-mt-2 text-xs text-slate-500">Warranty and Internal work is tracked without a customer-pay invoice.</p>
+              )}
+
               <Field label={vehicleTypeInfo ? `${vehicleTypeInfo.hoursLabel} at service` : 'Service Hours / Miles'}>
                 <Input
                   value={hoursValue}
@@ -1087,9 +1127,9 @@ export default function WorkOrderDetail() {
                 />
               </Field>
 
-              {(notesDraft !== null || hoursDraft !== null) && (
+              {(notesDraft !== null || hoursDraft !== null || typeDraft !== null) && (
                 <Button variant="accent" className="w-full text-xs font-bold shadow-sm" onClick={saveDetails}>
-                  ✓ Save Notes &amp; Hours Updates
+                  ✓ Save Work Order Updates
                 </Button>
               )}
             </Card>
@@ -1296,7 +1336,7 @@ export default function WorkOrderDetail() {
 
               <div className="grid grid-cols-2 gap-2">
                 <Field label="Qty / Hours">
-                  <Input type="number" min="0" step="0.25" value={qty} onChange={(e) => setQty(e.target.value)} />
+                  <Input type="number" min="0" step={kind === 'labor' ? '0.01' : '0.25'} value={qty} onChange={(e) => setQty(e.target.value)} />
                 </Field>
                 <Field label="Rate ($)">
                   <Input

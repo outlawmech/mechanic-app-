@@ -552,6 +552,7 @@ export default function CounterSale() {
           user_id: shopId,
           number: `PRT-${Date.now().toString().slice(-4)}`,
           customer_id: buyerId,
+          work_order_type: 'customer',
           status: 'completed',
           notes: `Part Invoice · Paid via ${paymentMethod.toUpperCase()}${soOrderNum ? ` · Ref: ${soOrderNum}` : ''}`,
         }).select('id').single()
