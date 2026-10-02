@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildStandaloneInvoiceHtml, getInvoiceCustomerConcern } from '../src/lib/printer.ts';
+import { buildStandaloneInvoiceHtml, getInvoiceCustomerConcern, getInvoiceWorkOrderNumber } from '../src/lib/printer.ts';
 
 function invoice(workOrderId = 'wo-service-1', overrides = {}) {
   return {
@@ -48,6 +48,7 @@ test('service invoice prints the short customer concern from its linked Work Ord
   assert.ok(concernPosition >= 0);
   assert.ok(concernPosition < itemTablePosition);
   assert.match(html, /CUSTOMER CONCERN \/ AUTHORIZED WORK<\/div>\s*<div>100 hour service<\/div>/);
+  assert.match(html, /Work Order: WO-1001/);
   assert.ok(html.indexOf('Performed 100-hour service') > concernPosition);
 });
 
@@ -66,7 +67,9 @@ test('long multiline concern wraps cleanly and remains distinct from technician 
   assert.ok(concernMarkup.includes('Customer requests inspection after intermittent stalling.'));
   assert.ok(concernMarkup.includes('Confirm operation under load'));
   assert.match(html, /\.customer-concern-box\s*\{[^}]*white-space:\s*pre-wrap;[^}]*overflow-wrap:\s*anywhere;/);
-  assert.match(html, /page-break-inside:\s*avoid;\s*break-inside:\s*avoid;/);
+  assert.match(html, /height:\s*auto;\s*min-height:\s*0;\s*max-height:\s*none;/);
+  assert.doesNotMatch(concernMarkup, /height:\s*\d+(?:px|pt|mm)|min-height:\s*\d+(?:px|pt|mm)/);
+  assert.doesNotMatch(html, /\.customer-concern-box\s*\{[^}]*page-break-inside:\s*avoid/);
   assert.ok(html.indexOf(chargedWork) > concernEnd);
   assert.match(html, /0\.82/);
   assert.match(html, /Fuel filter/);
@@ -80,13 +83,21 @@ test('direct Parts Counter invoices omit the concern heading even when linked to
   });
 
   assert.equal(getInvoiceCustomerConcern(counterInvoice, counterWorkOrder), '');
+  assert.equal(getInvoiceWorkOrderNumber(counterInvoice, counterWorkOrder), '');
   const html = buildStandaloneInvoiceHtml(counterInvoice, [
     { description: 'Spark plug', kind: 'part', quantity: 1, unit_price: 12, sort_order: 0 },
   ], null, settings(), counterWorkOrder);
   assert.doesNotMatch(html, /CUSTOMER CONCERN \/ AUTHORIZED WORK/);
+  assert.doesNotMatch(html, /Work Order:/);
 
   assert.equal(getInvoiceCustomerConcern(invoice(null), null), '');
+  assert.equal(getInvoiceWorkOrderNumber(invoice(null), null), '');
   assert.equal(getInvoiceCustomerConcern(invoice(), serviceWorkOrder('   ')), '');
+});
+
+test('service invoice shows only the matching originating Work Order number', () => {
+  assert.equal(getInvoiceWorkOrderNumber(invoice(), serviceWorkOrder('Customer concern')), 'WO-1001');
+  assert.equal(getInvoiceWorkOrderNumber(invoice(), serviceWorkOrder('Concern', { id: 'another-wo' })), '');
 });
 
 test('long invoices keep every line item and totals in normal print flow around the compact concern block', () => {

@@ -123,7 +123,7 @@ export default function Dashboard() {
         supabase.from('work_orders').select('id', { count: 'exact', head: true })
           .eq('user_id', shopId).eq('status', 'in_progress'),
         supabase.from('work_orders').select('id', { count: 'exact', head: true })
-          .eq('user_id', shopId).eq('status', 'completed'),
+          .eq('user_id', shopId).in('status', ['completed', 'invoiced']),
       ]);
 
       const failures = [
@@ -202,7 +202,7 @@ export default function Dashboard() {
   const filteredOrders = recentOrders.filter((o) => {
     if (activeTab === 'active') return o.status === 'open' || o.status === 'in_progress';
     if (activeTab === 'in_progress') return o.status === 'in_progress';
-    if (activeTab === 'completed') return o.status === 'completed';
+    if (activeTab === 'completed') return o.status === 'completed' || o.status === 'invoiced';
     return true;
   });
 
@@ -350,13 +350,20 @@ export default function Dashboard() {
         </Link>
 
         <Link to="/invoices" className="block transition hover:-translate-y-0.5">
-          <Card className="flex items-center gap-3.5 p-4 border-l-4 border-l-emerald-500">
+          <Card
+            className="[container-type:inline-size] grid grid-cols-[2.5rem_minmax(0,1fr)] items-center gap-x-3.5 gap-y-1 p-4 border-l-4 border-l-emerald-500 lg:flex"
+          >
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-700 font-bold">
               <ReceiptIcon className="h-5 w-5" />
             </span>
-            <div className="min-w-0">
+            <div className="contents min-w-0 lg:block">
               <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Unpaid Tickets</p>
-              <p className="text-2xl font-black text-slate-900">{loading ? '…' : unavailable.includes('invoices') ? '—' : money(metrics.unpaidTotal)}</p>
+              <p
+                className="col-span-2 min-w-0 max-w-full whitespace-nowrap font-black leading-tight tracking-tight tabular-nums text-slate-900 lg:col-span-1"
+                style={{ fontSize: 'clamp(0.75rem, 8cqw, 1.5rem)' }}
+              >
+                {loading ? '…' : unavailable.includes('invoices') ? '—' : money(metrics.unpaidTotal)}
+              </p>
             </div>
           </Card>
         </Link>

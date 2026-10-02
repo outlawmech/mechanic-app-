@@ -7,6 +7,7 @@ import { useAsync } from '../lib/hooks';
 import { fullName, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache } from '../lib/offlineSync';
+import { isCompletedWorkOrderStatus } from '../lib/workOrderStatus';
 import { useShopSettings } from '../lib/settings';
 import type { WorkOrderFull } from '../types';
 
@@ -49,6 +50,8 @@ export default function WorkOrders() {
     let filtered = data;
     if (filter === 'active') {
       filtered = data.filter((w) => w.status === 'open' || w.status === 'in_progress');
+    } else if (filter === 'completed') {
+      filtered = data.filter((w) => isCompletedWorkOrderStatus(w.status));
     } else if (filter !== 'all') {
       filtered = data.filter((w) => w.status === filter);
     }

@@ -38,7 +38,7 @@ import type { InvoiceFull, InvoicePayment, PaymentMethod, Vehicle, WorkItem, Wor
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
 import { getWorkOrderSignature } from '../lib/photoStorage';
 import { getInvoiceBalanceDue, getInvoicePaidAmount } from '../lib/invoiceAccounting';
-import { getInvoiceCustomerConcern, printInvoiceDocument } from '../lib/printer';
+import { getInvoiceCustomerConcern, getInvoiceWorkOrderNumber, printInvoiceDocument } from '../lib/printer';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 
@@ -139,6 +139,7 @@ export default function InvoiceDetail() {
 
   const vInfo = vehicle ? getVehicleTypeInfo(vehicle.type) : null;
   const customerConcern = getInvoiceCustomerConcern(invoice, workOrder);
+  const workOrderNumber = getInvoiceWorkOrderNumber(invoice, workOrder);
   const paymentsList = invoice.payments ?? [];
 
   // Use the same legacy-aware balance calculation as the invoice list and reports.
@@ -588,6 +589,7 @@ export default function InvoiceDetail() {
               <div>
                 <p className="text-2xl font-black tracking-tight text-slate-900">INVOICE</p>
                 <p className="mt-1 font-mono text-xs font-bold text-slate-500">{invoice.number}</p>
+                {workOrderNumber && <p className="mt-0.5 font-mono text-[11px] font-semibold text-slate-600">Work Order: {workOrderNumber}</p>}
               </div>
               <div className="flex flex-col items-end text-right">
                 {settings.logo_url && (

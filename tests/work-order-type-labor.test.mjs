@@ -19,10 +19,27 @@ test('work order types have exactly three values and legacy orders retain safe c
 });
 
 test('work item quantity parsing preserves hundredth-hour values and existing labor rates calculate correctly', () => {
-  const quantities = ['0.25', '0.5', '0.8', '0.82', '1.37', '2.75'];
-  assert.deepEqual(quantities.map(parseWorkItemQuantity), [0.25, 0.5, 0.8, 0.82, 1.37, 2.75]);
+  const quantities = ['0.25', '0.50', '0.82', '1.37', '2.00'];
+  assert.deepEqual(quantities.map(parseWorkItemQuantity), [0.25, 0.5, 0.82, 1.37, 2]);
   const estimate = workOrderEstimate([{ quantity: parseWorkItemQuantity('0.82'), unit_price: 95 }]);
   assert.equal(estimate, 77.9);
+});
+
+test('printed invoice preserves representative hundredth-hour labor quantities exactly', () => {
+  const quantities = [0.25, 0.5, 0.82, 1.37, 2];
+  const items = quantities.map((quantity, index) => ({
+    kind: 'labor', quantity, unit_price: 95, description: `Labor ${index + 1}`, sort_order: index,
+  }));
+  const html = buildStandaloneInvoiceHtml({
+    number: 'INV-LABOR', status: 'unpaid', subtotal: 469.3, tax: 0, tax_rate: 0, total: 469.3,
+    payments: [], issued_at: '2026-10-02T12:00:00Z', due_date: '2026-11-01T12:00:00Z',
+    customer: { first_name: 'Pat', last_name: 'Customer', address: '', phone: '', email: '' },
+  }, items, null, { shop_name: 'Test Shop', invoice_notes: '' }, null);
+
+  for (const quantity of quantities) {
+    assert.match(html, new RegExp(`<td[^>]*>\\s*${quantity}\\s*</td>`));
+  }
+  assert.match(html, /\$77\.90/);
 });
 
 test('printable work order and invoice retain 0.82 labor hours and currency totals', () => {

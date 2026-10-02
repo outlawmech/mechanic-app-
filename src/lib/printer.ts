@@ -7,10 +7,14 @@ export const isNativePlatform = Capacitor.isNativePlatform();
 
 /** Use the linked service WO as the source of truth; Parts Counter records use PRT-numbered placeholder WOs. */
 export function getInvoiceCustomerConcern(invoice: Pick<InvoiceFull, 'work_order_id'>, workOrder: WorkOrder | null): string {
-  if (!invoice.work_order_id || !workOrder || workOrder.id !== invoice.work_order_id || workOrder.number.startsWith('PRT-')) {
-    return '';
-  }
+  if (!workOrder || !getInvoiceWorkOrderNumber(invoice, workOrder)) return '';
   return workOrder.notes?.trim() ?? '';
+}
+
+/** Parts Counter placeholder WOs do not represent service-originating invoices. */
+export function getInvoiceWorkOrderNumber(invoice: Pick<InvoiceFull, 'work_order_id'>, workOrder: WorkOrder | null): string {
+  if (!invoice.work_order_id || !workOrder || workOrder.id !== invoice.work_order_id || workOrder.number.startsWith('PRT-')) return '';
+  return workOrder.number;
 }
 
 function escapeHtml(str: string | null | undefined): string {
@@ -39,6 +43,7 @@ export function buildStandaloneInvoiceHtml(
   const balanceDue = Math.max(0, num(invoice.total) - totalPaid);
   const isFullyPaid = invoice.status === 'paid' || balanceDue <= 0;
   const customerConcern = getInvoiceCustomerConcern(invoice, workOrder);
+  const workOrderNumber = getInvoiceWorkOrderNumber(invoice, workOrder);
   const cashierRows = (invoice.payments || []).filter((payment) => payment.cashier_name)
     .map((payment) => `<div style="font-size:8pt;color:#64748b">Cashier: ${escapeHtml(payment.cashier_name)} · ${money(payment.amount)}</div>`).join('');
   const vInfo = vehicle ? getVehicleTypeInfo(vehicle.type) : null;
@@ -138,8 +143,11 @@ export function buildStandaloneInvoiceHtml(
       font-size: 9pt;
     }
     .customer-concern-box {
-      margin: 0 0 12px;
-      padding: 8px 12px;
+      height: auto;
+      min-height: 0;
+      max-height: none;
+      margin: 0 0 8px;
+      padding: 6px 10px;
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 6px;
@@ -147,15 +155,15 @@ export function buildStandaloneInvoiceHtml(
       color: #334155;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
-      page-break-inside: avoid;
-      break-inside: avoid;
     }
     .customer-concern-title {
-      margin-bottom: 3px;
+      margin-bottom: 2px;
       color: #475569;
       font-size: 7.5pt;
       font-weight: 700;
       letter-spacing: 0.05em;
+      page-break-after: avoid;
+      break-after: avoid;
     }
     .items-table {
       width: 100%;
@@ -242,6 +250,7 @@ export function buildStandaloneInvoiceHtml(
           <div style="font-family: monospace; font-size: 9.5pt; font-weight: 700; color: #64748b; margin-top: 2px;">
             ${escapeHtml(invoice.number)}
           </div>
+          ${workOrderNumber ? `<div style="font-size: 8pt; font-weight: 600; color: #475569; margin-top: 2px;">Work Order: ${escapeHtml(workOrderNumber)}</div>` : ''}
         </td>
         <td style="text-align: right;">
           ${settings.logo_url ? `<img src="${escapeHtml(settings.logo_url)}" alt="${escapeHtml(settings.shop_name)}" class="shop-logo" />` : ''}
