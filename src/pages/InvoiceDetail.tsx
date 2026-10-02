@@ -38,7 +38,7 @@ import type { InvoiceFull, InvoicePayment, PaymentMethod, Vehicle, WorkItem, Wor
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
 import { getWorkOrderSignature } from '../lib/photoStorage';
 import { getInvoiceBalanceDue, getInvoicePaidAmount } from '../lib/invoiceAccounting';
-import { printInvoiceDocument } from '../lib/printer';
+import { getInvoiceCustomerConcern, printInvoiceDocument } from '../lib/printer';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
 
@@ -138,6 +138,7 @@ export default function InvoiceDetail() {
   }
 
   const vInfo = vehicle ? getVehicleTypeInfo(vehicle.type) : null;
+  const customerConcern = getInvoiceCustomerConcern(invoice, workOrder);
   const paymentsList = invoice.payments ?? [];
 
   // Use the same legacy-aware balance calculation as the invoice list and reports.
@@ -659,6 +660,15 @@ export default function InvoiceDetail() {
                   The invoice was issued with a subtotal of {money(invoice.subtotal)}. Its linked work order now has line items totaling {money(currentLineItemsSubtotal)}. The issued invoice totals and balance have not been changed. Invoiced work order line items are locked; record additional work on a separate work order.
                 </p>
               </div>
+            )}
+
+            {customerConcern && (
+              <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  CUSTOMER CONCERN / AUTHORIZED WORK
+                </h2>
+                <p className="mt-1 whitespace-pre-wrap break-words">{customerConcern}</p>
+              </section>
             )}
 
             {/* Line items table */}
