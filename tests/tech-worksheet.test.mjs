@@ -44,7 +44,24 @@ test('builds a one-page letter portrait worksheet with existing WO information',
   assert.match(html, /PARTS NEEDED/);
   assert.match(html, /Technician Signature/);
   assert.doesNotMatch(html, /Service Advisor|Additional Recommendations|Outlaw Shop Systems/);
-  assert.equal((html.match(/class="writing-line"/g) ?? []).length, 14);
+  assert.equal((html.match(/class="writing-line"/g) ?? []).length, 10);
+  const concernSection = html.match(/<section class="box concern">([\s\S]*?)<\/section>/)?.[1] ?? '';
+  assert.match(concernSection, /Customer reports hard starting after storage\./);
+  assert.doesNotMatch(concernSection, /class="writing-line"/);
+});
+
+test('long wrapped concern text stays in the fixed-height concern section with diagnosis lines intact', () => {
+  const workOrder = populatedWorkOrder();
+  workOrder.notes = 'Customer reports intermittent stalling after extended operation. '.repeat(16);
+  const html = buildTechWorksheetHtml(workOrder, settings);
+  const concernSection = html.match(/<section class="box concern">([\s\S]*?)<\/section>/)?.[1] ?? '';
+  const diagnosisSection = html.match(/<section class="box diagnosis">([\s\S]*?)<\/section>/)?.[1] ?? '';
+
+  assert.ok(concernSection.includes('Customer reports intermittent stalling after extended operation.'));
+  assert.doesNotMatch(concernSection, /class="writing-line"/);
+  assert.equal((diagnosisSection.match(/class="writing-line"/g) ?? []).length, 10);
+  assert.match(html, /\.page\s*\{[^}]*height:\s*265mm;/);
+  assert.match(html, /\.concern-copy\s*\{[^}]*overflow-wrap:\s*anywhere;/);
 });
 
 test('missing optional data leaves clean blank fields and the shop fallback has no OSS branding', () => {
