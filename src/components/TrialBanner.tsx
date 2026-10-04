@@ -19,8 +19,8 @@ export default function TrialBanner() {
           <ClockIcon className="h-4 w-4 shrink-0 text-slate-950" />
           <span className="truncate">
             {sub.daysLeft > 0
-              ? `${sub.planName} trial · ${sub.daysLeft} ${sub.daysLeft === 1 ? 'day' : 'days'} left`
-              : `${sub.planName} trial ends today`}
+              ? `Free trial · ${sub.daysLeft} ${sub.daysLeft === 1 ? 'day' : 'days'} left`
+              : 'Free trial ends today'}
           </span>
         </div>
         <span className="ml-2 shrink-0 rounded-md bg-slate-950/10 px-2 py-1 text-[10px] font-bold">{sub.planPrice} after trial</span>

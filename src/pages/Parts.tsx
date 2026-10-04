@@ -41,6 +41,7 @@ import { cacheLocal, getCachedLocal, safeFetchWithCache, enqueueOfflineAction } 
 import { getPriceBookStats, lookupPriceBookSku, type PriceBookEntry } from '../lib/priceBooks';
 import type { Customer, InvoicePayment, Part, SpecialOrder, SpecialOrderStatus } from '../types';
 import { getInvoicePaidAmount } from '../lib/invoiceAccounting';
+import { buildPartPriceFields, partPricesMatch } from '../lib/partPricing';
 import PartScannerModal from '../components/PartScannerModal';
 import CsvInventoryImporterModal from '../components/CsvInventoryImporterModal';
 import SpecialOrderModal from '../components/SpecialOrderModal';
@@ -334,8 +335,7 @@ export default function Parts() {
       sku: form.sku.trim(),
       name: form.name.trim(),
       category: form.category || 'General',
-      cost_price: Number(form.cost_price) || 0,
-      sell_price: Number(form.sell_price) || 0,
+      ...buildPartPriceFields(form),
       qty_on_hand: Number(form.qty_on_hand) || 0,
       reorder_point: Number(form.reorder_point) || 0,
       location: form.location.trim(),
@@ -347,14 +347,25 @@ export default function Parts() {
     try {
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         const sb = requireSupabase();
+        let savedPart: Part;
         if (editingPart) {
-          check(await sb.from('parts').update(payload).eq('id', editingPart.id));
-          toast('Part updated');
+          const result = check(
+            await sb.from('parts').update(payload).eq('id', editingPart.id).select('*').single()
+          );
+          savedPart = result.data as Part;
         } else {
-          check(await sb.from('parts').insert(payload));
-          toast('Part added to inventory');
+          const result = check(await sb.from('parts').insert(payload).select('*').single());
+          savedPart = result.data as Part;
         }
+        if (!savedPart || !partPricesMatch(savedPart, payload)) {
+          throw new Error('The saved part prices did not match the values entered. Your changes are still in the form.');
+        }
+        const updatedParts = editingPart
+          ? allParts.map((part) => part.id === editingPart.id ? savedPart : part)
+          : [savedPart, ...allParts];
+        cacheLocal('parts', updatedParts);
         await reload();
+        toast(editingPart ? 'Part updated' : 'Part added to inventory');
       } else {
         if (editingPart) {
           enqueueOfflineAction({
@@ -391,6 +402,10 @@ export default function Parts() {
       setAddingPart(false);
       setEditingPart(null);
     } catch (err) {
+      if (typeof navigator === 'undefined' || navigator.onLine) {
+        toast(err instanceof Error ? err.message : errMsg(err), 'error');
+        return;
+      }
       if (editingPart) {
         enqueueOfflineAction({
           table: 'parts',
@@ -851,7 +866,10 @@ export default function Parts() {
 
         <button
           type="button"
-          onClick={() => setMainTab('special_orders')}
+          onClick={() => {
+            setSearch('');
+            setMainTab('special_orders');
+          }}
           className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-2 text-xs font-black transition ${
             mainTab === 'special_orders'
               ? 'bg-white text-slate-950 shadow-xs'

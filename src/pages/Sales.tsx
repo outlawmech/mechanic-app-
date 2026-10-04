@@ -39,6 +39,7 @@ import { money, num, shortDate, fullName, VEHICLE_TYPES } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, generateUUID } from '../lib/offlineSync';
 import { decodeVehicleVIN } from '../lib/vinDecoder';
+import { buildShowroomPriceFields, showroomPricesMatch } from '../lib/showroomPricing';
 import { useShopSettings } from '../lib/settings';
 import type { DealershipUnit, BuyersOrderFull, UnitCondition, UnitStatus, VehicleType, WorkOrder } from '../types';
 
@@ -206,10 +207,7 @@ export default function Sales() {
       mileage_or_hours: form.mileage_or_hours.trim(),
       engine_info: form.engine_info.trim(),
       engine_serial: form.engine_serial.trim(),
-      base_cost_price: num(form.cost_price),
-      cost_price: num(form.cost_price) + num(editingUnit?.internal_cost_total),
-      msrp_price: num(form.msrp_price),
-      sale_price: num(form.sale_price) || num(form.msrp_price),
+      ...buildShowroomPriceFields(form, editingUnit?.internal_cost_total),
       status: editingUnit ? editingUnit.status : ('in_stock' as UnitStatus),
       location: form.location.trim() || 'Main Showroom',
       notes: form.notes.trim(),
@@ -228,11 +226,16 @@ export default function Sales() {
         const sb = requireSupabase();
         if (editingUnit) {
           const updateResult = check(
-            await sb.from('dealership_units').update(unitPayload).eq('id', editingUnit.id).select('id').maybeSingle()
+            await sb.from('dealership_units').update(unitPayload).eq('id', editingUnit.id).select('*').maybeSingle()
           );
-          if (!updateResult.data?.id) {
+          const savedUnit = updateResult.data as DealershipUnit | null;
+          if (!savedUnit?.id) {
             throw new Error('The server did not confirm the showroom unit update. Check your access and try again.');
           }
+          if (!showroomPricesMatch(savedUnit, unitPayload)) {
+            throw new Error('The server did not preserve the showroom price values. The unit was not reported as saved.');
+          }
+          cacheSavedUnit(savedUnit);
         } else {
           const duplicateResult = check(
             await sb.from('dealership_units').select('id').eq('stock_number', unitPayload.stock_number).limit(1)
@@ -241,11 +244,16 @@ export default function Sales() {
             throw new Error(`Stock number ${unitPayload.stock_number} already exists. Check the showroom list before trying again.`);
           }
           const insertResult = check(
-            await sb.from('dealership_units').insert(unitPayload).select('id, stock_number').single()
+            await sb.from('dealership_units').insert(unitPayload).select('*').single()
           );
-          if (!insertResult.data?.id) {
+          const savedUnit = insertResult.data as DealershipUnit | null;
+          if (!savedUnit?.id) {
             throw new Error('The server did not confirm the showroom unit insert. The unit was not marked as saved.');
           }
+          if (!showroomPricesMatch(savedUnit, unitPayload)) {
+            throw new Error('The server did not preserve the showroom price values. The unit was not reported as saved.');
+          }
+          cacheSavedUnit(savedUnit);
         }
         await reload();
         toast(editingUnit ? 'Unit updated' : 'Showroom unit saved');
@@ -295,6 +303,18 @@ export default function Sales() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function cacheSavedUnit(savedUnit: DealershipUnit) {
+    const units = allUnits.some((unit) => unit.id === savedUnit.id)
+      ? allUnits.map((unit) => unit.id === savedUnit.id ? savedUnit : unit)
+      : [savedUnit, ...allUnits];
+    cacheLocal('dealership_sales_data', {
+      ...(data ?? {}),
+      units,
+      deals: allDeals,
+      internalOrders,
+    });
   }
 
   // 1-Tap PDI Dispatch (Creates an Uncrate / Assembly / PDI Work Order for the shop techs)

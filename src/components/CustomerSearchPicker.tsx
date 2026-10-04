@@ -11,6 +11,7 @@ import { Button, Card, Field, Input, Select, Spinner } from './ui';
 import { fullName, getVehicleTypeInfo, vehicleLabel } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
 import { enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
+import { createOrRecoverById } from '../lib/idempotentCreate';
 import { useToast } from './Toast';
 import { useShopSettings } from '../lib/settings';
 import type { Customer, CustomerWithVehicles, Vehicle, VehicleType } from '../types';
@@ -61,6 +62,10 @@ export default function CustomerSearchPicker({
   const [qAddress, setQAddress] = useState('');
   const [qNotes, setQNotes] = useState('');
   const [savingQuick, setSavingQuick] = useState(false);
+  const [quickSaveError, setQuickSaveError] = useState('');
+  const savingQuickRef = useRef(false);
+  const quickCustomerIdRef = useRef<string | null>(null);
+  const quickCreateMayHaveCommittedRef = useRef(false);
 
   // Find currently selected customer
   const selectedCustomer = useMemo(() => {
@@ -125,7 +130,11 @@ export default function CustomerSearchPicker({
   // Handle clicking outside to close search popover
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const container = containerRef.current;
+      const isInside = container && (typeof e.composedPath === 'function'
+        ? e.composedPath().includes(container)
+        : container.contains(e.target as Node));
+      if (container && !isInside) {
         setIsOpen(false);
       }
     }
@@ -199,6 +208,9 @@ export default function CustomerSearchPicker({
     setQEmail('');
     setQAddress('');
     setQNotes('');
+    setQuickSaveError('');
+    quickCustomerIdRef.current = generateUUID();
+    quickCreateMayHaveCommittedRef.current = false;
     setQuickAddOpen(true);
     setIsOpen(false);
   }
@@ -206,6 +218,7 @@ export default function CustomerSearchPicker({
   // Save new quick customer into universal database
   async function handleCreateCustomer(e: FormEvent) {
     e.preventDefault();
+    if (savingQuickRef.current) return;
     if (!qFirstName.trim() && !qLastName.trim()) {
       toast('Customer name is required', 'error');
       return;
@@ -215,9 +228,10 @@ export default function CustomerSearchPicker({
       return;
     }
 
+    savingQuickRef.current = true;
     setSavingQuick(true);
-    const newId = generateUUID();
-    const newCust: CustomerWithVehicles = {
+    const newId = quickCustomerIdRef.current || (quickCustomerIdRef.current = generateUUID());
+    const draftCustomer: CustomerWithVehicles = {
       id: newId,
       first_name: qFirstName.trim(),
       last_name: qLastName.trim(),
@@ -231,49 +245,77 @@ export default function CustomerSearchPicker({
 
     try {
       const sb = requireSupabase();
+      let savedCustomer = draftCustomer;
       if (typeof navigator !== 'undefined' && navigator.onLine) {
         const payload = {
-          id: newCust.id,
+          id: draftCustomer.id,
           user_id: shopId,
-          first_name: newCust.first_name,
-          last_name: newCust.last_name,
-          phone: newCust.phone,
-          email: newCust.email,
-          address: newCust.address,
-          notes: newCust.notes,
-          created_at: newCust.created_at,
+          first_name: draftCustomer.first_name,
+          last_name: draftCustomer.last_name,
+          phone: draftCustomer.phone,
+          email: draftCustomer.email,
+          address: draftCustomer.address,
+          notes: draftCustomer.notes,
+          created_at: draftCustomer.created_at,
         };
-        check(await sb.from('customers').insert(payload));
+        savedCustomer = await createOrRecoverById(
+          draftCustomer.id,
+          quickCreateMayHaveCommittedRef.current,
+          async (id) => {
+            const existing = check(await sb.from('customers')
+              .select('id, first_name, last_name, phone, email, address, notes, created_at')
+              .eq('id', id)
+              .maybeSingle());
+            return existing.data ? { ...existing.data, vehicles: [] } as CustomerWithVehicles : null;
+          },
+          async () => {
+            const inserted = check(await sb.from('customers')
+              .insert(payload)
+              .select('id, first_name, last_name, phone, email, address, notes, created_at')
+              .single());
+            return inserted.data ? { ...inserted.data, vehicles: [] } as CustomerWithVehicles : null;
+          },
+        );
       } else {
         enqueueOfflineAction({
           table: 'customers',
           type: 'insert',
           payload: {
-            id: newCust.id,
+            id: draftCustomer.id,
             user_id: shopId,
-            first_name: newCust.first_name,
-            last_name: newCust.last_name,
-            phone: newCust.phone,
-            email: newCust.email,
-            address: newCust.address,
-            notes: newCust.notes,
-            created_at: newCust.created_at,
+            first_name: draftCustomer.first_name,
+            last_name: draftCustomer.last_name,
+            phone: draftCustomer.phone,
+            email: draftCustomer.email,
+            address: draftCustomer.address,
+            notes: draftCustomer.notes,
+            created_at: draftCustomer.created_at,
           },
-          description: `Add customer ${fullName(newCust)}`,
+          description: `Add customer ${fullName(draftCustomer)}`,
         });
       }
 
       // Update global customers cache
       const cached = (getCachedLocal('customers') as CustomerWithVehicles[]) || [];
-      cacheLocal('customers', [newCust, ...cached.filter((c) => c.id !== newId)]);
+      cacheLocal('customers', [savedCustomer, ...cached.filter((c) => c.id !== newId)]);
 
-      toast(`✓ Customer "${fullName(newCust)}" created and selected!`);
-      onSelectCustomer(newCust);
-      if (onCustomerCreated) onCustomerCreated(newCust);
+      onSelectCustomer(savedCustomer);
+      if (onCustomerCreated) onCustomerCreated(savedCustomer);
+      quickCustomerIdRef.current = null;
+      quickCreateMayHaveCommittedRef.current = false;
+      setQuickSaveError('');
       setQuickAddOpen(false);
+      toast(`✓ Customer "${fullName(savedCustomer)}" created and selected!`);
     } catch (err: any) {
-      toast(err.message || 'Could not save customer', 'error');
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        // Keep the same id so a retry can find a row created before a lost response.
+        quickCreateMayHaveCommittedRef.current = true;
+      }
+      const message = err.message || 'Could not save customer';
+      setQuickSaveError(message);
+      toast(message, 'error');
     } finally {
+      savingQuickRef.current = false;
       setSavingQuick(false);
     }
   }
@@ -460,6 +502,7 @@ export default function CustomerSearchPicker({
                         key={c.id}
                         type="button"
                         onClick={() => handleSelect(c)}
+                        onMouseDown={(e) => e.stopPropagation()}
                         onMouseEnter={() => setHighlightIndex(idx)}
                         className={`w-full text-left rounded-xl p-2.5 transition flex items-start justify-between gap-2 ${
                           isHighlighted
@@ -536,7 +579,7 @@ export default function CustomerSearchPicker({
       {quickAddOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-xs animate-in fade-in duration-150"
-          onClick={() => setQuickAddOpen(false)}
+          onClick={() => { if (!savingQuickRef.current) setQuickAddOpen(false); }}
         >
           <div
             className="w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-slate-900/10 space-y-4 max-h-[90vh] overflow-y-auto"
@@ -558,6 +601,7 @@ export default function CustomerSearchPicker({
                 <button
                   type="button"
                   onClick={() => setQuickAddOpen(false)}
+                  disabled={savingQuick}
                   className="rounded-full bg-slate-100 p-1.5 text-xs font-bold text-slate-500 hover:bg-slate-200"
                 >
                   ✕
@@ -621,9 +665,11 @@ export default function CustomerSearchPicker({
               </Field>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                {quickSaveError && <p role="alert" className="mr-auto text-xs font-semibold text-red-700">{quickSaveError}</p>}
                 <button
                   type="button"
                   onClick={() => setQuickAddOpen(false)}
+                  disabled={savingQuick}
                   className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100"
                 >
                   Cancel

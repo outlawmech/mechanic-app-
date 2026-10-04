@@ -185,7 +185,7 @@ export default function Auth() {
             <span className="rounded-full border border-slate-800 bg-slate-900/70 px-3 py-1.5">Mobile service</span>
             <span className="rounded-full border border-slate-800 bg-slate-900/70 px-3 py-1.5">Independent shops</span>
             <span className="rounded-full border border-slate-800 bg-slate-900/70 px-3 py-1.5">Dealership service</span>
-            <span className="rounded-full border border-slate-800 bg-slate-900/70 px-3 py-1.5">Parts &amp; unit sales with DMS</span>
+            <span className="rounded-full border border-slate-800 bg-slate-900/70 px-3 py-1.5">Shop parts · Dealer unit sales</span>
           </div>
         </div>
       </section>
@@ -200,12 +200,12 @@ export default function Auth() {
           </div>
           <div className="grid gap-6 md:grid-cols-2 md:gap-10">
             <figure className="overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 p-3 shadow-2xl shadow-black/30 sm:p-5">
-              <div className="mb-4 flex items-center justify-between gap-3 px-1"><span className="text-sm font-bold text-white">Plan the week</span><span className="shrink-0 rounded-full bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-orange-300">Solo Rig</span></div>
+              <div className="mb-4 flex items-center justify-between gap-3 px-1"><span className="text-sm font-bold text-white">Plan the week</span><span className="shrink-0 rounded-full bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-orange-300">Solo</span></div>
               <div className="mx-auto max-w-[340px] overflow-hidden rounded-2xl border border-slate-700 shadow-xl"><img src="/screenshots/schedule-calendar.jpg" alt="Android schedule calendar with sample jobs" loading="lazy" className="block h-auto w-full" /></div>
               <figcaption className="px-1 pt-4 text-sm leading-relaxed text-slate-400">See the week’s scheduled jobs and move straight into the work.</figcaption>
             </figure>
             <figure className="overflow-hidden rounded-3xl border border-orange-500/30 bg-slate-950 p-3 shadow-2xl shadow-black/30 sm:p-5">
-              <div className="mb-4 flex items-center justify-between gap-3 px-1"><span className="text-sm font-bold text-white">Build the sale</span><span className="shrink-0 rounded-full bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-orange-300">Dealership DMS</span></div>
+              <div className="mb-4 flex items-center justify-between gap-3 px-1"><span className="text-sm font-bold text-white">Build the sale</span><span className="shrink-0 rounded-full bg-orange-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-orange-300">Dealer</span></div>
               <div className="mx-auto max-w-[340px] overflow-hidden rounded-2xl border border-slate-700 shadow-xl"><img src="/screenshots/buyers-order.jpg" alt="Android buyer’s order form with customer and vehicle fields" loading="lazy" className="block h-auto w-full" /></div>
               <figcaption className="px-1 pt-4 text-sm leading-relaxed text-slate-400">Keep the buyer, unit, and deal details together.</figcaption>
             </figure>
@@ -221,7 +221,7 @@ export default function Auth() {
               <img src="/screenshots/desktop-work-orders.jpg" alt="Desktop service work order list in a sample dealership account" loading="lazy" className="block aspect-[16/10] w-full rounded-xl border border-slate-700 object-cover object-top" />
             </figure>
             <figure className="overflow-hidden rounded-3xl border border-slate-700 bg-slate-950 p-3 shadow-2xl shadow-black/30 sm:p-5">
-              <figcaption className="mb-4 px-1 text-sm font-bold text-white">Showroom inventory <span className="font-normal text-slate-400">· Dealership DMS</span></figcaption>
+              <figcaption className="mb-4 px-1 text-sm font-bold text-white">Showroom inventory <span className="font-normal text-slate-400">· Dealer</span></figcaption>
               <img src="/screenshots/desktop-showroom.jpg" alt="Desktop showroom with a synthetic sample unit and PDI status" loading="lazy" className="block aspect-[16/10] w-full rounded-xl border border-slate-700 object-cover object-top" />
             </figure>
           </div>
@@ -252,7 +252,7 @@ export default function Auth() {
             <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 sm:p-8">
               <div className="flex items-center gap-3">
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-orange-500/10 text-orange-300"><ClipboardIcon className="h-5 w-5" /></span>
-                <p className="text-xs font-bold uppercase tracking-wider text-orange-300">Solo Rig · Service work</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-orange-300">Solo · Service work</p>
               </div>
               <h3 className="mt-5 text-xl font-bold text-white sm:text-2xl">From the scheduled job to the paid invoice.</h3>
               <p className="mt-3 text-base leading-relaxed text-slate-300">Keep the customer, vehicle, labor, parts, and job status together. Finish the work, create the invoice, and record payment.</p>
@@ -267,7 +267,7 @@ export default function Auth() {
             <article className="rounded-2xl border border-orange-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-orange-950/20 p-6 sm:p-8">
               <div className="flex items-center gap-3">
                 <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-orange-500/10 text-orange-300"><TagIcon className="h-5 w-5" /></span>
-                <p className="text-xs font-bold uppercase tracking-wider text-orange-300">Dealership DMS · Parts &amp; sales</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-orange-300">Dealer · Parts &amp; sales</p>
               </div>
               <h3 className="mt-5 text-xl font-bold text-white sm:text-2xl">Give the service desk and deal desk the same picture.</h3>
               <p className="mt-3 text-base leading-relaxed text-slate-300">Add parts counter work, showroom inventory, buyer’s orders, deal calculations, and prep/PDI alongside service operations.</p>

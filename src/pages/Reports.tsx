@@ -1,6 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useToast } from '../components/Toast';
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import { encodeUtf8Base64, handoffCsv } from '../lib/csvHandoff';
 import {
   BanknotesIcon,
   CreditCardIcon,
@@ -154,7 +158,7 @@ export default function Reports() {
   }, [filteredInvoices, reportingPayments, data?.items, data?.parts]);
 
   // Accounting & CSV Exporters
-  function exportInvoicesCSV() {
+  async function exportInvoicesCSV() {
     if (!filteredInvoices.length) {
       toast('No invoices to export for this date range', 'error');
       return;
@@ -169,11 +173,15 @@ export default function Reports() {
         inv.status === 'void' ? 0 : num(inv.total), paid, balance, inv.status.toUpperCase()];
     });
 
-    downloadBlob(toCsv(headers, csvRows), `Invoice_Register_${range}_${getLocalDateStamp()}.csv`, 'text/csv;charset=utf-8');
-    toast('Invoice register CSV downloaded');
+    try {
+      await downloadBlob(toCsv(headers, csvRows), `Invoice_Register_${range}_${getLocalDateStamp()}.csv`);
+      toast(Capacitor.isNativePlatform() ? 'Invoice CSV shared' : 'Invoice register CSV ready');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Could not hand off invoice CSV', 'error');
+    }
   }
 
-  function exportPaymentsCSV() {
+  async function exportPaymentsCSV() {
     if (!reportingPayments.length) {
       toast('No recorded payments to export for this range', 'error');
       return;
@@ -184,11 +192,15 @@ export default function Reports() {
       toLocalDateOnly(payment.paymentDate), payment.invoiceNumber, payment.customerName,
       payment.amount, payment.method.toUpperCase(), payment.referenceNote,
     ]);
-    downloadBlob(toCsv(headers, rows), `Payment_Register_${range}_${getLocalDateStamp()}.csv`, 'text/csv;charset=utf-8');
-    toast('Payment register CSV downloaded');
+    try {
+      await downloadBlob(toCsv(headers, rows), `Payment_Register_${range}_${getLocalDateStamp()}.csv`);
+      toast(Capacitor.isNativePlatform() ? 'Payments CSV shared' : 'Payment register CSV ready');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Could not hand off payments CSV', 'error');
+    }
   }
 
-  function exportInventoryCSV() {
+  async function exportInventoryCSV() {
     if (!data?.parts.length) {
       toast('No inventory items to export', 'error');
       return;
@@ -202,20 +214,46 @@ export default function Reports() {
       return [p.sku, p.name, p.category, p.location || '', qty, cost, sell, qty * cost, qty * sell, p.supplier || ''];
     });
 
-    downloadBlob(toCsv(headers, rows), `Current_Inventory_Valuation_${getLocalDateStamp()}.csv`, 'text/csv;charset=utf-8');
-    toast('Current inventory valuation CSV downloaded');
+    try {
+      await downloadBlob(toCsv(headers, rows), `Current_Inventory_Valuation_${getLocalDateStamp()}.csv`);
+      toast(Capacitor.isNativePlatform() ? 'Inventory CSV shared' : 'Current inventory valuation CSV ready');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Could not hand off inventory CSV', 'error');
+    }
   }
 
-  function downloadBlob(content: string, filename: string, mimeType: string) {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  async function downloadBlob(content: string, filename: string) {
+    return handoffCsv(content, filename, {
+      isNative: Capacitor.isNativePlatform(),
+      shareNativeFile: async (csv, name) => {
+        const { uri } = await Filesystem.writeFile({
+          path: name,
+          directory: Directory.Cache,
+          data: encodeUtf8Base64(csv),
+        });
+        await Share.share({
+          title: name,
+          url: uri,
+          dialogTitle: 'Save or share CSV',
+        });
+      },
+      downloadInBrowser: (csv, name) => {
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      },
+      shareWebFile: async (file) => {
+        if (!navigator.share || !navigator.canShare?.({ files: [file] })) return false;
+        await navigator.share({ files: [file], title: file.name });
+        return true;
+      },
+    });
   }
 
   if (loading) return <Spinner />;

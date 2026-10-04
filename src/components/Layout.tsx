@@ -22,10 +22,11 @@ import { getOrganizationPlan, hasDealerSales, hasShopCapabilities, PLAN_DEFINITI
 import { useToast } from './Toast';
 import TrialBanner from './TrialBanner';
 import NetworkStatusBadge from './NetworkStatusBadge';
+import { getBottomNavigationColumnCount } from '../lib/mobileNavigation';
 
-// Solo Rig Desktop Navigation List
+// Solo Desktop Navigation List
 const soloDesktopTabs = [
-  { to: '/', label: 'Home (Solo Rig)', shortLabel: 'Home', icon: HomeIcon, end: true },
+  { to: '/', label: 'Home Dashboard', shortLabel: 'Home', icon: HomeIcon, end: true },
   { to: '/schedule', label: 'Schedule & Appointments', shortLabel: 'Schedule', icon: CalendarIcon, end: false },
   { to: '/work', label: 'Work Orders', shortLabel: 'WOs', icon: ClipboardIcon, end: false },
   { to: '/customers', label: 'Customers & Fleet', shortLabel: 'Customers', icon: UsersIcon, end: false },
@@ -206,14 +207,17 @@ export default function Layout() {
 
       {/* Clean Mobile Bottom Navigation */}
       <nav className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden shadow-lg">
-        <div className={`mx-auto grid max-w-md ${activeMobileTabs.length === 5 ? 'grid-cols-5' : 'grid-cols-4'} pb-[max(env(safe-area-inset-bottom,0px),8px)]`}>
+        <div
+          className="mx-auto grid max-w-md pb-[max(env(safe-area-inset-bottom,0px),8px)]"
+          style={{ gridTemplateColumns: `repeat(${getBottomNavigationColumnCount(activeMobileTabs.length)}, minmax(0, 1fr))` }}
+        >
           {activeMobileTabs.map((t) => (
             <NavLink
               key={t.to}
               to={t.to}
               end={t.end}
               className={({ isActive }) =>
-                `flex flex-col items-center gap-1 py-2 text-[10px] font-semibold transition ${
+                `flex min-w-0 flex-col items-center gap-1 py-2 text-[10px] font-semibold transition ${
                   isActive ? 'text-orange-600 font-bold' : 'text-slate-500 hover:text-slate-800'
                 }`
               }
@@ -227,7 +231,7 @@ export default function Layout() {
           <button
             type="button"
             onClick={() => setShowMoreMenu(true)}
-            className="flex flex-col items-center gap-1 py-2 text-[10px] font-semibold text-slate-500 hover:text-slate-800 active:scale-95"
+            className="flex min-w-0 flex-col items-center gap-1 py-2 text-[10px] font-semibold text-slate-500 hover:text-slate-800 active:scale-95"
           >
             <span className="text-base font-black leading-none tracking-wider">•••</span>
             <span className="truncate">More</span>
@@ -252,9 +256,6 @@ export default function Layout() {
                 </span>
                 <div>
                   <p className="text-sm font-bold text-slate-900">More Tools &amp; Navigation</p>
-                  <p className="text-[10px] text-slate-500">
-                    {tier === 'dealer' ? 'Dealer plan' : tier === 'shop' ? 'Shop plan' : 'Solo plan'}
-                  </p>
                 </div>
               </div>
               <button
@@ -350,7 +351,7 @@ export default function Layout() {
                     </span>
                     <div>
                       <p className="text-xs font-bold text-slate-900">Help &amp; Guides</p>
-                      <p className="text-[10px] text-slate-500">DMS manuals &amp; tips</p>
+                      <p className="text-[10px] text-slate-500">Shop guides &amp; tips</p>
                     </div>
                   </button>
 
@@ -367,7 +368,7 @@ export default function Layout() {
                     </span>
                     <div>
                       <p className="text-xs font-bold text-slate-900">Shop Settings</p>
-                      <p className="text-[10px] text-slate-500">DMS rates &amp; profile</p>
+                      <p className="text-[10px] text-slate-500">Shop rates &amp; profile</p>
                     </div>
                   </button>
                 </>

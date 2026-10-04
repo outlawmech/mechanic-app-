@@ -1,4 +1,4 @@
-const CACHE_NAME = 'outlaw-shop-systems-v1';
+const CACHE_NAME = 'outlaw-shop-systems-v2';
 
 const STATIC_ASSETS = [
   '/',
@@ -58,6 +58,22 @@ self.addEventListener('fetch', (event) => {
         .catch(() => {
           return caches.match('/index.html') || caches.match('/');
         })
+    );
+    return;
+  }
+
+  // Always check the network for executable code and styles while online.
+  // A stale cached bundle can keep an old click handler alive after deploy.
+  if (request.destination === 'script' || request.destination === 'style') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
+          }
+          return response;
+        })
+        .catch(async () => (await caches.match(request)) || new Response('Offline code unavailable', { status: 503 }))
     );
     return;
   }
