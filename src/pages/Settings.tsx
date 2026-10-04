@@ -4,9 +4,10 @@ import { WrenchIcon, TrashIcon, CheckIcon, PlusIcon, LockClosedIcon, SparklesIco
 import { Button, Card, Field, Input, PageTitle, Spinner, Textarea } from '../components/ui';
 import { useAuth } from '../lib/auth';
 import { useShopSettings } from '../lib/settings';
+import { startSubscriptionCheckout } from '../lib/billing';
 import { processLogoImage } from '../lib/image';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
-import { getSubscriptionInfo, STRIPE_PAYMENT_URL, redeemActivationCode } from '../lib/subscription';
+import { getSubscriptionInfo, redeemActivationCode } from '../lib/subscription';
 
 import { ANDROID_APK_DOWNLOAD_URL } from '../lib/supabase';
 import { isNativePlatform } from '../lib/printer';
@@ -16,7 +17,7 @@ export default function Settings() {
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user, signOut } = useAuth();
-  const { settings, loading, memberRole, updateSettings } = useShopSettings();
+  const { settings, loading, memberRole, updateSettings, reloadSettings } = useShopSettings();
 
   const [form, setForm] = useState(settings);
   const [saving, setSaving] = useState(false);
@@ -25,6 +26,17 @@ export default function Settings() {
   const [licenseCode, setLicenseCode] = useState('');
   const [showCodeBox, setShowCodeBox] = useState(false);
   const [validatingKey, setValidatingKey] = useState(false);
+  const [startingCheckout, setStartingCheckout] = useState(false);
+  const [billingReturn, setBillingReturn] = useState<'processing' | 'cancelled' | null>(null);
+
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search).get('billing');
+    if (query === 'processing' || query === 'cancelled') {
+      setBillingReturn(query);
+      void reloadSettings();
+      window.history.replaceState({}, '', `${window.location.pathname}${window.location.hash}`);
+    }
+  }, [reloadSettings]);
 
   useEffect(() => {
     setForm(settings);
@@ -33,12 +45,22 @@ export default function Settings() {
   if (loading) return <Spinner />;
 
   if (memberRole === 'staff') return <div className="space-y-4 p-4">
-    <PageTitle title="Your dealership account" sub={settings.shop_name} />
+    <PageTitle title="Your shop account" sub={settings.shop_name} />
     <TeamAccess />
     <Button type="button" onClick={signOut}>Sign out</Button>
   </div>;
 
   const sub = getSubscriptionInfo(user, settings);
+
+  async function handleSubscribe() {
+    setStartingCheckout(true);
+    try {
+      await startSubscriptionCheckout();
+    } catch (err) {
+      toast(errMsg(err), 'error');
+      setStartingCheckout(false);
+    }
+  }
 
   async function handleUnlockKey() {
     if (!licenseCode.trim()) {
@@ -378,8 +400,8 @@ export default function Settings() {
           </div>
         </Card>
 
-        {/* Powersports Dealership & Unit Sales Settings */}
-        <Card className="space-y-3 p-4 bg-purple-50/40 border-purple-200">
+        {/* Unit-sales defaults are only relevant to Dealer organizations. */}
+        {sub.planTier === 'dealer' && <Card className="space-y-3 p-4 bg-purple-50/40 border-purple-200">
           <div className="flex items-center justify-between border-b border-purple-200/80 pb-2">
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wide text-purple-950">
@@ -425,7 +447,7 @@ export default function Settings() {
               />
             </Field>
           </div>
-        </Card>
+        </Card>}
 
         <Button type="submit" variant="accent" disabled={saving} className="w-full">
           {saving ? 'Saving changes…' : 'Save Shop Profile'}
@@ -451,7 +473,7 @@ export default function Settings() {
                 `${sub.planName} • 14-Day Trial (${sub.daysLeft} days left)`
               )}
             </span>
-            <h3 className="text-base font-bold text-white">{sub.planName}</h3>
+            <h3 className="text-base font-bold text-white">{sub.planName} · {sub.includedUsers} {sub.includedUsers === 1 ? 'user' : 'users'} included</h3>
           </div>
           <div className="text-right">
             <span className="text-xl font-black text-orange-400">{sub.planPrice}</span>
@@ -459,13 +481,15 @@ export default function Settings() {
         </div>
 
         <p className="text-xs text-slate-300 leading-relaxed">
-          {form.enable_dealership_mode
-            ? 'Complete dealership management suite: Showroom inventory, floorplan line financing, Buyer’s Orders & bills of sale, direct part invoicing, and multi-tech service bay scheduling.'
-            : 'Work orders, invoices, scheduling, customer records, and parts for mobile and independent shops.'}
+          {sub.planTier === 'dealer'
+            ? 'Everything in Shop, plus showroom inventory, unit sales, floorplan tracking, and Buyer’s Orders.'
+            : sub.planTier === 'shop'
+              ? 'Service, parts, purchasing, dispatch, and team access for a multi-person shop.'
+              : 'The complete day-to-day mechanic workspace for a one-person operation.'}
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
-          {form.enable_dealership_mode ? (
+          {sub.planTier === 'dealer' ? (
             <>
               <div className="flex items-center gap-2">
                 <CheckIcon className="h-4 w-4 text-purple-400 shrink-0" />
@@ -483,6 +507,13 @@ export default function Settings() {
                 <CheckIcon className="h-4 w-4 text-purple-400 shrink-0" />
                 <span>New Part Invoices &amp; Over-The-Counter Sales</span>
               </div>
+            </>
+          ) : sub.planTier === 'shop' ? (
+            <>
+              <div className="flex items-center gap-2"><CheckIcon className="h-4 w-4 text-orange-400 shrink-0" /><span>Team accounts and shop activity</span></div>
+              <div className="flex items-center gap-2"><CheckIcon className="h-4 w-4 text-orange-400 shrink-0" /><span>Parts operations, purchasing, and receiving</span></div>
+              <div className="flex items-center gap-2"><CheckIcon className="h-4 w-4 text-orange-400 shrink-0" /><span>Service scheduling and dispatch</span></div>
+              <div className="flex items-center gap-2"><CheckIcon className="h-4 w-4 text-orange-400 shrink-0" /><span>Three users included</span></div>
             </>
           ) : (
             <>
@@ -508,18 +539,27 @@ export default function Settings() {
 
         {!sub.isPro ? (
           <div className="pt-2 space-y-2">
-            <a
-              href={STRIPE_PAYMENT_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-orange-400 shadow-md active:scale-[0.99]"
-            >
-              View Subscription Options
-              <span className="text-xs font-normal text-slate-900">(Then {sub.planPrice})</span>
-            </a>
             <p className="text-center text-[11px] text-slate-400">
-              Check plan and payment terms before subscribing. Access may be limited after the trial without an active plan.
+              {settings.subscription_status === 'past_due'
+                ? 'Your subscription payment needs attention. Contact support to restore billing.'
+                : sub.daysLeft > 0
+                  ? `${sub.daysLeft} days remain in your ${sub.planName} trial. No card is required during the trial.`
+                  : 'Your trial has ended. Subscribe to restore access or redeem an activation code.'}
             </p>
+            {billingReturn === 'processing' && (
+              <div className="rounded-lg border border-orange-400/30 bg-orange-400/10 p-3 text-center text-xs text-orange-100">
+                Checkout returned. Access changes only after payment is confirmed by Stripe.
+                <button type="button" className="ml-1 font-bold underline" onClick={() => void reloadSettings()}>Refresh status</button>
+              </div>
+            )}
+            {billingReturn === 'cancelled' && (
+              <p className="text-center text-[11px] text-slate-400">Checkout was cancelled. Your current access has not changed.</p>
+            )}
+            {memberRole === 'owner' && settings.subscription_status !== 'past_due' && (
+              <Button type="button" variant="accent" className="w-full" disabled={startingCheckout} onClick={handleSubscribe}>
+                {startingCheckout ? 'Opening secure checkout…' : `Subscribe · ${sub.planPrice}`}
+              </Button>
+            )}
           </div>
         ) : (
           <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3 text-center text-xs font-semibold text-emerald-400">

@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { requireSupabase } from './supabase';
 import { useAuth } from './auth';
 import type { ShopSettings } from '../types';
+import { getOrganizationPlan, isPlanTier } from './plans.ts';
 
 export const DEFAULT_SETTINGS: ShopSettings = {
   id: 'default',
@@ -45,7 +46,7 @@ export function saveLocalSettings(s: ShopSettings, userId?: string | null): void
   try {
     const key = getUserSettingsKey(userId);
     localStorage.setItem(key, JSON.stringify(s));
-    localStorage.setItem(TIER_KEY, s.enable_dealership_mode ? 'dealer' : 'solo');
+    localStorage.setItem(TIER_KEY, getOrganizationPlan(s));
   } catch {}
 }
 
@@ -66,6 +67,8 @@ interface ShopEntitlement {
   member_role: 'owner' | 'staff';
   member_name: string | null;
   subscription_status: ShopSettings['subscription_status'] | null;
+  plan_tier: ShopSettings['plan_tier'] | null;
+  trial_started_at: string | null;
   trial_ends_at: string | null;
   enable_dealership_mode: boolean;
 }
@@ -85,7 +88,7 @@ const ShopSettingsContext = createContext<ShopSettingsContextType>({
 function getCachedProfileSettings(userId?: string | null): ShopSettings {
   const cached = getLocalSettings(userId);
   // Local storage restores profile preferences only, never shop entitlements.
-  return { ...cached, subscription_status: undefined, trial_ends_at: null, enable_dealership_mode: false };
+  return { ...cached, subscription_status: undefined, plan_tier: undefined, trial_started_at: null, trial_ends_at: null, enable_dealership_mode: false };
 }
 
 export function ShopSettingsProvider({ children }: { children: ReactNode }) {
@@ -158,8 +161,10 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
           ...DEFAULT_SETTINGS,
           ...settingData,
           subscription_status: entitlement.subscription_status ?? settingData.subscription_status,
+          plan_tier: entitlement.plan_tier ?? settingData.plan_tier ?? (settingData.enable_dealership_mode ? 'dealer' : 'solo'),
+          trial_started_at: entitlement.trial_started_at ?? settingData.trial_started_at ?? null,
           trial_ends_at: entitlement.trial_ends_at ?? settingData.trial_ends_at ?? null,
-          enable_dealership_mode: Boolean(entitlement.enable_dealership_mode ?? settingData.enable_dealership_mode),
+          enable_dealership_mode: Boolean(entitlement.enable_dealership_mode ?? settingData.enable_dealership_mode ?? getOrganizationPlan(settingData) !== 'solo'),
         };
         setSettings(loaded);
         saveLocalSettings(loaded, user.id);
@@ -168,12 +173,21 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
           throw new Error('This shop does not have a settings record.');
         }
         const defaultShopName = user.user_metadata?.shop_name || DEFAULT_SETTINGS.shop_name;
-        const isDealer = false;
+        const requestedTier = user.user_metadata?.plan_tier;
+        const planTier = isPlanTier(requestedTier)
+          ? requestedTier
+          : user.user_metadata?.enable_dealership_mode ? 'dealer' : 'solo';
+        const createdAt = user.created_at || new Date().toISOString();
+        const trialEndsAt = new Date(new Date(createdAt).getTime() + 14 * 24 * 60 * 60 * 1000).toISOString();
+        const isShopMode = planTier !== 'solo';
         const initial: ShopSettings = {
           ...DEFAULT_SETTINGS,
           shop_name: defaultShopName,
-          tagline: isDealer ? 'Sales, Service & Parts DMS' : 'Mobile & Shop Management',
-          enable_dealership_mode: isDealer,
+          tagline: planTier === 'dealer' ? 'Sales, Service & Parts DMS' : 'Mobile & Shop Management',
+          enable_dealership_mode: isShopMode,
+          plan_tier: planTier,
+          trial_started_at: createdAt,
+          trial_ends_at: trialEndsAt,
           subscription_status: 'trialing',
           email: user.email || DEFAULT_SETTINGS.email,
         };
@@ -185,9 +199,13 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
             id: user.id,
             user_id: user.id,
             shop_name: defaultShopName,
-            tagline: isDealer ? 'Sales, Service & Parts DMS' : 'Mobile & Shop Management',
+            tagline: planTier === 'dealer' ? 'Sales, Service & Parts DMS' : 'Mobile & Shop Management',
             email: user.email || '',
-            enable_dealership_mode: isDealer,
+            enable_dealership_mode: isShopMode,
+            plan_tier: planTier,
+            subscription_status: 'trialing',
+            trial_started_at: createdAt,
+            trial_ends_at: trialEndsAt,
             default_labor_rate: 95.0,
             default_tax_rate: 0,
             dealership_doc_fee: 199,
@@ -210,7 +228,16 @@ export function ShopSettingsProvider({ children }: { children: ReactNode }) {
   async function updateSettings(newSettings: Partial<ShopSettings>): Promise<ShopSettings> {
     if (memberRole === 'staff') throw new Error('Only the shop owner can change shop settings.');
     if (!user) throw new Error('Sign in before saving shop settings.');
-    const updated: ShopSettings = { ...settings, ...newSettings, updated_at: new Date().toISOString() };
+    const updated: ShopSettings = {
+      ...settings,
+      ...newSettings,
+      // Organization plan and trial are server entitlements, not editable profile fields.
+      plan_tier: settings.plan_tier,
+      subscription_status: settings.subscription_status,
+      trial_started_at: settings.trial_started_at,
+      trial_ends_at: settings.trial_ends_at,
+      updated_at: new Date().toISOString(),
+    };
       const sb = requireSupabase();
       const targetId = user.id;
       const { data, error } = await sb.from('shop_settings').upsert({

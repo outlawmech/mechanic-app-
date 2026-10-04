@@ -10,6 +10,7 @@ import { safeFetchWithCache } from '../lib/offlineSync';
 import { isCompletedWorkOrderStatus } from '../lib/workOrderStatus';
 import { useShopSettings } from '../lib/settings';
 import type { WorkOrderFull } from '../types';
+import { hasShopCapabilities } from '../lib/plans';
 
 const FILTERS = [
   { id: 'active', label: 'Active WOs' },
@@ -23,7 +24,7 @@ type FilterId = (typeof FILTERS)[number]['id'];
 
 export default function WorkOrders() {
   const { settings } = useShopSettings();
-  const isDms = settings?.enable_dealership_mode ?? true;
+  const isDms = hasShopCapabilities(settings);
   const [filter, setFilter] = useState<FilterId>('active');
   const [searchQuery, setSearchQuery] = useState('');
 

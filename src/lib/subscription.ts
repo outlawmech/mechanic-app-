@@ -4,8 +4,6 @@ import { requireSupabase } from './supabase';
 export { getSubscriptionInfo, TRIAL_DAYS } from './subscriptionInfo';
 export type { SubscriptionInfo } from './subscriptionInfo';
 
-export const STRIPE_PAYMENT_URL = 'https://buy.stripe.com/5kQ6oHgEX8G781ceZ62go00';
-
 export async function redeemActivationCode(
   code: string,
   user: User | null

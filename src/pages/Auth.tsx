@@ -7,9 +7,9 @@ import {
 } from '../components/icons';
 import { Button, Card, Field, Input } from '../components/ui';
 import { useAuth } from '../lib/auth';
-import { saveLocalSettings, DEFAULT_SETTINGS } from '../lib/settings';
 import { ANDROID_APK_DOWNLOAD_URL } from '../lib/supabase';
 import { requireSupabase } from '../lib/supabase';
+import { PLAN_DEFINITIONS, type PlanTier } from '../lib/plans';
 
 const APK_PUBLIC_DOWNLOAD_URL = ANDROID_APK_DOWNLOAD_URL;
 
@@ -19,6 +19,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [shopName, setShopName] = useState('');
+  const [selectedPlan, setSelectedPlan] = useState<PlanTier>('solo');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -55,20 +56,10 @@ export default function Auth() {
     setLoading(true);
     try {
       if (mode === 'signup') {
-        // New accounts start in Solo Rig; dealership access requires a separate grant.
-        const isDealer = false;
-        const res = await signUp(email, password, shopName, isDealer);
+        const res = await signUp(email, password, shopName, selectedPlan);
         if (res.error) {
           setErrorMsg(res.error.message);
         } else {
-          // Immediately sync local settings
-          saveLocalSettings({
-            ...DEFAULT_SETTINGS,
-            shop_name: shopName || DEFAULT_SETTINGS.shop_name,
-            tagline: isDealer ? 'Sales, Service & Parts DMS' : 'Mobile & Shop Management',
-            enable_dealership_mode: isDealer,
-          });
-
           if (res.needsEmailConfirmation) {
             setSuccessMsg(
               'Account created! Please check your email to confirm your account before logging in.'
@@ -88,8 +79,9 @@ export default function Auth() {
     }
   }
 
-  const scrollToAuth = (newMode: 'login' | 'signup' | 'reset') => {
+  const scrollToAuth = (newMode: 'login' | 'signup' | 'reset', plan?: PlanTier) => {
     setMode(newMode);
+    if (plan) setSelectedPlan(plan);
     const el = document.getElementById('auth-section');
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
@@ -317,128 +309,43 @@ export default function Auth() {
         </div>
       </section>
 
-      {/* Two-Tier Pricing Section */}
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 border-b border-slate-800/80">
-        <div className="text-center space-y-2 mb-12">
-          <p className="text-xs font-bold uppercase tracking-wider text-orange-400">Choose Your Setup</p>
-          <h2 className="text-2xl font-black tracking-tight text-white sm:text-4xl">
-            Simple, Transparent Pricing
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-400 max-w-lg mx-auto">
-            Start with service work. Add dealership tools when parts and unit sales are part of your operation.
-          </p>
+      {/* Plan choice stays on the existing landing page and feeds signup directly. */}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 border-b border-slate-800/80">
+        <div className="text-center space-y-2 mb-10">
+          <p className="text-xs font-bold uppercase tracking-wider text-orange-400">Choose the system your operation needs</p>
+          <h2 className="text-2xl font-black tracking-tight text-white sm:text-4xl">Three plans. One shop-first system.</h2>
+          <p className="text-sm text-slate-400 max-w-2xl mx-auto">Every plan starts with a 14-day free trial. No credit card required.</p>
         </div>
 
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 max-w-4xl mx-auto">
-          {/* Plan 1: Solo Rig & Independent Garage */}
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 space-y-6 flex flex-col justify-between shadow-xl hover:border-slate-700 transition">
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-xl font-black text-white">Solo Rig</h3>
-                  <p className="text-sm text-orange-300 font-semibold">For mobile techs &amp; independent shops</p>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+          {(Object.keys(PLAN_DEFINITIONS) as PlanTier[]).map((tier) => {
+            const plan = PLAN_DEFINITIONS[tier];
+            const featured = tier === 'shop';
+            const details = tier === 'solo'
+              ? ['Work orders, invoices, and scheduling', 'Customers, vehicles, and parts', 'One user included']
+              : tier === 'shop'
+                ? ['Everything in Solo', 'Service, parts, and team operations', 'Three users included', 'No showroom or unit-sales workflow']
+                : ['Everything in Shop', 'Showroom and unit-sales workflow', 'Buyer’s Orders and bill of sale', 'Four users included'];
+            return (
+              <article key={tier} className={`relative flex flex-col justify-between gap-6 rounded-3xl border p-6 shadow-xl sm:p-7 ${featured ? 'border-orange-500 bg-gradient-to-b from-slate-900 to-orange-950/20' : 'border-slate-800 bg-slate-900'}`}>
+                {featured && <span className="absolute -top-3 right-6 rounded-full bg-orange-500 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-slate-950">For growing shops</span>}
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div><h3 className="text-xl font-black text-white">{plan.name}</h3><p className="mt-1 text-sm text-slate-400">{plan.summary}</p></div>
+                    <span className="shrink-0 rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-bold text-slate-300">14-day trial</span>
+                  </div>
+                  <div className="flex items-baseline gap-1.5"><span className={`text-4xl font-black ${featured ? 'text-orange-400' : 'text-white'}`}>${plan.price}</span><span className="text-sm text-slate-400">/ month</span></div>
+                  <p className="text-xs font-semibold text-emerald-300">{plan.includedUsers} {plan.includedUsers === 1 ? 'user' : 'users'} included · No credit card required</p>
+                  <ul className="space-y-2.5 border-t border-slate-800 pt-4 text-sm text-slate-300">
+                    {details.map((detail) => <li key={detail} className="flex items-start gap-2.5"><CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />{detail}</li>)}
+                  </ul>
                 </div>
-                <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-300">
-                  14-Day Trial
-                </span>
-              </div>
-
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-4xl font-black text-white">$29</span>
-                <span className="text-sm font-semibold text-slate-400">/ month</span>
-              </div>
-
-              <p className="text-sm text-slate-300 leading-relaxed">
-                The everyday service tools for mobile technicians and independent repair shops.
-              </p>
-
-              <ul className="space-y-2.5 text-sm text-slate-300 pt-4 border-t border-slate-800">
-                <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Work Orders &amp; Invoices
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Android and Web Access
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Customer &amp; Vehicle Records
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Job Scheduling
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Payment Recording
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Financial Summaries
-                </li>
-              </ul>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => scrollToAuth('signup')}
-              className="w-full rounded-xl bg-slate-800 py-3.5 text-sm font-bold text-white hover:bg-slate-700 transition"
-            >
-              Start Solo Free Trial
-            </button>
-          </div>
-
-          {/* Plan 2: Powersports & Dealership DMS */}
-          <div className="rounded-3xl border-2 border-orange-500 bg-gradient-to-b from-slate-900 to-orange-950/25 p-8 space-y-6 flex flex-col justify-between shadow-2xl relative">
-            <div className="absolute -top-3.5 right-6 rounded-full bg-orange-500 px-3.5 py-0.5 text-[10px] font-black uppercase text-slate-950 tracking-wider shadow">
-              Dealership DMS
-            </div>
-
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-xl font-black text-white">Dealership DMS</h3>
-                  <p className="text-sm text-orange-300 font-semibold">For powersports service, parts &amp; sales teams</p>
-                </div>
-                <span className="rounded-full bg-orange-500/20 px-3 py-1 text-xs font-bold text-orange-300 border border-orange-500/30">
-                  Upgrade
-                </span>
-              </div>
-
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-4xl font-black text-orange-400">$99</span>
-                <span className="text-sm font-semibold text-slate-400">/ month</span>
-              </div>
-
-              <p className="text-sm text-slate-300 leading-relaxed">
-                Add unit sales, buyer’s orders, and parts counter work alongside dealership service.
-              </p>
-
-              <ul className="space-y-2.5 text-sm text-slate-200 pt-4 border-t border-slate-800">
-                <li className="flex items-center gap-2.5 font-bold text-orange-300">
-                  <CheckIcon className="h-4 w-4 text-orange-400 shrink-0" /> Everything in Solo Rig Package, PLUS:
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Showroom Unit Inventory (New, Used, Consignment)
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Buyer’s Order &amp; Bill of Sale Builder
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Freight, Prep/PDI &amp; Doc Fee Desking
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> Trade-in Credit &amp; Lien Payoff Calculations
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <CheckIcon className="h-4 w-4 text-emerald-400 shrink-0" /> PDI Work Orders for Service
-                </li>
-              </ul>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => scrollToAuth('signup')}
-              className="w-full rounded-xl bg-orange-500 py-3.5 text-sm font-black text-slate-950 hover:bg-orange-400 shadow-lg shadow-orange-500/25 transition active:scale-95"
-            >
-              Create account, then add DMS
-            </button>
-          </div>
+                <button type="button" onClick={() => scrollToAuth('signup', tier)} className={`w-full rounded-xl py-3.5 text-sm font-black transition ${featured ? 'bg-orange-500 text-slate-950 shadow-lg shadow-orange-500/20 hover:bg-orange-400' : 'bg-slate-800 text-white hover:bg-slate-700'}`}>
+                  Start {plan.name} free trial
+                </button>
+              </article>
+            );
+          })}
         </div>
       </section>
 
@@ -455,7 +362,7 @@ export default function Auth() {
           </h2>
           <p className="text-xs text-slate-400">
             {mode === 'reset' ? 'Enter your existing account email. We’ll send a recovery link.' : mode === 'signup'
-                ? 'Start with Solo Rig. Add dealership tools after account setup.'
+                ? `Start with the ${PLAN_DEFINITIONS[selectedPlan].name} plan. Your 14-day trial begins when your shop is created.`
               : 'Welcome back! Enter your login credentials.'}
           </p>
         </div>
@@ -497,26 +404,20 @@ export default function Auth() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
               <>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">Your account starts with Solo Rig</label>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div
-                      className="rounded-xl border border-orange-500 bg-orange-500/10 p-2.5 text-left text-white shadow-xs"
-                    >
-                      <p className="font-bold text-slate-100">Solo Rig</p>
-                      <p className="text-[11px] text-orange-400 font-semibold mt-0.5">$29 / mo</p>
-                      <p className="text-[11px] text-slate-400 mt-1">Mobile &amp; repair shops</p>
-                    </div>
-
-                    <div
-                      className="rounded-xl border border-slate-800 bg-slate-950 p-2.5 text-left text-slate-400"
-                    >
-                      <p className="font-bold text-slate-100">Dealership DMS</p>
-                      <p className="text-[11px] text-orange-400 font-semibold mt-0.5">$99 / mo</p>
-                      <p className="text-[11px] text-slate-400 mt-1">Add after account setup</p>
-                    </div>
+                <fieldset className="space-y-2">
+                  <legend className="text-xs font-bold text-slate-300">Choose your plan · 14 days free · no credit card</legend>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    {(Object.keys(PLAN_DEFINITIONS) as PlanTier[]).map((tier) => {
+                      const plan = PLAN_DEFINITIONS[tier];
+                      const selected = selectedPlan === tier;
+                      return <button key={tier} type="button" aria-pressed={selected} onClick={() => setSelectedPlan(tier)} className={`rounded-xl border p-3 text-left transition ${selected ? 'border-orange-500 bg-orange-500/10 text-white ring-1 ring-orange-500/40' : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-600'}`}>
+                        <span className="block text-xs font-bold text-slate-100">{plan.name}</span>
+                        <span className="mt-1 block text-[11px] font-semibold text-orange-400">${plan.price} / mo</span>
+                        <span className="mt-1 block text-[10px] text-slate-400">{plan.includedUsers} {plan.includedUsers === 1 ? 'user' : 'users'}</span>
+                      </button>;
+                    })}
                   </div>
-                </div>
+                </fieldset>
 
                 <Field label="Business / Shop Name">
                   <Input
@@ -576,7 +477,7 @@ export default function Auth() {
                 : mode === 'reset'
                   ? 'Send Password Reset Email'
                 : mode === 'signup'
-                  ? 'Start Solo Rig Free Trial'
+                  ? `Start ${PLAN_DEFINITIONS[selectedPlan].name} Free Trial`
                   : 'Log In to Shop'}
             </Button>
           </form>

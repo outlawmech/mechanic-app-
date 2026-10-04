@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { Button, Card, Input } from './ui';
 import { WrenchIcon, CheckIcon, LockClosedIcon } from './icons';
 import { useAuth } from '../lib/auth';
-import { STRIPE_PAYMENT_URL, redeemActivationCode } from '../lib/subscription';
+import { getSubscriptionInfo, redeemActivationCode } from '../lib/subscription';
+import { useShopSettings } from '../lib/settings';
+import { startSubscriptionCheckout } from '../lib/billing';
 import { useToast } from './Toast';
 
 interface SubscriptionLockoutProps {
@@ -11,11 +13,14 @@ interface SubscriptionLockoutProps {
 
 export default function SubscriptionLockout({ onUnlocked }: SubscriptionLockoutProps) {
   const { user, signOut } = useAuth();
+  const { settings, memberRole } = useShopSettings();
+  const sub = getSubscriptionInfo(user, settings);
   const toast = useToast();
   const [showCodeInput, setShowCodeInput] = useState(false);
   const [licenseCode, setLicenseCode] = useState('');
   const [unlockError, setUnlockError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   async function handleUnlock() {
     setUnlockError('');
@@ -41,6 +46,17 @@ export default function SubscriptionLockout({ onUnlocked }: SubscriptionLockoutP
     }
   }
 
+  async function handleSubscribe() {
+    setUnlockError('');
+    setCheckoutLoading(true);
+    try {
+      await startSubscriptionCheckout();
+    } catch (err: any) {
+      setUnlockError(err.message || 'We could not start checkout. Please try again.');
+      setCheckoutLoading(false);
+    }
+  }
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-slate-950 px-4 py-8 text-slate-100">
       <div className="w-full max-w-md space-y-6">
@@ -53,10 +69,10 @@ export default function SubscriptionLockout({ onUnlocked }: SubscriptionLockoutP
             </span>
           </div>
           <h1 className="mt-4 text-2xl font-black tracking-tight text-white">
-            14-Day Free Trial Ended
+            {sub.planName} Trial Ended
           </h1>
           <p className="mt-1.5 text-xs text-slate-400 leading-relaxed max-w-sm mx-auto">
-            Your free trial period has concluded. Subscribe to the <strong className="text-slate-200">Solo Rig Plan</strong> to continue managing work orders, parts, and invoices.
+            Your organization’s free trial has concluded. Use an activation code to restore access to the selected {sub.planName} plan.
           </p>
         </div>
 
@@ -65,12 +81,12 @@ export default function SubscriptionLockout({ onUnlocked }: SubscriptionLockoutP
           <div className="flex items-start justify-between border-b border-slate-800/80 pb-3">
             <div>
               <span className="inline-flex items-center rounded-full bg-orange-500/20 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-orange-300 border border-orange-500/30">
-                Solo Rig Tier
+                {sub.planName} Plan
               </span>
               <h2 className="mt-1 text-lg font-bold text-white">Outlaw Shop Systems</h2>
             </div>
             <div className="text-right">
-              <span className="text-2xl font-black text-orange-400">$29</span>
+              <span className="text-2xl font-black text-orange-400">{sub.planPrice.replace('/mo', '')}</span>
               <span className="text-xs text-slate-400"> / month</span>
             </div>
           </div>
@@ -94,17 +110,16 @@ export default function SubscriptionLockout({ onUnlocked }: SubscriptionLockoutP
             </div>
           </div>
 
-          <div className="pt-2">
-            <a
-              href={STRIPE_PAYMENT_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-orange-500 px-4 py-3 text-sm font-black text-slate-950 transition hover:bg-orange-400 shadow-lg shadow-orange-500/20 active:scale-[0.99]"
-            >
-              Activate Subscription ($29/mo)
-            </a>
-            <p className="mt-2 text-center text-[11px] text-slate-400">
-              Secure checkout • Instant activation • Cancel anytime
+          <div className="space-y-2 pt-2">
+            {memberRole === 'owner' && settings.subscription_status !== 'past_due' && (
+              <Button type="button" variant="accent" className="w-full" disabled={checkoutLoading} onClick={handleSubscribe}>
+                {checkoutLoading ? 'Opening secure checkout…' : `Subscribe · ${sub.planPrice}`}
+              </Button>
+            )}
+            <p className="text-center text-[11px] text-slate-400">
+              {settings.subscription_status === 'past_due'
+                ? 'Your subscription payment needs attention. Contact support to restore billing.'
+                : 'Secure checkout is hosted by Stripe. Your access updates after payment is confirmed.'}
             </p>
           </div>
         </Card>

@@ -169,6 +169,8 @@ export type ShopSettings = {
   cash_app_tag?: string;
   custom_pay_link?: string;
   subscription_status?: 'trialing' | 'active' | 'lifetime' | 'canceled' | 'past_due';
+  plan_tier?: 'solo' | 'shop' | 'dealer';
+  trial_started_at?: string | null;
   trial_ends_at?: string | null;
   enable_dealership_mode?: boolean;
   dealership_doc_fee?: number | string;

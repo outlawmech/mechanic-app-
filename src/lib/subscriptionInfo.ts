@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import type { ShopSettings } from '../types';
+import { getOrganizationPlan, PLAN_DEFINITIONS, type PlanTier } from './plans.ts';
 
 export const TRIAL_DAYS = 14;
 
@@ -13,6 +14,8 @@ export interface SubscriptionInfo {
   planName: string;
   planPrice: string;
   planBadge: string;
+  planTier: PlanTier;
+  includedUsers: number;
   isDealershipTier: boolean;
 }
 
@@ -20,10 +23,12 @@ export function getSubscriptionInfo(
   user: User | null,
   settings?: Partial<ShopSettings> | null
 ): SubscriptionInfo {
-  const isDealershipTier = Boolean(settings?.enable_dealership_mode);
-  const planName = isDealershipTier ? 'Dealership & Multi-Tech DMS' : 'Solo Rig Edition';
-  const planPrice = isDealershipTier ? '$99/mo' : '$29/mo';
-  const planBadge = isDealershipTier ? '🏢 DMS Pro' : '🚛 Solo Pro';
+  const planTier = getOrganizationPlan(settings);
+  const plan = PLAN_DEFINITIONS[planTier];
+  const isDealershipTier = planTier === 'dealer';
+  const planName = plan.name;
+  const planPrice = `$${plan.price}/mo`;
+  const planBadge = `${plan.name} Plan`;
 
   // Only a server-loaded organization status can grant Pro access.
   const isExplicitPro = settings?.subscription_status === 'active' || settings?.subscription_status === 'lifetime';
@@ -53,6 +58,8 @@ export function getSubscriptionInfo(
       planName,
       planPrice,
       planBadge,
+      planTier,
+      includedUsers: plan.includedUsers,
       isDealershipTier,
     };
   }
@@ -68,6 +75,8 @@ export function getSubscriptionInfo(
       planName,
       planPrice,
       planBadge,
+      planTier,
+      includedUsers: plan.includedUsers,
       isDealershipTier,
     };
   }
@@ -82,6 +91,8 @@ export function getSubscriptionInfo(
     planName,
     planPrice,
     planBadge,
+    planTier,
+    includedUsers: plan.includedUsers,
     isDealershipTier,
   };
 }

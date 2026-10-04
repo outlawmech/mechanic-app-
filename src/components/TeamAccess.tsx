@@ -4,6 +4,7 @@ import { useShopSettings } from '../lib/settings';
 import { requireSupabase } from '../lib/supabase';
 import { Button, Card, Field, Input } from './ui';
 import { useToast } from './Toast';
+import { hasShopCapabilities } from '../lib/plans';
 
 type Member = { member_id: string; display_name: string; role: 'owner' | 'staff' };
 type Activity = { id: number; actor_name: string; record_type: string; action: string; happened_at: string };
@@ -24,13 +25,14 @@ export default function TeamAccess() {
   const [showJoin, setShowJoin] = useState(false);
   const [myName, setMyName] = useState(memberName);
   const [busy, setBusy] = useState(false);
+  const canManageTeam = hasShopCapabilities(settings);
 
   useEffect(() => {
     setMyName(memberName);
   }, [memberName]);
 
   useEffect(() => {
-    if (!shopId) return;
+    if (!shopId || !canManageTeam) return;
     requireSupabase().from('shop_members').select('member_id,display_name,role')
       .eq('shop_id', shopId).then(({ data }) => setMembers((data || []) as Member[]));
     requireSupabase().from('shop_activity').select('id,actor_name,record_type,action,happened_at')
@@ -41,7 +43,7 @@ export default function TeamAccess() {
       .is('redeemed_at', null).gt('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false }).limit(10)
       .then(({ data }) => setPendingInvites((data || []) as PendingInvite[]));
-  }, [shopId, memberRole, settings.enable_dealership_mode]);
+  }, [shopId, memberRole, canManageTeam]);
 
   async function createInvite() {
     if (!email.trim() || !name.trim()) return;
@@ -64,7 +66,7 @@ export default function TeamAccess() {
       if (error) throw error;
       await reloadSettings();
       setInviteCode('');
-      toast('Joined the dealership. Your shop records are now available.');
+      toast('Joined the shop. Your shop records are now available.');
     } catch (e: any) { toast(e.message || 'Could not join the shop.', 'error'); }
     finally { setBusy(false); }
   }
@@ -93,13 +95,15 @@ export default function TeamAccess() {
   }
 
   return <Card className="space-y-4 p-4">
-    <h3 className="text-sm font-bold text-slate-900">Dealership staff accounts</h3>
+    {canManageTeam && <>
+    <h3 className="text-sm font-bold text-slate-900">Shop team accounts</h3>
     <p className="text-xs text-slate-600">Each person signs in with their own email and password. The code is shown here for you to share; the app does not email it. Only the owner manages access and settings.</p>
-    {settings.enable_dealership_mode && <div className="flex items-end gap-2">
+    </>}
+    {canManageTeam && <div className="flex items-end gap-2">
       <div className="flex-1"><Field label="Your name on payments"><Input value={myName} onChange={(e) => setMyName(e.target.value)} /></Field></div>
       <Button type="button" onClick={saveName} disabled={busy || !myName.trim()}>Save name</Button>
     </div>}
-    {memberRole === 'owner' && settings.enable_dealership_mode && <>
+    {memberRole === 'owner' && canManageTeam && <>
       <div className="grid gap-2 sm:grid-cols-2">
         <Field label="Staff name"><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Alex Smith" /></Field>
         <Field label="Staff email (must match their login)"><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="alex@example.com" /></Field>
@@ -113,10 +117,10 @@ export default function TeamAccess() {
       <button type="button" className="text-xs font-semibold text-orange-700 underline" onClick={() => setShowJoin(!showJoin)}>Have a staff join code for this login?</button>
       {showJoin && <div className="mt-3"><p className="mb-2 text-xs text-slate-600">You can join with an existing login if its own shop has no records. The code must match your account email; it does not go in the activation key field.</p>
         <Field label="Staff join code"><Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder="Paste your staff join code" /></Field>
-        <Button type="button" onClick={redeemInvite} disabled={busy || !inviteCode.trim()} className="mt-2">Join dealership</Button>
+        <Button type="button" onClick={redeemInvite} disabled={busy || !inviteCode.trim()} className="mt-2">Join shop</Button>
       </div>}
     </div>}
-    {memberRole === 'staff' && <p className="text-xs text-emerald-700">You are signed in as dealership staff.</p>}
+    {memberRole === 'staff' && <p className="text-xs text-emerald-700">You are signed in as shop staff.</p>}
     {activity.length > 0 && <div className="border-t border-slate-200 pt-3">
       <p className="mb-2 text-xs font-bold text-slate-700">Recent shop actions</p>
       <div className="max-h-56 space-y-1 overflow-y-auto text-xs text-slate-600">{activity.map((item) =>

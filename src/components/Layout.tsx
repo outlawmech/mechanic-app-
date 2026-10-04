@@ -17,7 +17,8 @@ import {
 } from './icons';
 import { useShopSettings } from '../lib/settings';
 import { useAuth } from '../lib/auth';
-import { getSubscriptionInfo, STRIPE_PAYMENT_URL } from '../lib/subscription';
+import { getSubscriptionInfo } from '../lib/subscription';
+import { getOrganizationPlan, hasDealerSales, hasShopCapabilities, PLAN_DEFINITIONS } from '../lib/plans';
 import { useToast } from './Toast';
 import TrialBanner from './TrialBanner';
 import NetworkStatusBadge from './NetworkStatusBadge';
@@ -49,6 +50,11 @@ const dealerDesktopTabs = [
   { to: '/settings', label: 'Dealership Settings', shortLabel: 'Settings', icon: SettingsIcon, end: false },
 ];
 
+const shopDesktopTabs = dealerDesktopTabs.filter((tab) => tab.to !== '/sales').map((tab) => ({
+  ...tab,
+  label: tab.to === '/' ? 'Shop Dashboard' : tab.label === 'Dealership Settings' ? 'Shop Settings' : tab.label,
+}));
+
 // Solo Rig Mobile Primary Tabs (5 items)
 const soloPrimaryTabs = [
   { to: '/', label: 'Home', shortLabel: 'Home', icon: HomeIcon, end: true },
@@ -65,6 +71,7 @@ const dealerPrimaryTabs = [
   { to: '/sales', label: 'Sales', shortLabel: 'Sales', icon: TagIcon, end: false },
   { to: '/customers', label: 'Customers', shortLabel: 'Customers', icon: UsersIcon, end: false },
 ];
+const shopPrimaryTabs = dealerPrimaryTabs.filter((tab) => tab.to !== '/sales');
 
 export default function Layout() {
   const { settings } = useShopSettings();
@@ -72,10 +79,13 @@ export default function Layout() {
   const toast = useToast();
   const navigate = useNavigate();
   const sub = getSubscriptionInfo(user, settings);
+  const tier = getOrganizationPlan(settings);
+  const isShop = hasShopCapabilities(settings);
+  const isDealer = hasDealerSales(settings);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
 
-  const activeDesktopTabs = settings.enable_dealership_mode ? dealerDesktopTabs : soloDesktopTabs;
-  const activeMobileTabs = settings.enable_dealership_mode ? dealerPrimaryTabs : soloPrimaryTabs;
+  const activeDesktopTabs = isDealer ? dealerDesktopTabs : isShop ? shopDesktopTabs : soloDesktopTabs;
+  const activeMobileTabs = isDealer ? dealerPrimaryTabs : isShop ? shopPrimaryTabs : soloPrimaryTabs;
 
   // Responsive layout: mobile on phones, desktop navigation on larger screens.
   return (
@@ -99,12 +109,12 @@ export default function Layout() {
             <p className="truncate text-[11px] text-slate-400">{settings.tagline}</p>
             <span
               className={`inline-block mt-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-md ${
-                settings.enable_dealership_mode
+                isShop
                   ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                   : 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
               }`}
             >
-              {settings.enable_dealership_mode ? '🏢 Dealership DMS Active' : '🚛 Solo Rig Active'}
+              {tier === 'dealer' ? 'Dealer Plan' : tier === 'shop' ? 'Shop Plan' : 'Solo Plan'}
             </span>
           </div>
         </div>
@@ -148,14 +158,7 @@ export default function Layout() {
                   {sub.daysLeft} {sub.daysLeft === 1 ? 'day' : 'days'} remaining
                 </p>
               </div>
-              <a
-                href={STRIPE_PAYMENT_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full rounded-lg bg-orange-500 py-1.5 text-xs font-black text-slate-950 transition hover:bg-orange-400 shadow shadow-orange-500/20"
-              >
-                Upgrade {sub.planPrice}
-              </a>
+              <p className="text-center text-[10px] text-slate-300">{sub.planName} · {sub.planPrice} after trial</p>
             </div>
           )}
         </div>
@@ -174,12 +177,12 @@ export default function Layout() {
               <h1 className="truncate text-sm font-black leading-tight">{settings.shop_name}</h1>
               <span
                 className={`shrink-0 text-[8px] font-black uppercase px-1.5 py-0.5 rounded-md ${
-                  settings.enable_dealership_mode
+                  isShop
                     ? 'bg-purple-950 text-purple-300 border border-purple-700'
                     : 'bg-orange-950 text-orange-300 border border-orange-700'
                 }`}
               >
-                {settings.enable_dealership_mode ? '🏢 DMS' : '🚛 SOLO'}
+                {tier === 'dealer' ? 'DEALER' : tier === 'shop' ? 'SHOP' : 'SOLO'}
               </span>
             </div>
             <p className="truncate text-[10px] text-slate-400">{settings.tagline}</p>
@@ -203,7 +206,7 @@ export default function Layout() {
 
       {/* Clean Mobile Bottom Navigation */}
       <nav className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden shadow-lg">
-        <div className={`mx-auto grid max-w-md ${settings.enable_dealership_mode ? 'grid-cols-6' : 'grid-cols-5'} pb-[max(env(safe-area-inset-bottom,0px),8px)]`}>
+        <div className={`mx-auto grid max-w-md ${activeMobileTabs.length === 5 ? 'grid-cols-5' : 'grid-cols-4'} pb-[max(env(safe-area-inset-bottom,0px),8px)]`}>
           {activeMobileTabs.map((t) => (
             <NavLink
               key={t.to}
@@ -250,7 +253,7 @@ export default function Layout() {
                 <div>
                   <p className="text-sm font-bold text-slate-900">More Tools &amp; Navigation</p>
                   <p className="text-[10px] text-slate-500">
-                    {settings.enable_dealership_mode ? '🏢 Dealership DMS Active' : '🚛 Solo Rig Active'}
+                    {tier === 'dealer' ? 'Dealer plan' : tier === 'shop' ? 'Shop plan' : 'Solo plan'}
                   </p>
                 </div>
               </div>
@@ -264,7 +267,7 @@ export default function Layout() {
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
-              {settings.enable_dealership_mode ? (
+              {isShop ? (
                 <>
                   <button
                     type="button"
@@ -480,23 +483,23 @@ export default function Layout() {
               <button
                 type="button"
                 onClick={() => {
-                  toast(settings.enable_dealership_mode ? 'Contact support to change your dealership plan.' : 'A dealership upgrade or activation code is required for DMS.');
+                  toast(isDealer ? 'Contact support to change your Dealer plan.' : 'Dealer sales tools require a Dealer plan.');
                   setShowMoreMenu(false);
                   navigate('/settings');
                 }}
                 className={`w-full flex items-center justify-between p-3 rounded-2xl border text-left transition ${
-                  settings.enable_dealership_mode
+                  isDealer
                     ? 'border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
                     : 'border-orange-300 bg-orange-50 text-orange-950 hover:bg-orange-100'
                 }`}
               >
                 <div>
                   <p className="text-xs font-black">
-                    {settings.enable_dealership_mode ? 'Dealership plan active' : '🏢 Dealership upgrade required ($99/mo)'}
+                    {isDealer ? 'Dealer plan active' : `Dealer plan · $${PLAN_DEFINITIONS.dealer.price}/mo`}
                   </p>
                   <p className="text-[10px] text-slate-500 mt-0.5">
-                    {settings.enable_dealership_mode
-                      ? 'Streamlined 5-tab mobile mechanic view'
+                    {isDealer
+                      ? 'Showroom units, sales & Buyer’s Orders'
                       : 'Showroom units, buyer’s orders & floorplan'}
                   </p>
                 </div>

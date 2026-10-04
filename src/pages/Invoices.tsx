@@ -9,6 +9,7 @@ import { safeFetchWithCache } from '../lib/offlineSync';
 import { getInvoiceBalanceDue, getInvoiceEffectiveStatus } from '../lib/invoiceAccounting';
 import type { InvoiceFull } from '../types';
 import { useShopSettings } from '../lib/settings';
+import { hasShopCapabilities } from '../lib/plans';
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -20,6 +21,7 @@ type FilterId = (typeof FILTERS)[number]['id'];
 
 export default function Invoices() {
   const { settings } = useShopSettings();
+  const hasShopOperations = hasShopCapabilities(settings);
   const [filter, setFilter] = useState<FilterId>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -75,7 +77,7 @@ export default function Invoices() {
           sub={totalDue > 0 ? `${money(totalDue)} outstanding receivables` : `${data?.length ?? 0} total invoices`}
         />
         <div className={ACTION_GRID_CLS}>
-          {settings.enable_dealership_mode && <Link to="/parts/counter" className={actionBtnCls('accent')}>
+          {hasShopOperations && <Link to="/parts/counter" className={actionBtnCls('accent')}>
             <span>⚡ New Part Invoice</span>
           </Link>}
           <Link to="/reports" className={actionBtnCls('primary')}>

@@ -29,7 +29,8 @@ import type { WorkOrderFull, DealershipUnit, SpecialOrder, InvoiceFull } from '.
 import { money, fullName, vehicleLabel, shortDate } from '../lib/format';
 import { getInvoiceBalanceDue, getInvoiceEffectiveStatus } from '../lib/invoiceAccounting';
 import { useShopSettings } from '../lib/settings';
-import { getSubscriptionInfo, STRIPE_PAYMENT_URL } from '../lib/subscription';
+import { getSubscriptionInfo } from '../lib/subscription';
+import { getOrganizationPlan, hasDealerSales, hasShopCapabilities } from '../lib/plans';
 import { cacheLocal, getCachedLocal } from '../lib/offlineSync';
 
 interface Metrics {
@@ -45,7 +46,9 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { settings, shopId } = useShopSettings();
   const sub = getSubscriptionInfo(user, settings);
-  const isDms = Boolean(settings.enable_dealership_mode);
+  const isDms = hasShopCapabilities(settings);
+  const isDealer = hasDealerSales(settings);
+  const planName = getOrganizationPlan(settings);
 
   const [recentOrders, setRecentOrders] = useState<WorkOrderFull[]>([]);
   const [unpaidInvoices, setUnpaidInvoices] = useState<any[]>([]);
@@ -228,13 +231,15 @@ export default function Dashboard() {
                   : 'bg-orange-100 text-orange-950 border border-orange-300'
               }`}
             >
-              {isDms ? '🏢 Dealership DMS' : '🚛 Solo Rig Mode'}
+              {planName === 'dealer' ? 'Dealer' : planName === 'shop' ? 'Shop' : 'Solo'}
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">
-            {isDms
-              ? 'Multi-department service, parts counter, and showroom operations.'
-              : 'Mobile mechanic, field service, and work order dispatch.'}
+            {planName === 'dealer'
+              ? 'Service, parts, and dealership sales in one workspace.'
+              : planName === 'shop'
+                ? 'Service, parts, and team operations in one workspace.'
+                : 'Mobile mechanic, field service, and work order dispatch.'}
           </p>
         </div>
 
@@ -281,7 +286,7 @@ export default function Dashboard() {
           </div>
         </Link>
 
-        {isDms ? (
+        {isDealer ? (
           <Link
             to="/sales/deal/new"
             className="flex items-center gap-2.5 rounded-2xl bg-slate-900 p-3 text-white shadow-md shadow-slate-900/20 transition hover:bg-slate-800 active:scale-95 group"
@@ -382,7 +387,7 @@ export default function Dashboard() {
       </div>
 
       {/* Commercial Floorplan Curtailment Alert Banner (DMS Mode Only) */}
-      {isDms && upcomingCurtailments.length > 0 && (
+      {isDealer && upcomingCurtailments.length > 0 && (
         <div className="rounded-2xl border border-orange-300 bg-orange-50/90 p-4 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-3 animate-in fade-in duration-200">
           <div className="flex items-start gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-orange-500 text-slate-950 font-bold shadow-xs">

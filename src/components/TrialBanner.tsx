@@ -1,6 +1,6 @@
 import { useAuth } from '../lib/auth';
 import { useShopSettings } from '../lib/settings';
-import { getSubscriptionInfo, STRIPE_PAYMENT_URL } from '../lib/subscription';
+import { getSubscriptionInfo } from '../lib/subscription';
 import { ClockIcon } from './icons';
 
 export default function TrialBanner() {
@@ -15,22 +15,15 @@ export default function TrialBanner() {
   return (
     <div className="no-print bg-orange-500 px-4 py-2 text-slate-950">
       <div className="mx-auto flex max-w-md items-center justify-between text-xs font-semibold">
-        <div className="flex items-center gap-1.5 truncate">
+        <div className="flex min-w-0 items-center gap-1.5 truncate">
           <ClockIcon className="h-4 w-4 shrink-0 text-slate-950" />
           <span className="truncate">
             {sub.daysLeft > 0
-              ? `14-Day Free Trial: ${sub.daysLeft} ${sub.daysLeft === 1 ? 'day' : 'days'} left`
-              : 'Trial expiring today'}
+              ? `${sub.planName} trial · ${sub.daysLeft} ${sub.daysLeft === 1 ? 'day' : 'days'} left`
+              : `${sub.planName} trial ends today`}
           </span>
         </div>
-        <a
-          href={STRIPE_PAYMENT_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 rounded-md bg-slate-950 px-2.5 py-1 text-[11px] font-bold text-orange-300 shadow-sm transition hover:bg-slate-900 active:scale-95 ml-2"
-        >
-          Upgrade {sub.planPrice}
-        </a>
+        <span className="ml-2 shrink-0 rounded-md bg-slate-950/10 px-2 py-1 text-[10px] font-bold">{sub.planPrice} after trial</span>
       </div>
     </div>
   );

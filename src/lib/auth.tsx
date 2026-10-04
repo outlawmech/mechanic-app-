@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Session, User } from '@supabase/supabase-js';
 import { requireSupabase } from './supabase';
 import { setOfflineQueueOwner } from './offlineSync';
+import type { PlanTier } from './plans';
 
 interface AuthContextType {
   user: User | null;
@@ -14,7 +15,7 @@ interface AuthContextType {
     email: string,
     pass: string,
     shopName?: string,
-    enableDealershipMode?: boolean
+    planTier?: PlanTier
   ) => Promise<{ error: Error | null; needsEmailConfirmation?: boolean }>;
   signOut: () => Promise<void>;
 }
@@ -74,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     pass: string,
     shopName?: string,
-    enableDealershipMode: boolean = false
+    planTier: PlanTier = 'solo'
   ) {
     const sb = requireSupabase();
     const { data, error } = await sb.auth.signUp({
@@ -84,7 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: 'https://outlawshopsystems.netlify.app/',
         data: {
           shop_name: shopName?.trim() || 'Outlaw Shop Systems',
-          enable_dealership_mode: Boolean(enableDealershipMode),
+          plan_tier: planTier,
+          enable_dealership_mode: planTier !== 'solo',
         },
       },
     });
@@ -93,32 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: new Error(error.message) };
     }
 
-    // If session is immediately available (email confirmation disabled in Supabase), create initial settings
-    if (data.session && data.user) {
-      try {
-        await sb.from('shop_settings').upsert({
-          id: data.user.id,
-          user_id: data.user.id,
-          shop_name: shopName?.trim() || 'Outlaw Shop Systems',
-          tagline: enableDealershipMode ? 'Sales, Service & Parts DMS' : 'Mobile & Shop Management',
-          phone: '',
-          email: data.user.email || '',
-          address: '',
-          default_labor_rate: 95.0,
-          default_tax_rate: 0,
-          invoice_notes: 'Thank you for your business! Payments due on or before the due date.',
-          logo_url: '',
-          enable_dealership_mode: Boolean(enableDealershipMode),
-          dealership_doc_fee: 199,
-          dealership_prep_fee: 250,
-          dealership_freight_fee: 350,
-          updated_at: new Date().toISOString(),
-        });
-      } catch (e) {
-        console.warn('Could not auto-create initial shop settings:', e);
-      }
-    }
-
+    // Organization settings and its trial are provisioned atomically by the
+    // auth.users database trigger, including when email confirmation is required.
     return {
       error: null,
       needsEmailConfirmation: !data.session,

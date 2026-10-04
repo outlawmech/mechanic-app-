@@ -28,6 +28,7 @@ import WorkOrderDetail from './pages/WorkOrderDetail';
 import WorkOrders from './pages/WorkOrders';
 import Help from './pages/Help';
 import AndroidUpdatePrompt from './components/AndroidUpdatePrompt';
+import { hasDealerSales, hasShopCapabilities } from './lib/plans';
 
 function AndroidBackButtonHandler() {
   const location = useLocation();
@@ -107,10 +108,10 @@ function AppRoutes() {
           <Route path="parts" element={<Parts />} />
           <Route path="parts/purchase-orders" element={<PurchaseOrders />} />
           <Route path="parts/purchase-orders/:id" element={<PurchaseOrders />} />
-          <Route path="parts/counter" element={settings.enable_dealership_mode ? <CounterSale /> : <Navigate to="/parts" replace />} />
-          <Route path="sales" element={settings.enable_dealership_mode ? <Sales /> : <Navigate to="/" replace />} />
-          <Route path="sales/deal/new" element={settings.enable_dealership_mode ? <BuyersOrderDetail /> : <Navigate to="/" replace />} />
-          <Route path="sales/deal/:id" element={settings.enable_dealership_mode ? <BuyersOrderDetail /> : <Navigate to="/" replace />} />
+          <Route path="parts/counter" element={hasShopCapabilities(settings) ? <CounterSale /> : <Navigate to="/parts" replace />} />
+          <Route path="sales" element={hasDealerSales(settings) ? <Sales /> : <Navigate to="/" replace />} />
+          <Route path="sales/deal/new" element={hasDealerSales(settings) ? <BuyersOrderDetail /> : <Navigate to="/" replace />} />
+          <Route path="sales/deal/:id" element={hasDealerSales(settings) ? <BuyersOrderDetail /> : <Navigate to="/" replace />} />
           <Route path="help" element={<Help />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Dashboard />} />

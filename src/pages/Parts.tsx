@@ -33,6 +33,7 @@ import {
   Spinner,
 } from '../components/ui';
 import { useShopSettings } from '../lib/settings';
+import { hasShopCapabilities } from '../lib/plans';
 import { useAsync } from '../lib/hooks';
 import { money, num, round2, fullName } from '../lib/format';
 import { check, errMsg, requireSupabase } from '../lib/supabase';
@@ -131,6 +132,7 @@ export default function Parts() {
   const toast = useToast();
   const navigate = useNavigate();
   const { settings, shopId } = useShopSettings();
+  const hasShopOperations = hasShopCapabilities(settings);
 
   // Primary Tab: 'inventory' vs 'special_orders'
   const [mainTab, setMainTab] = useState<'inventory' | 'special_orders'>('inventory');
@@ -716,7 +718,7 @@ export default function Parts() {
             </>
           )}
 
-          {settings.enable_dealership_mode && <Link
+          {hasShopOperations && <Link
             to="/parts/counter"
             className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 text-xs font-bold text-white shadow-xs hover:bg-slate-800 transition active:scale-95"
           >
@@ -788,7 +790,7 @@ export default function Parts() {
             </button>
           ) : null}
 
-          {settings.enable_dealership_mode && <Link
+          {hasShopOperations && <Link
             to="/parts/counter"
             className="flex h-10 items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-3 text-xs font-bold text-white shadow-xs active:scale-95 transition"
           >
@@ -1438,7 +1440,7 @@ export default function Parts() {
                         )}
 
                         {/* 3. Convert to Direct Invoice */}
-                        {settings.enable_dealership_mode && so.status !== 'fulfilled' && so.payment_status !== 'paid_in_full' && (
+                        {hasShopOperations && so.status !== 'fulfilled' && so.payment_status !== 'paid_in_full' && (
                           <button
                             type="button"
                             onClick={() => convertToInvoice(so)}
