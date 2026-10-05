@@ -307,7 +307,7 @@ export default function Schedule() {
                           <button
                             type="button"
                             onClick={() => handleOpenMaps(wo.customer.address)}
-                            className="mt-0.5 flex items-center gap-1 text-xs text-orange-700 hover:underline text-left font-medium"
+                            className="md:hidden mt-0.5 flex items-center gap-1 text-xs text-orange-700 hover:underline text-left font-medium"
                             title="Open map directions"
                           >
                             <MapPinIcon className="h-3.5 w-3.5 shrink-0 text-orange-600" />
@@ -316,6 +316,8 @@ export default function Schedule() {
                         ) : (
                           <p className="text-xs text-slate-400">No address on file (Shop Bay)</p>
                         )}
+                        {wo.customer?.address && <p className="hidden md:flex mt-0.5 items-center gap-1 text-xs font-medium text-orange-700"><MapPinIcon className="h-3.5 w-3.5 shrink-0 text-orange-600" /><span>{wo.customer.address}</span></p>}
+                        {wo.customer?.phone && <p className="hidden md:block text-xs text-slate-500">{wo.customer.phone}</p>}
                       </div>
 
                       {/* Vehicle / Machine Info */}
@@ -343,7 +345,7 @@ export default function Schedule() {
 
                     {/* Action Bar: Maps, Text ETA, Call, Open WO */}
                     <div className="mt-4 border-t border-slate-100 pt-3 space-y-2">
-                      <div className="grid grid-cols-3 gap-1.5">
+                      <div className="grid grid-cols-3 gap-1.5 md:hidden">
                         {/* Maps Nav */}
                         <button
                           type="button"

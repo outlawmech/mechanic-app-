@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, type FormEvent } from 'react';
+import { useState, useMemo, useRef, useEffect, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 import {
@@ -149,6 +149,13 @@ export default function Parts() {
   const [form, setForm] = useState(emptyPart);
   const [savingPart, setSavingPart] = useState(false);
   const savingPartRef = useRef(false);
+  const editPartFormRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (addingPart && editingPart) {
+      editPartFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [addingPart, editingPart]);
 
   // Special Orders States
   const [soSearch, setSoSearch] = useState('');
@@ -900,8 +907,9 @@ export default function Parts() {
           {/* Add / Edit Part Form */}
           {addingPart && (
             <form
+              ref={editPartFormRef}
               onSubmit={handleSavePart}
-              className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-900/10"
+              className="scroll-mt-32 space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-900/10"
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-2">
                 <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">
@@ -1328,14 +1336,15 @@ export default function Parts() {
                           <div className="flex items-center gap-2 pt-0.5">
                             <a
                               href={`tel:${so.customer_phone}`}
-                              className="inline-flex items-center gap-1 font-mono text-[11px] font-bold text-orange-600 hover:underline"
+                              className="md:hidden inline-flex items-center gap-1 font-mono text-[11px] font-bold text-orange-600 hover:underline"
                             >
                               <PhoneCallIcon className="h-3 w-3" /> {so.customer_phone}
                             </a>
+                            <span className="hidden md:inline font-mono text-[11px] font-bold">{so.customer_phone}</span>
                             <button
                               type="button"
                               onClick={() => setOrderToNotify(so)}
-                              className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-semibold hover:bg-slate-200"
+                              className="md:hidden text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-semibold hover:bg-slate-200"
                             >
                               💬 SMS
                             </button>

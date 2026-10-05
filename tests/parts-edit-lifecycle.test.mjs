@@ -26,3 +26,10 @@ test('Parts UI has no inventory deletion action or handler', async () => {
   assert.doesNotMatch(source, /handleDeletePart|Delete part|Part deleted/);
   assert.doesNotMatch(source, /from\('parts'\)\.delete\(/);
 });
+
+test('Parts selection scrolls the rendered edit form into view', async () => {
+  const source = await readFile(new URL('../src/pages/Parts.tsx', import.meta.url), 'utf8');
+  assert.match(source, /useEffect\(\(\) => \{\s+if \(addingPart && editingPart\) \{\s+editPartFormRef\.current\?\.scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\);\s+\}\s+\}, \[addingPart, editingPart\]\);/);
+  assert.match(source, /<form\s+ref=\{editPartFormRef\}\s+onSubmit=\{handleSavePart\}/);
+  assert.match(source, /className="scroll-mt-32 space-y-3/);
+});

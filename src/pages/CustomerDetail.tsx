@@ -477,7 +477,7 @@ export default function CustomerDetail() {
             {c.phone ? (
               <a
                 href={`tel:${c.phone}`}
-                className="flex items-center gap-2 text-sm font-semibold text-slate-800 hover:text-slate-950"
+                className="md:hidden flex items-center gap-2 text-sm font-semibold text-slate-800 hover:text-slate-950"
               >
                 <PhoneIcon className="h-4 w-4 text-slate-400" />
                 {c.phone}
@@ -485,6 +485,7 @@ export default function CustomerDetail() {
             ) : (
               <p className="text-xs text-slate-400 italic">No phone number on file</p>
             )}
+            {c.phone && <p className="hidden md:flex items-center gap-2 text-sm font-semibold text-slate-800"><PhoneIcon className="h-4 w-4 text-slate-400" />{c.phone}</p>}
 
             {c.email ? (
               <a

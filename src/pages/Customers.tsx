@@ -109,7 +109,7 @@ export default function Customers() {
 
                   {/* 1-Tap Quick Action Bar */}
                   <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 md:hidden">
                       {c.phone && (
                         <>
                           <a

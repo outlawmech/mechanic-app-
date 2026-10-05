@@ -977,7 +977,7 @@ export default function WorkOrderDetail() {
               </Button>
               <Button
                 variant="ghost"
-                className="text-xs"
+                className="text-xs md:hidden"
                 onClick={handleShareEstimate}
                 title="Share via text/SMS or copy text"
               >

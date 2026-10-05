@@ -116,7 +116,7 @@ export default function SpecialOrderReceiveModal({
           </Field>
 
           {/* Quick Checkbox to launch SMS modal right after receiving */}
-          <label className="flex items-start gap-2.5 rounded-xl border border-slate-800 bg-slate-950/40 p-3 cursor-pointer hover:bg-slate-950/80 transition">
+          <label className="md:hidden flex items-start gap-2.5 rounded-xl border border-slate-800 bg-slate-950/40 p-3 cursor-pointer hover:bg-slate-950/80 transition">
             <input
               type="checkbox"
               checked={shouldNotify}

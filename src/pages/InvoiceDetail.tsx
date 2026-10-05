@@ -556,7 +556,7 @@ export default function InvoiceDetail() {
               <Button
                 variant="ghost"
                 onClick={handleShareInvoice}
-                className="text-xs font-semibold"
+                className="text-xs font-semibold md:hidden"
                 title="Share via text/SMS or copy text"
               >
                 <ShareIcon className="h-4 w-4 text-slate-600" /> Text / SMS
