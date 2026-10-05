@@ -68,7 +68,8 @@ test('BO uses the existing native/web print handoff and existing list; scoped se
   assert.match(sales,/role="tablist"/);assert.match(sales,/aria-selected=\{activeTab === 'deals'\}/);
   assert.match(sales,/view'\) === 'deals'/);
   const settings=await readFile(new URL('../src/lib/settings.tsx',import.meta.url),'utf8');
-  assert.match(settings,/sales_disclaimer: updated\.sales_disclaimer/);
+  const profile=await readFile(new URL('../src/lib/shopProfile.ts',import.meta.url),'utf8');
+  assert.match(profile,/sales_disclaimer: updated\.sales_disclaimer/);
   const help=await readFile(new URL('../src/pages/Help.tsx',import.meta.url),'utf8');
   assert.match(help,/mailto:outlawshopsystems@gmail\.com/);
   assert.doesNotMatch(help+settings,/service@outlawshopsystems\.com/);
