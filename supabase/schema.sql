@@ -143,7 +143,7 @@ create table if not exists public.shop_settings (
   shop_name          text not null default 'Outlaw Shop Systems',
   tagline            text not null default 'Mobile & Shop Management',
   phone              text not null default '406-555-0100',
-  email              text not null default 'service@outlawshopsystems.com',
+  email              text not null default 'outlawshopsystems@gmail.com',
   address            text not null default 'Helena, MT',
   default_labor_rate numeric(10,2) not null default 95.00,
   default_tax_rate   numeric(5,4) not null default 0.04,

@@ -217,7 +217,7 @@ export default function Help() {
       {filtered.length === 0 && <Card className="p-5 text-sm text-slate-600">No matching topic. Try a shorter term such as “invoice” or “part.”</Card>}
       <Card className="space-y-2 p-5">
         <h2 className="text-sm font-black text-slate-900">Still stuck?</h2>
-        <p className="text-xs leading-relaxed text-slate-600">Email the screen name, record number, what you expected, what happened, and a screenshot to <a className="font-bold text-orange-700 underline" href="mailto:service@outlawshopsystems.com">service@outlawshopsystems.com</a>. Leave passwords and payment details out of screenshots.</p>
+        <p className="text-xs leading-relaxed text-slate-600">Email the screen name, record number, what you expected, what happened, and a screenshot to <a className="font-bold text-orange-700 underline" href="mailto:outlawshopsystems@gmail.com">outlawshopsystems@gmail.com</a>. Leave passwords and payment details out of screenshots.</p>
       </Card>
     </div>
   );

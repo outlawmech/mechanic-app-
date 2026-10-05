@@ -447,6 +447,12 @@ export default function Settings() {
               />
             </Field>
           </div>
+          <Field label="Sales Disclaimer">
+            <Textarea value={form.sales_disclaimer ?? ''}
+              onChange={(e) => setForm({ ...form, sales_disclaimer: e.target.value })}
+              placeholder="Enter your dealership’s own sales disclaimer, or leave blank." />
+            <p className="mt-1 text-xs text-slate-500">Applied automatically to new Buyer’s Orders. Existing orders retain their saved wording. Your dealership is responsible for this text.</p>
+          </Field>
         </Card>}
 
         <Button type="submit" variant="accent" disabled={saving} className="w-full">

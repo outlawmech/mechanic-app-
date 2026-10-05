@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, type FormEvent } from 'react';
+import { useState, useEffect, useMemo, useRef, type FormEvent } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 import {
@@ -17,9 +17,11 @@ import {
   MailIcon,
   MapPinIcon,
 } from '../components/icons';
-import { Button, Card, Field, Input, PageTitle, Select, Spinner, ErrorState } from '../components/ui';
+import { Button, Card, Field, Input, PageTitle, Select, Textarea, Spinner, ErrorState } from '../components/ui';
 import CustomerSearchPicker from '../components/CustomerSearchPicker';
 import SignaturePad from '../components/SignaturePad';
+import { buildBuyersOrderHtml } from '../lib/buyersOrderDocument';
+import { printStandaloneHtml } from '../lib/printer';
 import { useShopSettings } from '../lib/settings';
 import { useAsync } from '../lib/hooks';
 import { money, num, round2, fullName, shortDate, longDate } from '../lib/format';
@@ -27,6 +29,13 @@ import { check, errMsg, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache, enqueueOfflineAction, cacheLocal, getCachedLocal, generateUUID } from '../lib/offlineSync';
 import { decodeVehicleVIN } from '../lib/vinDecoder';
 import type { BuyersOrderFull, Customer, CustomerWithVehicles, DealershipUnit, PaymentMethod, UnitCondition, BuyersOrderStatus, WorkOrder } from '../types';
+
+function checkDealSave<T extends { error: { message: string; code?: string } | null }>(result: T): T {
+  if (result.error?.code === '23505' && /buyers_orders_one_open_unit|open Buyer’s Order/.test(result.error.message)) {
+    throw new Error('This unit already has an open Buyer’s Order. Return to Buyer’s Orders to open it.');
+  }
+  return check(result);
+}
 
 export default function BuyersOrderDetail() {
   const { id } = useParams();
@@ -39,6 +48,8 @@ export default function BuyersOrderDetail() {
   const preselectedUnitId = searchParams.get('unit_id');
 
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const dispatchingRef = useRef(false);
   const [dispatchingRigging, setDispatchingRigging] = useState(false);
   const [showSignPad, setShowSignPad] = useState(false);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
@@ -74,6 +85,7 @@ export default function BuyersOrderDetail() {
   const [rebateAmount, setRebateAmount] = useState('0');
   const [downPayment, setDownPayment] = useState('0');
   const [notes, setNotes] = useState('');
+  const [riggingInstructions, setRiggingInstructions] = useState('');
   const [markFloorplanPaidOff, setMarkFloorplanPaidOff] = useState(false);
 
   // Load Universal Customers from shared database, Showroom Units, and Existing Order (if editing)
@@ -91,14 +103,16 @@ export default function BuyersOrderDetail() {
     );
 
     // 2. Fetch showroom units and existing order
-    const [unitsRes, orderRes] = await Promise.all([
+    const [unitsRes, orderRes, openOrdersRes] = await Promise.all([
       sb.from('dealership_units').select('*').order('created_at', { ascending: false }),
       !isNew
         ? sb.from('buyers_orders').select('*, customer:customers(*)').eq('id', id!).limit(1)
         : Promise.resolve({ data: [], error: null }),
+      sb.from('buyers_orders').select('id, unit_id, order_number, customer:customers(first_name,last_name)').in('status', ['quote', 'pending']),
     ]);
 
     check(unitsRes);
+    check(openOrdersRes);
     if (!isNew && orderRes.error) check(orderRes);
 
     const units = (unitsRes.data ?? []) as DealershipUnit[];
@@ -107,7 +121,7 @@ export default function BuyersOrderDetail() {
     const riggingRes = !isNew
       ? check(await sb.from('work_orders').select('*').eq('buyer_order_id', id!).eq('internal_type', 'rigging').order('created_at', { ascending: false }))
       : { data: [] };
-    return { customers, units, existingOrder, riggingOrders: (riggingRes.data ?? []) as WorkOrder[] };
+    return { customers, units, existingOrder, openOrders: openOrdersRes.data ?? [], riggingOrders: (riggingRes.data ?? []) as WorkOrder[] };
   }, [id, isNew]);
 
   const customers = data?.customers ?? [];
@@ -115,7 +129,13 @@ export default function BuyersOrderDetail() {
   const existingOrder = data?.existingOrder;
   const riggingOrders = data?.riggingOrders ?? [];
 
+  const documentLocked = Boolean(existingOrder && (existingOrder.status === 'completed' || existingOrder.signature_url));
+  const conflictingOrder = data?.openOrders.find((o) => o.unit_id === unitId && o.id !== id);
+  const conflictingCustomer = Array.isArray(conflictingOrder?.customer) ? conflictingOrder.customer[0] : conflictingOrder?.customer;
+
   async function dispatchRigging() {
+    if (dispatchingRef.current) return;
+    if (riggingOrders[0]) { navigate(`/work/${riggingOrders[0].id}`); return; }
     if (!existingOrder?.unit_id || !id) {
       toast('Save this deal with a showroom unit before dispatching rigging.', 'error');
       return;
@@ -124,7 +144,8 @@ export default function BuyersOrderDetail() {
       toast('Reconnect before dispatching rigging.', 'error');
       return;
     }
-    if (!window.confirm('Create a separate internal rigging WO for this unit and deal?')) return;
+    if (!window.confirm('Create a separate internal rigging WO using this deal’s saved instructions? Save any instruction changes first.')) return;
+    dispatchingRef.current = true;
     setDispatchingRigging(true);
     try {
       const res = check(await requireSupabase().rpc('dispatch_unit_rigging', { p_buyer_order_id: id }));
@@ -133,6 +154,7 @@ export default function BuyersOrderDetail() {
     } catch (e) {
       toast(errMsg(e), 'error');
     } finally {
+      dispatchingRef.current = false;
       setDispatchingRigging(false);
     }
   }
@@ -165,6 +187,7 @@ export default function BuyersOrderDetail() {
       setRebateAmount(String(existingOrder.rebate_amount || '0'));
       setDownPayment(String(existingOrder.down_payment || '0'));
       setNotes(existingOrder.notes || '');
+      setRiggingInstructions(existingOrder.rigging_instructions || '');
       setSignatureUrl(existingOrder.signature_url || null);
       setSignerName(existingOrder.signed_by_name || '');
     } else if (preselectedUnitId && units.length > 0) {
@@ -238,6 +261,11 @@ export default function BuyersOrderDetail() {
 
   async function handleSaveDeal(e: FormEvent) {
     e.preventDefault();
+    if (savingRef.current || existingOrder?.status === 'completed') return;
+    if (conflictingOrder && status !== 'canceled') {
+      toast('This unit already has an open Buyer’s Order. Open the linked deal below.', 'error');
+      return;
+    }
     if (!customerId) {
       toast('Please select a customer', 'error');
       return;
@@ -251,6 +279,7 @@ export default function BuyersOrderDetail() {
       toast('This showroom unit is already sold. Open its existing Buyer’s Order instead.', 'error');
       return;
     }
+    savingRef.current = true;
     setSaving(true);
 
     const dealPayload = {
@@ -281,6 +310,7 @@ export default function BuyersOrderDetail() {
       payment_method: paymentMethod,
       status: status,
       notes: notes.trim(),
+      rigging_instructions: riggingInstructions,
       signature_url: signatureUrl,
       signed_by_name: signerName.trim() || undefined,
       signed_at: signatureUrl ? new Date().toISOString() : undefined,
@@ -289,8 +319,9 @@ export default function BuyersOrderDetail() {
 
     try {
       const sb = requireSupabase();
+      const writePayload = documentLocked ? { status, updated_at: dealPayload.updated_at } : dealPayload;
       if (isNew) {
-        const res = check(await sb.from('buyers_orders').insert(dealPayload).select('id').single());
+        const res = checkDealSave(await sb.from('buyers_orders').insert(dealPayload).select('id').single());
         // If marked as completed / sold, update unit status & floorplan payoff
         if (unitId && status === 'completed') {
           const unitUpdate: Record<string, any> = {
@@ -301,7 +332,7 @@ export default function BuyersOrderDetail() {
           if (selectedUnit?.is_floored && markFloorplanPaidOff) {
             unitUpdate.floorplan_paid_off = true;
           }
-          await sb.from('dealership_units').update(unitUpdate).eq('id', unitId);
+          check(await sb.from('dealership_units').update(unitUpdate).eq('id', unitId));
         }
         toast('Buyer’s Order created!');
         if (res.data?.id) {
@@ -310,7 +341,7 @@ export default function BuyersOrderDetail() {
           navigate('/sales');
         }
       } else {
-        check(await sb.from('buyers_orders').update(dealPayload).eq('id', id!));
+        checkDealSave(await sb.from('buyers_orders').update(writePayload).eq('id', id!).select('id').single());
         if (unitId && status === 'completed') {
           const unitUpdate: Record<string, any> = {
             status: 'sold',
@@ -320,7 +351,7 @@ export default function BuyersOrderDetail() {
           if (selectedUnit?.is_floored && markFloorplanPaidOff) {
             unitUpdate.floorplan_paid_off = true;
           }
-          await sb.from('dealership_units').update(unitUpdate).eq('id', unitId);
+          check(await sb.from('dealership_units').update(unitUpdate).eq('id', unitId));
         }
         toast('Buyer’s Order updated!');
         await reload();
@@ -357,12 +388,14 @@ export default function BuyersOrderDetail() {
     } catch (err: any) {
       toast(err.message || 'Failed to save deal sheet', 'error');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
 
   function handlePrintBillOfSale() {
-    window.print();
+    if (!existingOrder) return;
+    printStandaloneHtml(buildBuyersOrderHtml(existingOrder, settings, units.find((u) => u.id === existingOrder.unit_id)?.stock_number), `Buyers_Order_${existingOrder.order_number.replace(/[^a-zA-Z0-9_-]/g, '_')}`);
   }
 
   if (loading) return <Spinner />;
@@ -420,7 +453,7 @@ export default function BuyersOrderDetail() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between no-print">
         <div className="flex items-center gap-3">
           <Link
-            to="/sales"
+            to="/sales?view=deals"
             className="rounded-xl border border-slate-200 bg-white p-2 text-slate-600 shadow-xs hover:bg-slate-50"
           >
             <ArrowLeftIcon className="h-4 w-4" />
@@ -436,7 +469,7 @@ export default function BuyersOrderDetail() {
         <div className="flex items-center gap-2">
           {!isNew && existingOrder?.unit_id && (
             <Button type="button" variant="ghost" disabled={dispatchingRigging} onClick={dispatchRigging} className="text-xs font-bold">
-              <WrenchIcon className="h-4 w-4" /> Dispatch Rigging WO
+              <WrenchIcon className="h-4 w-4" /> {riggingOrders.length ? 'Open Rigging WO' : 'Dispatch Rigging WO'}
             </Button>
           )}
           {!isNew && (
@@ -464,42 +497,27 @@ export default function BuyersOrderDetail() {
         </Card>
       )}
 
-      {!isNew && (
-        <section className="buyers-order-print" aria-label="Printable Buyer’s Order">
-          <header className="buyers-order-print-header">
-            <div><strong>{settings.shop_name}</strong><h1>Buyer’s Order &amp; Bill of Sale</h1></div>
-            <div>Order {orderNumber}<br />Status: {status.replace('_', ' ')}</div>
-          </header>
-          <div className="buyers-order-print-details">
-            <div><strong>Buyer</strong><br />{fullName(selectedCustomer)}<br />{selectedCustomer?.address || ''}<br />{selectedCustomer?.phone || ''}</div>
-            <div><strong>Unit</strong><br />{unitYear} {unitMake} {unitModel}<br />{unitColor && <>Color: {unitColor}<br /></>}VIN / HIN: {unitVin || '—'}{selectedUnit && <><br />Stock #: {selectedUnit.stock_number}</>}</div>
-          </div>
-          <table className="buyers-order-print-prices"><tbody>
-            <tr><td>Unit selling price</td><td>{money(unitPrice)}</td></tr>
-            <tr><td>Freight / destination</td><td>{money(freightFee)}</td></tr>
-            <tr><td>Assembly / dealer prep</td><td>{money(prepFee)}</td></tr>
-            <tr><td>Documentation fee</td><td>{money(docFee)}</td></tr>
-            <tr><td>Installed parts &amp; accessories</td><td>{money(accessoriesTotal)}</td></tr>
-            <tr><td>Trade-in allowance</td><td>− {money(tradeInAllowance)}</td></tr>
-            <tr><td>Trade-in lien payoff</td><td>{money(tradeInPayoff)}</td></tr>
-            <tr><td>Sales tax ({taxRate}%)</td><td>{money(calculations.calculatedTax)}</td></tr>
-            <tr><td>Title / registration</td><td>{money(titleRegFee)}</td></tr>
-            <tr><td>Rebate / promotion</td><td>− {money(rebateAmount)}</td></tr>
-            <tr className="buyers-order-print-total"><th>Total delivered price</th><td>{money(calculations.totalPrice)}</td></tr>
-            <tr><td>Deposit / down payment</td><td>− {money(downPayment)}</td></tr>
-            <tr className="buyers-order-print-total"><th>Balance due / financed</th><td>{money(calculations.balanceDue)}</td></tr>
-          </tbody></table>
-          {tradeInInfo && <p><strong>Trade-in:</strong> {tradeInInfo}</p>}
-          {notes && <p><strong>Deal notes:</strong> {notes}</p>}
-          <div className="buyers-order-print-signatures">
-            <div><span></span><strong>Buyer signature</strong><p>Printed name: {fullName(selectedCustomer)}</p><span></span><strong>Date</strong></div>
-            <div><span></span><strong>Salesperson signature</strong><p>Printed name: __________________________</p><span></span><strong>Date</strong></div>
-          </div>
-        </section>
-      )}
+      {documentLocked && <Card className="p-4 space-y-3 text-sm">
+        <p>This signed or completed order retains its saved transaction data. You can print it or open its rigging WO.</p>
+        {existingOrder?.status !== 'completed' && <div className="flex flex-wrap items-end gap-3">
+          <Field label="Deal Status"><Select value={status} disabled={saving} onChange={(e) => setStatus(e.target.value as BuyersOrderStatus)}>
+            <option value="quote">Quote / Estimate</option><option value="pending">Deposit / Pending</option>
+            <option value="completed">Completed &amp; Sold</option><option value="canceled">Canceled</option>
+          </Select></Field>
+          {status === 'completed' && selectedUnit?.is_floored && !selectedUnit.floorplan_paid_off && (
+            <label className="flex items-start gap-2 text-xs">
+              <input type="checkbox" checked={markFloorplanPaidOff} onChange={(e) => setMarkFloorplanPaidOff(e.target.checked)} disabled={saving} />
+              <span>I confirm the floorplan payoff of {money(selectedUnit.floorplan_balance || selectedUnit.cost_price)} to {selectedUnit.floorplan_company || 'the lender'} has been paid. Mark this unit paid off.</span>
+            </label>
+          )}
+          <Button type="button" disabled={saving} onClick={handleSaveDeal}>Save status</Button>
+        </div>}
+      </Card>}
+      {conflictingOrder && <Card className="p-4 text-sm">This unit already has an open Buyer’s Order. <Link className="font-bold underline" to={`/sales/deal/${conflictingOrder.id}`}>Open {conflictingOrder.order_number}{conflictingCustomer && <> · {fullName(conflictingCustomer)}</>}</Link></Card>}
 
       {/* Main Deal Form */}
       <form onSubmit={handleSaveDeal} className="space-y-6 buyers-order-screen">
+        <fieldset className="min-w-0" disabled={documentLocked || saving}>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Left 7 Cols: Customer & Vehicle Selection */}
           <div className="space-y-6 lg:col-span-7">
@@ -615,6 +633,16 @@ export default function BuyersOrderDetail() {
                   className="font-mono uppercase text-xs"
                 />
               </Field>
+            </Card>
+
+            <Card className="p-5 space-y-4">
+              <Field label="Accessories / Rigging Instructions">
+                <Textarea value={riggingInstructions} onChange={(e) => setRiggingInstructions(e.target.value)} placeholder="Deal-specific installation, setup or delivery instructions." />
+              </Field>
+              {(existingOrder?.sales_disclaimer ?? (isNew ? settings.sales_disclaimer : ''))?.trim() && <div>
+                <h3 className="text-xs font-bold uppercase text-slate-700">Sales Disclaimer</h3>
+                <p className="mt-2 whitespace-pre-wrap text-xs text-slate-600">{existingOrder?.sales_disclaimer ?? settings.sales_disclaimer}</p>
+              </div>}
             </Card>
 
             {/* Trade-in Section */}
@@ -836,7 +864,7 @@ export default function BuyersOrderDetail() {
               </div>
 
               {/* Floored Unit Payoff Settlement Option */}
-              {status === 'completed' && selectedUnit?.is_floored && !selectedUnit.floorplan_paid_off && (
+              {!documentLocked && status === 'completed' && selectedUnit?.is_floored && !selectedUnit.floorplan_paid_off && (
                 <label className="flex items-start gap-2 text-xs font-semibold text-orange-200 bg-orange-950/40 p-3 rounded-xl border border-orange-500/40 cursor-pointer">
                   <input
                     type="checkbox"
@@ -861,10 +889,11 @@ export default function BuyersOrderDetail() {
                   ) : (
                     <button
                       type="button"
+                      disabled={isNew}
                       onClick={() => setShowSignPad(true)}
                       className="text-xs font-bold text-orange-400 hover:underline"
                     >
-                      + Sign on Screen
+                      {isNew ? 'Save order before signing' : '+ Sign on Screen'}
                     </button>
                   )}
                 </div>
@@ -882,11 +911,12 @@ export default function BuyersOrderDetail() {
                 disabled={saving}
                 className="w-full py-3 font-black text-sm text-slate-950 shadow-lg shadow-orange-400/20"
               >
-                {saving ? 'Saving…' : isNew ? 'Create Buyer’s Order' : 'Update & Save Deal'}
+                {documentLocked ? 'Saved transaction' : saving ? 'Saving…' : isNew ? 'Create Buyer’s Order' : 'Update & Save Deal'}
               </Button>
             </Card>
           </div>
         </div>
+        </fieldset>
       </form>
 
       {/* Signature Capture Modal */}

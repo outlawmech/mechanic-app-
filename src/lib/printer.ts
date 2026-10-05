@@ -451,7 +451,7 @@ export function printTechWorksheetDocument(wo: TechWorksheetWorkOrder, settings:
   printStandaloneHtml(buildTechWorksheetHtml(wo, settings), safeName);
 }
 
-function printStandaloneHtml(cleanHtml: string, safeName: string) {
+export function printStandaloneHtml(cleanHtml: string, safeName: string) {
   // 1. Android Native Java Bridge with clean dedicated HTML spooler
   if (
     typeof window !== 'undefined' &&

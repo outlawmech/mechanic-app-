@@ -1,5 +1,5 @@
 import { useState, useMemo, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 import {
   BanknotesIcon,
@@ -75,7 +75,8 @@ export default function Sales() {
   const navigate = useNavigate();
   const { settings, updateSettings } = useShopSettings();
 
-  const [activeTab, setActiveTab] = useState<'units' | 'deals'>('units');
+  const [salesSearchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<'units' | 'deals'>(salesSearchParams.get('view') === 'deals' ? 'deals' : 'units');
   const [filterCondition, setFilterCondition] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showPreview, setShowPreview] = useState(false);
@@ -584,22 +585,23 @@ export default function Sales() {
           </p>
         </Card>
 
-        <Card className="p-4 space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Deals &amp; Delivered</p>
+        <button type="button" onClick={() => setActiveTab('deals')} className="rounded-2xl bg-white p-4 space-y-1 text-left shadow-sm ring-1 ring-slate-900/5 hover:ring-orange-400 focus-visible:ring-2 focus-visible:ring-orange-500">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Deals &amp; Delivered →</p>
           <p className="text-2xl font-black text-slate-900">{allDeals.length}</p>
           <p className="text-[11px] text-slate-500">{soldUnits.length} units sold &amp; delivered</p>
-        </Card>
+        </button>
       </div>
 
       {/* Section Subtabs: Showroom Units vs Buyer's Orders */}
-      <div className="flex border-b border-slate-200 gap-4 text-xs font-bold">
+      <div className="flex flex-wrap gap-2 rounded-2xl bg-slate-100 p-2 text-xs font-bold" role="tablist" aria-label="Sales views">
         <button
           type="button"
           onClick={() => setActiveTab('units')}
-          className={`pb-2.5 transition border-b-2 ${
+          role="tab" aria-selected={activeTab === 'units'}
+          className={`min-h-11 rounded-xl px-4 py-3 transition ring-1 ${
             activeTab === 'units'
-              ? 'border-orange-500 text-slate-950 font-black'
-              : 'border-transparent text-slate-400 hover:text-slate-700'
+              ? 'bg-white ring-orange-500 text-slate-950 font-black shadow-sm'
+              : 'bg-slate-200 ring-transparent text-slate-700 hover:bg-white'
           }`}
         >
           Showroom Units ({allUnits.length - soldUnits.length})
@@ -607,10 +609,11 @@ export default function Sales() {
         <button
           type="button"
           onClick={() => setActiveTab('deals')}
-          className={`pb-2.5 transition border-b-2 ${
+          role="tab" aria-selected={activeTab === 'deals'}
+          className={`min-h-11 rounded-xl px-4 py-3 transition ring-1 ${
             activeTab === 'deals'
-              ? 'border-orange-500 text-slate-950 font-black'
-              : 'border-transparent text-slate-400 hover:text-slate-700'
+              ? 'bg-white ring-orange-500 text-slate-950 font-black shadow-sm'
+              : 'bg-slate-200 ring-transparent text-slate-700 hover:bg-white'
           }`}
         >
           Buyer's Orders &amp; Bills of Sale ({allDeals.length})

@@ -163,6 +163,7 @@ export type ShopSettings = {
   internal_labor_cost_rate?: number | string;
   default_tax_rate: number | string;
   invoice_notes: string;
+  sales_disclaimer?: string;
   logo_url?: string;
   zelle_info?: string;
   venmo_handle?: string;
@@ -252,6 +253,15 @@ export type BuyersOrder = {
   payment_method: PaymentMethod;
   status: BuyersOrderStatus;
   notes?: string;
+  rigging_instructions?: string;
+  sales_disclaimer?: string;
+  document_identity?: {
+    shop_name: string;
+    buyer_name: string;
+    buyer_address: string;
+    buyer_phone: string;
+    stock_number: string;
+  } | null;
   signature_url?: string | null;
   signed_by_name?: string | null;
   signed_at?: string | null;
