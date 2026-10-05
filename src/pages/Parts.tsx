@@ -1,4 +1,4 @@
-import { useState, useMemo, type FormEvent } from 'react';
+import { useState, useMemo, useRef, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useToast } from '../components/Toast';
 import {
@@ -148,6 +148,7 @@ export default function Parts() {
   const [csvOpen, setCsvOpen] = useState(false);
   const [form, setForm] = useState(emptyPart);
   const [savingPart, setSavingPart] = useState(false);
+  const savingPartRef = useRef(false);
 
   // Special Orders States
   const [soSearch, setSoSearch] = useState('');
@@ -325,11 +326,13 @@ export default function Parts() {
 
   async function handleSavePart(e: FormEvent) {
     e.preventDefault();
+    if (savingPartRef.current) return;
     if (!form.name.trim()) {
       toast('Part name / description is required', 'error');
       return;
     }
 
+    savingPartRef.current = true;
     setSavingPart(true);
     const payload = {
       sku: form.sku.trim(),
@@ -439,6 +442,7 @@ export default function Parts() {
       setAddingPart(false);
       setEditingPart(null);
     } finally {
+      savingPartRef.current = false;
       setSavingPart(false);
     }
   }
@@ -470,31 +474,8 @@ export default function Parts() {
     }
   }
 
-  async function handleDeletePart(part: Part) {
-    if (!confirm(`Delete part "${part.name}"?`)) return;
-    try {
-      if (typeof navigator !== 'undefined' && navigator.onLine) {
-        const sb = requireSupabase();
-        check(await sb.from('parts').delete().eq('id', part.id));
-        await reload();
-      } else {
-        enqueueOfflineAction({
-          table: 'parts',
-          type: 'delete',
-          matchField: 'id',
-          matchValue: part.id,
-          description: `Delete part ${part.name}`,
-        });
-        const updatedParts = allParts.filter((p) => p.id !== part.id);
-        cacheLocal('parts', updatedParts);
-      }
-      toast('Part deleted');
-    } catch (err: any) {
-      toast(errMsg(err), 'error');
-    }
-  }
-
   function startEdit(p: Part) {
+    if (savingPartRef.current) return;
     setEditingPart(p);
     setForm({
       sku: p.sku || '',
@@ -677,7 +658,10 @@ export default function Parts() {
     navigate(`/parts/counter?${params.toString()}`);
   }
 
-  if (loading) return <Spinner />;
+  // Keep the existing inventory mounted during mutation refreshes. Replacing
+  // the whole page with a spinner tears down every Edit control and can make a
+  // normal server round trip look like an intermittent dead UI on mobile.
+  if (loading && parts === undefined) return <Spinner />;
   if (error) return <ErrorState message={error} />;
 
   // Live margin % calculation for add form
@@ -925,11 +909,12 @@ export default function Parts() {
                 </h3>
                 <button
                   type="button"
+                  disabled={savingPart}
                   onClick={() => {
                     setAddingPart(false);
                     setEditingPart(null);
                   }}
-                  className="text-xs font-semibold text-slate-400 hover:text-slate-600"
+                  className="text-xs font-semibold text-slate-400 hover:text-slate-600 disabled:pointer-events-none disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -1039,6 +1024,7 @@ export default function Parts() {
                 <Button
                   type="button"
                   variant="ghost"
+                  disabled={savingPart}
                   onClick={() => {
                     setAddingPart(false);
                     setEditingPart(null);
@@ -1162,8 +1148,9 @@ export default function Parts() {
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
+                            disabled={savingPart}
                             onClick={() => adjustStock(p, -1)}
-                            className="grid h-7 w-7 place-items-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 active:scale-95"
+                            className="grid h-7 w-7 place-items-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 active:scale-95 disabled:pointer-events-none disabled:opacity-50"
                             title="Decrease quantity"
                           >
                             -
@@ -1177,8 +1164,9 @@ export default function Parts() {
                           </span>
                           <button
                             type="button"
+                            disabled={savingPart}
                             onClick={() => adjustStock(p, 1)}
-                            className="grid h-7 w-7 place-items-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 active:scale-95"
+                            className="grid h-7 w-7 place-items-center rounded-lg bg-slate-100 text-xs font-bold text-slate-700 hover:bg-slate-200 active:scale-95 disabled:pointer-events-none disabled:opacity-50"
                             title="Increase quantity"
                           >
                             +
@@ -1188,17 +1176,11 @@ export default function Parts() {
                         <div className="flex items-center gap-2 text-xs">
                           <button
                             type="button"
+                            disabled={savingPart}
                             onClick={() => startEdit(p)}
-                            className="font-semibold text-slate-500 hover:text-slate-900"
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2 font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-50"
                           >
                             Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeletePart(p)}
-                            className="text-slate-400 hover:text-red-600"
-                          >
-                            <TrashIcon className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </div>

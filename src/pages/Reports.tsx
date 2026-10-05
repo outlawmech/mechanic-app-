@@ -20,7 +20,7 @@ import { ACTION_BTN_CLS, Button, Card, PageTitle, Spinner } from '../components/
 import { useAsync } from '../lib/hooks';
 import { money, num, fullName, shortDate } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
-import { getInvoiceBalanceDue, getInvoicePaidAmount } from '../lib/invoiceAccounting';
+import { getInvoiceBalanceDue, getInvoicePaidAmount, getInvoiceReceivables } from '../lib/invoiceAccounting';
 import {
   getLocalDateStamp,
   getPaymentsInDateRange,
@@ -75,7 +75,6 @@ export default function Reports() {
   const metrics = useMemo(() => {
     let totalInvoiced = 0;
     let totalCollected = 0;
-    let totalOutstanding = 0;
     let laborRevenue = 0;
     let partsRevenue = 0;
     let feesRevenue = 0;
@@ -93,7 +92,7 @@ export default function Reports() {
       other: 0,
     };
 
-    const unpaidInvoices: InvoiceFull[] = [];
+    const receivables = getInvoiceReceivables(data?.invoices ?? []);
 
     filteredInvoices.forEach((inv) => {
       if (inv.status === 'void') return;
@@ -101,12 +100,6 @@ export default function Reports() {
       const invTax = num(inv.tax);
       totalInvoiced += invTotal;
       taxCollected += invTax;
-      const balance = getInvoiceBalanceDue(inv);
-
-      if (balance > 0) {
-        totalOutstanding += balance;
-        unpaidInvoices.push(inv);
-      }
     });
 
     reportingPayments.forEach((payment) => {
@@ -145,13 +138,13 @@ export default function Reports() {
     return {
       totalInvoiced,
       totalCollected,
-      totalOutstanding,
+      totalOutstanding: receivables.total,
       laborRevenue,
       partsRevenue,
       feesRevenue,
       taxCollected,
       methodTotals,
-      unpaidInvoices,
+      unpaidInvoices: receivables.invoices.map(({ invoice }) => invoice),
       totalInventoryCost,
       totalInventoryRetail,
     };
@@ -313,14 +306,14 @@ export default function Reports() {
 
         <Card className="p-4 space-y-1">
           <div className="flex items-center justify-between text-slate-500 text-xs font-bold uppercase tracking-wider">
-            <span>Accounts Receivable</span>
+            <span>Current Accounts Receivable</span>
             <ClockIcon className="h-4 w-4 text-red-500" />
           </div>
           <p className={`text-2xl font-black ${metrics.totalOutstanding > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
             {money(metrics.totalOutstanding)}
           </p>
           <p className="text-[11px] text-slate-500">
-            {metrics.unpaidInvoices.length} unpaid / pending invoices
+            {metrics.unpaidInvoices.length} open balances · all invoice dates
           </p>
         </Card>
 
@@ -402,7 +395,7 @@ export default function Reports() {
         <div className="space-y-3 lg:col-span-7">
           <div className="flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase tracking-wide text-slate-700">
-              Accounts Receivable (Unpaid Invoices)
+              Current Accounts Receivable (Unpaid Invoices)
             </h3>
             <span className="text-xs font-bold text-red-600">{money(metrics.totalOutstanding)} Due</span>
           </div>
@@ -410,8 +403,8 @@ export default function Reports() {
           {metrics.unpaidInvoices.length === 0 ? (
             <Card className="p-6 text-center text-xs text-slate-400">
               <CheckIcon className="mx-auto h-8 w-8 text-emerald-500 mb-1" />
-              <p className="font-bold text-slate-700">All invoices are paid in full!</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">No outstanding balances in this date range.</p>
+              <p className="font-bold text-slate-700">No outstanding invoice balances.</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Accounts receivable includes all invoice dates.</p>
             </Card>
           ) : (
             <div className="space-y-2">

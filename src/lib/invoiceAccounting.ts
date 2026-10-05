@@ -1,11 +1,34 @@
-import { num, round2 } from './format';
-import type { InvoicePayment, InvoiceStatus } from '../types';
+import { num, round2 } from './format.ts';
+import type { InvoicePayment, InvoiceStatus } from '../types.ts';
 
 type InvoiceFinancialRecord = {
   total: number | string;
   status: InvoiceStatus | string;
   payments?: InvoicePayment[] | null;
 };
+
+export type InvoiceReceivable<T extends InvoiceFinancialRecord = InvoiceFinancialRecord> = {
+  invoice: T;
+  balance: number;
+};
+
+/**
+ * Current accounts receivable is the balance of every nonvoid invoice in the
+ * organization. It is a point-in-time balance and must not be restricted by a
+ * revenue report's invoice-date range.
+ */
+export function getInvoiceReceivables<T extends InvoiceFinancialRecord>(invoices: T[]): {
+  total: number;
+  invoices: InvoiceReceivable<T>[];
+} {
+  const receivables = invoices
+    .map((invoice) => ({ invoice, balance: getInvoiceBalanceDue(invoice) }))
+    .filter(({ balance }) => balance > 0);
+  return {
+    total: round2(receivables.reduce((sum, entry) => sum + entry.balance, 0)),
+    invoices: receivables,
+  };
+}
 
 /** Total amount recorded as paid, with a legacy fallback for paid invoices
  * created before individual payment entries were stored. */

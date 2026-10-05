@@ -27,7 +27,7 @@ import { Card, EmptyState, Badge } from '../components/ui';
 import WorkOrderCard from '../components/WorkOrderCard';
 import type { WorkOrderFull, DealershipUnit, SpecialOrder, InvoiceFull } from '../types';
 import { money, fullName, vehicleLabel, shortDate } from '../lib/format';
-import { getInvoiceBalanceDue, getInvoiceEffectiveStatus } from '../lib/invoiceAccounting';
+import { getInvoiceBalanceDue, getInvoiceEffectiveStatus, getInvoiceReceivables } from '../lib/invoiceAccounting';
 import { useShopSettings } from '../lib/settings';
 import { getSubscriptionInfo } from '../lib/subscription';
 import { getOrganizationPlan, hasDealerSales, hasShopCapabilities } from '../lib/plans';
@@ -160,8 +160,9 @@ export default function Dashboard() {
       const completed = completedCountRes.count ?? 0;
       const open = activeCountRes.count ?? 0;
 
-      const unpaidList = allInvoices.filter((invoice) => getInvoiceBalanceDue(invoice) > 0);
-      const unpaidTotal = unpaidList.reduce((sum, invoice) => sum + getInvoiceBalanceDue(invoice), 0);
+      const receivables = getInvoiceReceivables(allInvoices);
+      const unpaidList = receivables.invoices.map(({ invoice }) => invoice);
+      const unpaidTotal = receivables.total;
 
       const latestMetrics: Metrics = {
         inProgressCount: inProgress,

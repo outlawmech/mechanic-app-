@@ -6,7 +6,7 @@ import { useAsync } from '../lib/hooks';
 import { fullName, longDate, money, num } from '../lib/format';
 import { check, requireSupabase } from '../lib/supabase';
 import { safeFetchWithCache } from '../lib/offlineSync';
-import { getInvoiceBalanceDue, getInvoiceEffectiveStatus } from '../lib/invoiceAccounting';
+import { getInvoiceBalanceDue, getInvoiceEffectiveStatus, getInvoiceReceivables } from '../lib/invoiceAccounting';
 import type { InvoiceFull } from '../types';
 import { useShopSettings } from '../lib/settings';
 import { hasShopCapabilities } from '../lib/plans';
@@ -67,7 +67,7 @@ export default function Invoices() {
   if (loading) return <Spinner />;
   if (error) return <ErrorState message={error} />;
 
-  const totalDue = (data ?? []).reduce((sum, invoice) => sum + getInvoiceBalanceDue(invoice), 0);
+  const totalDue = getInvoiceReceivables(data ?? []).total;
 
   return (
     <div className="space-y-4">

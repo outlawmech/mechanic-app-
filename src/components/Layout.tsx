@@ -90,9 +90,9 @@ export default function Layout() {
 
   // Responsive layout: mobile on phones, desktop navigation on larger screens.
   return (
-    <div className="flex min-h-dvh flex-col bg-slate-100 md:flex-row">
+    <div data-oss-shell="shell" className="flex min-h-dvh flex-col bg-slate-100 md:flex-row">
       {/* Desktop Left Sidebar (Visible on tablet/laptop/desktop >= md) */}
-      <aside className="no-print hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-slate-900 text-white shadow-xl z-30">
+      <aside data-oss-shell="sidebar" className="no-print hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 bg-slate-900 text-white shadow-xl z-30">
         <div className="flex items-center gap-3 border-b border-slate-800 p-4">
           {settings.logo_url ? (
             <img
@@ -166,7 +166,7 @@ export default function Layout() {
       </aside>
 
       {/* Mobile Top Header */}
-      <header className="no-print sticky top-0 z-20 flex items-center justify-between gap-2.5 bg-slate-900 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top,0px),24px)+14px)] text-white md:hidden shadow-md">
+      <header data-oss-shell="mobile-header" className="no-print sticky top-0 z-20 flex items-center justify-between gap-2.5 bg-slate-900 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top,0px),24px)+14px)] text-white md:hidden shadow-md">
         <div className="flex items-center gap-2.5 min-w-0">
           <img
             src={settings.logo_url || '/icon-192.png'}
@@ -194,19 +194,19 @@ export default function Layout() {
       </header>
 
       {/* Trial Countdown Banner on Mobile */}
-      <div className="md:hidden">
+      <div data-oss-shell="mobile-trial" className="md:hidden">
         <TrialBanner />
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 md:pl-64 flex flex-col min-h-dvh">
-        <main className="flex-1 mx-auto w-full max-w-7xl px-4 py-6 md:px-8 md:py-8 pb-28 md:pb-12">
+      <div data-oss-shell="content" className="flex-1 md:pl-64 flex flex-col min-h-dvh">
+        <main data-oss-shell="main" className="flex-1 mx-auto w-full max-w-7xl px-4 py-6 md:px-8 md:py-8 pb-28 md:pb-12">
           <Outlet />
         </main>
       </div>
 
       {/* Clean Mobile Bottom Navigation */}
-      <nav className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden shadow-lg">
+      <nav data-oss-shell="bottom-nav" className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur md:hidden shadow-lg">
         <div
           className="mx-auto grid max-w-md pb-[max(env(safe-area-inset-bottom,0px),8px)]"
           style={{ gridTemplateColumns: `repeat(${getBottomNavigationColumnCount(activeMobileTabs.length)}, minmax(0, 1fr))` }}
