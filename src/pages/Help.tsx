@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, PageTitle } from '../components/ui';
+import SyncDiagnostics from '../components/SyncDiagnostics';
 
 type Topic = {
   title: string;
@@ -190,6 +191,7 @@ export default function Help() {
   return (
     <div className="mx-auto max-w-5xl space-y-6 pb-12">
       <PageTitle title="Help &amp; Knowledge Base" sub="Practical steps for service, parts, billing, and unit sales." />
+      <SyncDiagnostics />
       <Card className="space-y-3 p-5 sm:p-6">
         <label htmlFor="help-search" className="block text-sm font-bold text-slate-900">What do you need to do?</label>
         <input id="help-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search payments, PDI, special orders…" className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200" />
