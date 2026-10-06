@@ -119,7 +119,7 @@ export default function BuyersOrderDetail() {
     const existingOrder = (orderRes.data?.[0] ?? null) as BuyersOrderFull | null;
 
     const riggingRes = !isNew
-      ? check(await sb.from('work_orders').select('*').eq('buyer_order_id', id!).eq('internal_type', 'rigging').order('created_at', { ascending: false }))
+      ? check(await sb.from('work_orders').select('*').eq('buyer_order_id', id!).not('internal_type', 'is', null).order('created_at', { ascending: false }))
       : { data: [] };
     return { customers, units, existingOrder, openOrders: openOrdersRes.data ?? [], riggingOrders: (riggingRes.data ?? []) as WorkOrder[] };
   }, [id, isNew]);
@@ -262,6 +262,11 @@ export default function BuyersOrderDetail() {
   async function handleSaveDeal(e: FormEvent) {
     e.preventDefault();
     if (savingRef.current || existingOrder?.status === 'completed') return;
+    if (status === 'canceled' && existingOrder?.status !== 'canceled'
+      && riggingOrders.some((wo) => wo.status === 'open' || wo.status === 'in_progress')) {
+      toast('This deal has an open rigging Work Order. Complete or otherwise resolve the Work Order before canceling the Buyer’s Order.', 'error');
+      return;
+    }
     if (conflictingOrder && status !== 'canceled') {
       toast('This unit already has an open Buyer’s Order. Open the linked deal below.', 'error');
       return;

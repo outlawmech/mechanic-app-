@@ -7,6 +7,8 @@ const owner = '10000000-0000-0000-0000-000000000001';
 const buyer = '20000000-0000-0000-0000-000000000001';
 const unit = '30000000-0000-0000-0000-000000000001';
 const migration = await readFile(new URL('../supabase/migrations/20261005161845_sales_buyers_order_stabilization.sql', import.meta.url), 'utf8');
+const cancellationMigration = await readFile(new URL('../supabase/migrations/20261006033314_guard_buyers_order_cancellation.sql', import.meta.url), 'utf8');
+const internalMigration = await readFile(new URL('../supabase/migrations/20260928_internal_unit_work.sql', import.meta.url), 'utf8');
 const original = await readFile(new URL('../supabase/migrations/20260927_restore_dealership_and_invoice_support.sql', import.meta.url), 'utf8');
 
 async function fixture(apply = true) {
@@ -19,14 +21,16 @@ async function fixture(apply = true) {
     create table public.shop_settings(user_id uuid primary key, shop_name text, email text default 'service@outlawshopsystems.com');
     create table public.customers(id uuid primary key default gen_random_uuid(),user_id uuid,first_name text,last_name text,address text,phone text,email text,notes text);
     create table public.dealership_units(id uuid primary key,user_id uuid,stock_number text,status text);
-    create table public.work_orders(id uuid primary key default gen_random_uuid(),user_id uuid,number text,customer_id uuid,unit_id uuid,buyer_order_id uuid,internal_type text,status text,notes text,created_at timestamptz default now());
+    create table public.work_orders(id uuid primary key default gen_random_uuid(),user_id uuid,number text,customer_id uuid,unit_id uuid,buyer_order_id uuid,internal_type text,status text,notes text,internal_closed_at timestamptz,created_at timestamptz default now());
+    create table public.internal_ro_costs(work_order_id uuid,unit_id uuid,user_id uuid);
     ${original.slice(original.indexOf('create table if not exists public.buyers_orders'), original.indexOf('alter table public.dealership_units enable'))}
     insert into auth.users values('${owner}');
     insert into shop_settings(user_id,shop_name,email) values('${owner}','Pilot Shop','dealer@example.test');
     insert into customers(id,user_id,first_name,last_name,address,phone) values('${buyer}','${owner}','Sam','Buyer','12 Main St','555-1234');
     insert into dealership_units values('${unit}','${owner}','STK-1','available');
     set test.actor='${owner}';`);
-  if (apply) await db.exec(migration);
+  await db.exec(internalMigration.slice(internalMigration.indexOf('create or replace function public.validate_internal_ro()'), internalMigration.indexOf('create or replace function public.guard_internal_items()')));
+  if (apply) { await db.exec(migration); await db.exec(cancellationMigration); }
   return db;
 }
 async function create(db, status='quote') {
@@ -142,4 +146,70 @@ test('migration preserves existing records, adds blank terms, and fails atomical
     assert.equal((await db.query('select email from shop_settings')).rows[0].email,'dealer@example.test');
     assert.match((await db.query("select column_default from information_schema.columns where table_name='shop_settings' and column_name='email'")).rows[0].column_default,/outlawshopsystems@gmail.com/);
   } finally {await db.close();}
+});
+
+
+test('cancellation is blocked repeatedly for open/in-progress internal work without changing any relationship', async () => {
+  const db=await fixture();
+  try {
+    const deal=await create(db);
+    await db.query('select dispatch_unit_rigging($1)',[deal.id]);
+    const before=(await db.query('select * from buyers_orders')).rows;
+    const woBefore=(await db.query('select * from work_orders')).rows;
+    const unitBefore=(await db.query('select * from dealership_units')).rows;
+    for(let i=0;i<3;i++) await assert.rejects(db.query("update buyers_orders set status='canceled',unit_id=null where id=$1",[deal.id]),/open rigging Work Order/);
+    assert.deepEqual((await db.query('select * from buyers_orders')).rows,before);
+    assert.deepEqual((await db.query('select * from work_orders')).rows,woBefore);
+    assert.deepEqual((await db.query('select * from dealership_units')).rows,unitBefore);
+    await db.query("update work_orders set status='in_progress'");
+    await assert.rejects(db.query("update buyers_orders set status='canceled' where id=$1",[deal.id]),/open rigging Work Order/);
+    await db.query("update work_orders set status='completed'");
+    await assert.rejects(db.query("update buyers_orders set status='canceled',unit_id=null where id=$1",[deal.id]),/existing unit relationship/);
+    await db.query("update buyers_orders set status='canceled' where id=$1",[deal.id]);
+    assert.equal((await db.query('select unit_id,status from buyers_orders')).rows[0].unit_id,unit);
+    await assert.rejects(db.query("update work_orders set status='open'"),/cannot start or reopen/);
+  } finally {await db.close();}
+});
+
+test('direct inserts and dispatch cannot bypass cancellation; completed sale remains valid with open rigging work',async()=>{
+  const db=await fixture();
+  try {
+    const deal=await create(db);
+    await db.query("update buyers_orders set status='canceled' where id=$1",[deal.id]);
+    await assert.rejects(db.query('select dispatch_unit_rigging($1)',[deal.id]),/cannot start or reopen/);
+    await assert.rejects(db.query("insert into work_orders(user_id,unit_id,buyer_order_id,internal_type,status) values($1,$2,$3,'rigging','open')",[owner,unit,deal.id]),/cannot start or reopen/);
+    assert.equal((await db.query('select count(*)::int as n from work_orders')).rows[0].n,0);
+    const second=await create(db,'pending');
+    await db.query('select dispatch_unit_rigging($1)',[second.id]);
+    await db.query("update buyers_orders set status='completed' where id=$1",[second.id]);
+    await db.query("update dealership_units set status='sold'");
+    assert.equal((await db.query('select status from buyers_orders where id=$1',[second.id])).rows[0].status,'completed');
+    assert.equal((await db.query('select status from work_orders')).rows[0].status,'open');
+  } finally {await db.close();}
+});
+
+test('legacy canceled deal can restore its retained WO unit without changing status or work',async()=>{
+  const db=await fixture(false);
+  try {
+    await db.exec(migration);
+    const deal=await create(db);
+    await db.query('select dispatch_unit_rigging($1)',[deal.id]);
+    await db.query("update buyers_orders set status='canceled',unit_id=null where id=$1",[deal.id]);
+    await db.exec(cancellationMigration);
+    await assert.rejects(db.query("update work_orders set notes='Blocked before repair'"),/Rigging deal must match this unit and account/);
+    const woBefore=(await db.query('select * from work_orders')).rows;
+    await db.query('update buyers_orders set unit_id=$1 where id=$2',[unit,deal.id]);
+    assert.equal((await db.query('select status from buyers_orders')).rows[0].status,'canceled');
+    assert.deepEqual((await db.query('select * from work_orders')).rows,woBefore);
+    await db.query("update work_orders set status='in_progress'");
+    await db.query("update work_orders set status='completed'");
+  } finally {await db.close();}
+});
+
+test('client guard precedes payload/save lock; server locks parent for concurrent dispatch/reopen',async()=>{
+ const source=await readFile(new URL('../src/pages/BuyersOrderDetail.tsx',import.meta.url),'utf8');
+ assert.match(source,/riggingOrders.some\(\(wo\) => wo.status === 'open' \|\| wo.status === 'in_progress'\)/);
+ assert.ok(source.indexOf("if (status === 'canceled' && existingOrder?.status") < source.indexOf('savingRef.current = true;'));
+ assert.match(source,/\.not\('internal_type', 'is', null\)/);
+ assert.match(cancellationMigration,/select status into v_status.*for update/);
 });
